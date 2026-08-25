@@ -1,8 +1,11 @@
 """Hatchling build hook: sync web/dist into src/radar_analyst/webdist.
 
 Runs before the wheel is assembled. If the Astro build output is
-present we mirror it into the package tree so the `webdist/` path
-referenced by radar_analyst.server.static exists in the installed wheel.
+present we mirror it into the package tree and register the wheel
+force-include, so the `webdist/` path referenced by
+radar_analyst.server.static exists in the installed wheel. With no
+Astro output the include is left unregistered and the wheel is
+API-only.
 """
 
 from __future__ import annotations
@@ -29,13 +32,16 @@ class AstroBundleHook(BuildHookInterface):  # type: ignore[misc]
 
         if web_dist.is_dir():
             shutil.copytree(web_dist, target)
+            build_data.setdefault("force_include", {})[
+                str(target)
+            ] = "radar_analyst/webdist"
             self.app.display_info(
                 f"Bundled Astro build from {web_dist} to "
                 f"{target}"
             )
         else:
-            # Leave webdist absent: the server gracefully falls
-            # back to API-only mode.
+            # Leave webdist absent and unreferenced: the server
+            # gracefully falls back to API-only mode.
             self.app.display_info(
                 "web/dist not found; wheel will ship without "
                 "the GUI (API-only mode)"
