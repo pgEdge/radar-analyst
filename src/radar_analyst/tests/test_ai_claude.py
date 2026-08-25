@@ -201,3 +201,20 @@ def test_unavailable_reason_names_the_env_var(
     adapter = ClaudeAdapter()
     assert adapter.available() is False
     assert "ANTHROPIC_API_KEY" in adapter.unavailable_reason()
+
+
+def test_installed_anthropic_is_mockable_by_respx() -> None:
+    """The adapter tests only isolate the network below anthropic 1.0.
+
+    That major switched the SDK from httpx to httpx2. respx patches
+    httpx, so under it every mock here silently misses and the tests
+    call the real API.
+    """
+    import anthropic
+
+    major = int(anthropic.__version__.split(".")[0])
+    assert major < 1, (
+        f"anthropic {anthropic.__version__} uses httpx2; respx "
+        "cannot intercept it. Port these tests off respx before "
+        "raising the cap in pyproject.toml."
+    )
