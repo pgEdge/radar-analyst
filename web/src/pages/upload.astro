@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import SnapshotHeader from '../components/SnapshotHeader.astro';
+import CategoryCard from '../components/CategoryCard.astro';
+import Databases from '../components/Databases.astro';
+---
+
+<Base title="pgEdge Radar Analyst: assessment">
+  <div class="pg-result">
+    <nav class="pg-result__crumb">
+      <a href="/">&larr; Back</a>
+    </nav>
+    <SnapshotHeader />
+    <h2 class="pg-result__heading">Assessment by category</h2>
+    <CategoryCard />
+    <Databases />
+  </div>
+</Base>
+
+<style>
+  .pg-result { display: grid; gap: 1.5rem; }
+  .pg-result__crumb { font-size: 0.95rem; }
+  .pg-result__heading {
+    margin: 0.5rem 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+</style>

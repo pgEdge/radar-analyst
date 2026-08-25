@@ -1,0 +1,120 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="pgEdge Radar Analyst: running">
+  <div class="pg-live">
+    <nav class="pg-live__crumb"><a href="/">&larr; Home</a></nav>
+    <section class="pg-card pg-live__card">
+      <h2 class="pg-live__title">Assessment in progress</h2>
+      <div id="pg-live-phase" class="pg-live__phase">Starting…</div>
+      <ul id="pg-live-events" class="pg-live__events"></ul>
+    </section>
+  </div>
+</Base>
+
+<script is:inline>
+  (function () {
+    var phaseEl = document.getElementById('pg-live-phase');
+    var listEl = document.getElementById('pg-live-events');
+    if (!phaseEl || !listEl) return;
+
+    var qs = new URLSearchParams(window.location.search);
+    var uploadId = qs.get('upload');
+    var jobId = qs.get('job');
+    if (!uploadId || !jobId) {
+      phaseEl.textContent =
+        'Missing upload or job parameter: returning home.';
+      setTimeout(function () {
+        window.location.href = '/';
+      }, 1500);
+      return;
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/[&<>]/g, function (c) {
+        return (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
+        );
+      });
+    }
+
+    function append(label, tone) {
+      var li = document.createElement('li');
+      li.className =
+        'pg-live__event pg-live__event--' + (tone || 'neutral');
+      li.textContent = label;
+      listEl.appendChild(li);
+    }
+
+    var source = new EventSource(
+      '/api/jobs/' + jobId + '/events',
+    );
+    source.addEventListener('message', function (e) {
+      try {
+        var event = JSON.parse(e.data);
+        if (event.type === 'phase') {
+          phaseEl.textContent = event.phase || 'working';
+          append(event.phase || 'phase', 'neutral');
+        } else if (event.type === 'brief') {
+          var tag = event.verdict || 'unknown';
+          append(
+            event.category + ': ' + tag,
+            tag === 'HEALTHY'
+              ? 'healthy'
+              : tag === 'CRITICAL'
+                ? 'critical'
+                : 'warning',
+          );
+        } else if (event.type === 'done') {
+          phaseEl.textContent = 'Assessment complete.';
+          source.close();
+          window.location.href =
+            '/upload?id=' + uploadId;
+        } else if (event.type === 'error') {
+          phaseEl.textContent =
+            'Failed: ' + esc(event.message || 'unknown error');
+          append(
+            'error: ' + (event.message || ''),
+            'critical',
+          );
+          source.close();
+        }
+      } catch (_) {
+        // Ignore malformed events.
+      }
+    });
+    source.addEventListener('error', function () {
+      phaseEl.textContent =
+        'Lost connection to server. Check upload status manually.';
+    });
+  })();
+</script>
+
+<style>
+  .pg-live { display: grid; gap: 1rem; }
+  .pg-live__crumb { font-size: 0.95rem; }
+  .pg-live__card { padding: 1.5rem; }
+  .pg-live__title { margin-top: 0; font-size: 1.25rem; }
+  .pg-live__phase {
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+    background: var(--pg-input-border);
+    border-radius: var(--pg-radius-card);
+    margin-bottom: 1rem;
+  }
+  .pg-live__events {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.25rem;
+    font-family: var(--pg-font-mono);
+    font-size: 0.9rem;
+  }
+  .pg-live__event { padding: 0.25rem 0.5rem; border-radius: 4px; }
+  .pg-live__event--healthy { color: var(--pg-status-healthy-fg); }
+  .pg-live__event--warning { color: var(--pg-status-warning-fg); }
+  .pg-live__event--critical { color: var(--pg-status-critical-fg); }
+  .pg-live__event--neutral { color: var(--pg-text-muted); }
+</style>

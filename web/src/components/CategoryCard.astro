@@ -1,0 +1,348 @@
+---
+// Renders briefs for an upload as collapsible per-category cards.
+// WARNING / CRITICAL cards default open; HEALTHY / UNKNOWN default
+// collapsed so the dashboard leads with what matters.
+---
+
+<section class="pg-categories" id="pg-categories">
+  <p class="pg-text-muted">Loading briefs…</p>
+</section>
+
+<script is:inline>
+  (function () {
+    var container = document.getElementById('pg-categories');
+    if (!container) return;
+    var id = new URLSearchParams(window.location.search).get(
+      'id',
+    );
+    if (!id) return;
+
+    function esc(s) {
+      return String(s || '').replace(/[&<>]/g, function (c) {
+        return (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
+        );
+      });
+    }
+
+    var VERDICT_RE =
+      /^\s*\*{0,2}\[\s*(HEALTHY|WARNING|CRITICAL|UNKNOWN)\s*\]\*{0,2}\s*\n+/i;
+
+    function inlineFormat(s) {
+      return s
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(
+          /`([^`]+)`/g,
+          '<code class="pg-mono">$1</code>',
+        );
+    }
+
+    function renderBlock(block) {
+      var lines = block.split('\n');
+      var isBullets = lines.every(function (ln) {
+        return /^\s*-\s+/.test(ln);
+      });
+      if (isBullets) {
+        return (
+          '<ul>' +
+          lines
+            .map(function (ln) {
+              return (
+                '<li>' +
+                inlineFormat(ln.replace(/^\s*-\s+/, '')) +
+                '</li>'
+              );
+            })
+            .join('') +
+          '</ul>'
+        );
+      }
+      return (
+        '<p>' +
+        inlineFormat(block).replace(/\n/g, '<br/>') +
+        '</p>'
+      );
+    }
+
+    function renderMarkdown(md) {
+      if (!md) return '';
+      var body = esc(md.replace(VERDICT_RE, ''));
+      return body.split(/\n{2,}/).map(renderBlock).join('');
+    }
+
+    function chip(tag) {
+      var t = (tag || '').toUpperCase();
+      if (
+        t !== 'HEALTHY' &&
+        t !== 'WARNING' &&
+        t !== 'CRITICAL' &&
+        t !== 'UNKNOWN'
+      ) {
+        t = 'UNKNOWN';
+      }
+      var cls =
+        t === 'HEALTHY'
+          ? 'healthy'
+          : t === 'CRITICAL'
+            ? 'critical'
+            : t === 'WARNING'
+              ? 'warning'
+              : 'unknown';
+      return (
+        '<span class="pg-chip pg-chip--' +
+        cls +
+        '">' +
+        t +
+        '</span>'
+      );
+    }
+
+    // Order: CRITICAL → WARNING → UNKNOWN → HEALTHY, then alpha.
+    var TAG_ORDER = {
+      CRITICAL: 0,
+      WARNING: 1,
+      UNKNOWN: 2,
+      HEALTHY: 3,
+    };
+    function sortForDashboard(items) {
+      return items.slice().sort(function (a, b) {
+        var ta = (a.verdict || 'UNKNOWN').toUpperCase();
+        var tb = (b.verdict || 'UNKNOWN').toUpperCase();
+        var oa = TAG_ORDER[ta];
+        oa = oa === undefined ? 4 : oa;
+        var ob = TAG_ORDER[tb];
+        ob = ob === undefined ? 4 : ob;
+        if (oa !== ob) return oa - ob;
+        return a.category < b.category
+          ? -1
+          : a.category > b.category
+            ? 1
+            : 0;
+      });
+    }
+
+    fetch('/api/uploads/' + id + '/assessment')
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (body) {
+        var items = sortForDashboard(body.briefs || []);
+        if (!items.length) {
+          container.innerHTML =
+            '<p class="pg-text-muted">No briefs yet.</p>';
+          return;
+        }
+        container.innerHTML = items
+          .map(function (a) {
+            var tag = (
+              a.verdict || 'UNKNOWN'
+            ).toUpperCase();
+            var tokens =
+              a.prompt_tokens != null
+                ? '<span class="pg-text-muted pg-mono">' +
+                  a.prompt_tokens +
+                  ' in / ' +
+                  (a.completion_tokens || 0) +
+                  ' out</span>'
+                : '';
+            var sourcesBlock = '';
+            if (a.sources && a.sources.length) {
+              var links = a.sources
+                .map(function (p) {
+                  return (
+                    '<li><a class="pg-mono" href="/api/uploads/' +
+                    encodeURIComponent(id) +
+                    '/files/' +
+                    p
+                      .split('/')
+                      .map(encodeURIComponent)
+                      .join('/') +
+                    '" download>' +
+                    esc(p) +
+                    '</a></li>'
+                  );
+                })
+                .join('');
+              sourcesBlock =
+                '<details class="pg-sources">' +
+                '<summary>Sources (' +
+                a.sources.length +
+                ' file' +
+                (a.sources.length === 1 ? '' : 's') +
+                ')</summary>' +
+                '<ul class="pg-sources__list">' +
+                links +
+                '</ul>' +
+                '</details>';
+            }
+            // Default COLLAPSED for every category: the user
+            // drives exploration via the [+] / [−] toggle.
+            return (
+              '<details class="pg-category">' +
+              '<summary class="pg-category__summary">' +
+              '<span class="pg-category__toggle" ' +
+              'aria-hidden="true"></span>' +
+              chip(tag) +
+              '<span class="pg-category__title">' +
+              esc(a.category) +
+              '</span>' +
+              '</summary>' +
+              '<div class="pg-category__body">' +
+              renderMarkdown(a.markdown) +
+              sourcesBlock +
+              '</div>' +
+              '<footer class="pg-category__meta">' +
+              '<span class="pg-text-muted pg-mono">' +
+              esc(a.provider) +
+              ' / ' +
+              esc(a.model) +
+              '</span>' +
+              tokens +
+              '</footer>' +
+              '</details>'
+            );
+          })
+          .join('');
+      })
+      .catch(function (e) {
+        container.innerHTML =
+          '<p class="pg-text-muted">Failed to load: ' +
+          esc(String(e.message || e)) +
+          '</p>';
+      });
+  })();
+</script>
+
+<style is:global>
+  /* Tree-style list of categories: flat, dense, collapsed by
+     default. No per-row card chrome; one outer container with
+     subtle inter-row dividers. */
+  .pg-categories {
+    background: var(--pg-bg-surface);
+    border: 1px solid var(--pg-divider);
+    border-radius: var(--pg-radius-card);
+    box-shadow: var(--pg-elev-1);
+    overflow: hidden;
+  }
+  .pg-category {
+    border-bottom: 1px solid var(--pg-divider);
+  }
+  .pg-category:last-child { border-bottom: 0; }
+  .pg-category[open] {
+    background: var(--pg-bg-canvas);
+  }
+  .pg-category__summary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 0.95rem;
+    /* Without wrap, on narrow viewports the trailing meta
+     * span squeezes the title to one character per line. */
+    flex-wrap: wrap;
+  }
+  .pg-category__title {
+    /* Reserve enough width that the title doesn't break per
+     * character if the meta sits on the same row. */
+    min-width: 6rem;
+  }
+  .pg-category__summary::-webkit-details-marker {
+    display: none;
+  }
+  .pg-category__summary:hover {
+    background: rgba(21, 170, 191, 0.06);
+  }
+  /* Boxed +/− toggle: a real UI element, not ASCII text. */
+  .pg-category__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--pg-divider);
+    border-radius: 3px;
+    background: var(--pg-bg-surface);
+    color: var(--pg-text-muted);
+    font-size: 14px;
+    line-height: 1;
+    transition: color 150ms ease, border-color 150ms ease,
+      background 150ms ease;
+  }
+  .pg-category__toggle::before { content: '+'; }
+  .pg-category[open] .pg-category__toggle {
+    border-color: var(--pg-primary);
+    color: var(--pg-primary);
+    background: rgba(21, 170, 191, 0.12);
+  }
+  .pg-category[open] .pg-category__toggle::before {
+    content: '−';
+  }
+  .pg-category__title {
+    font-weight: 600;
+    color: var(--pg-text);
+    flex: 1;
+  }
+  .pg-category__body {
+    /* Indent under the title: left gutter + toggle + its gap. */
+    padding: 0.75rem 1rem 0.75rem calc(1rem + 18px + 0.75rem);
+    color: var(--pg-text);
+    font-size: 0.95rem;
+  }
+  .pg-category__body p { margin: 0.5rem 0; }
+  .pg-category__body p:first-child { margin-top: 0; }
+  .pg-category__body p:last-child { margin-bottom: 0; }
+  .pg-category__body ul {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+  }
+  .pg-category__body li { margin: 0.25rem 0; }
+  .pg-category__body code {
+    background: var(--pg-input-border);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  .pg-category__meta {
+    padding: 0.5rem 1rem 0.75rem
+      calc(1rem + 18px + 0.75rem);
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--pg-text-muted);
+  }
+  .pg-sources {
+    margin-top: 0.75rem;
+    border-top: 1px dashed var(--pg-divider);
+    padding-top: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .pg-sources > summary {
+    cursor: pointer;
+    color: var(--pg-text-muted);
+    user-select: none;
+  }
+  .pg-sources > summary:hover {
+    color: var(--pg-text);
+  }
+  .pg-sources__list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+  }
+  .pg-sources__list li {
+    margin: 0.15rem 0;
+    word-break: break-all;
+  }
+  .pg-sources__list a {
+    color: var(--pg-primary);
+    text-decoration: none;
+  }
+  .pg-sources__list a:hover {
+    text-decoration: underline;
+  }
+</style>

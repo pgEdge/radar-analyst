@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Astro
+web/node_modules/
+web/dist/
+web/.astro/
+src/radar_analyst/webdist/
+
+# Local data
+data/
+*.zip
+
+# Env / secrets
+.env
+.env.local
+
+# CI logs
+ci-*.log
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local provenance notes (must stay untracked)
+/PROVENANCE.md

@@ -1,0 +1,58 @@
+# docker-compose for local deployment. Run: docker compose up -d
+#
+# Reads AI provider credentials from .env or the host environment.
+# At least one provider must be set:
+#   ANTHROPIC_API_KEY, GOOGLE_API_KEY (or GEMINI_API_KEY),
+#   OPENAI_API_KEY (optionally with OPENAI_BASE_URL for an
+#   OpenAI-compatible server), or a local Ollama server reachable via
+#   RADAR_ANALYST_OLLAMA_HOST.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: radar_analyst
+      POSTGRES_PASSWORD: radar_analyst
+      POSTGRES_DB: radar_analyst
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radar_analyst -d radar_analyst"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RADAR_ANALYST_STATE_DB_URL: >-
+        postgresql://radar_analyst:radar_analyst@db:5432/radar_analyst?sslmode=prefer
+      RADAR_ANALYST_BLOB_DIR: /data/blobs
+      RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
+      RADAR_ANALYST_AI_PROVIDER: ${RADAR_ANALYST_AI_PROVIDER:-claude}
+      RADAR_ANALYST_ADMIN_TOKEN: ${RADAR_ANALYST_ADMIN_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # No default value here, so compose leaves these unset in the
+      # container when they are unset on the host, and the adapter
+      # uses OpenAI's own endpoint and default model.
+      OPENAI_BASE_URL:
+      OPENAI_MODEL:
+      RADAR_ANALYST_OLLAMA_HOST: ${RADAR_ANALYST_OLLAMA_HOST:-http://host.docker.internal:11434}
+      RADAR_ANALYST_OLLAMA_MODEL: ${RADAR_ANALYST_OLLAMA_MODEL:-}
+    # Published on loopback only: the analyst is a local tool and
+    # must not be reachable from other hosts. Dropping the
+    # 127.0.0.1 prefix would expose it on every interface.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - blobs:/data/blobs
+
+volumes:
+  db:
+  blobs:

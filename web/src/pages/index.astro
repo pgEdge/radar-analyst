@@ -1,0 +1,43 @@
+---
+import Base from '../layouts/Base.astro';
+import UploadForm from '../components/UploadForm.astro';
+import UploadsList from '../components/UploadsList.astro';
+---
+
+<Base title="pgEdge Radar Analyst">
+  <div class="pg-home">
+    <section class="pg-home__hero">
+      <h1>PostgreSQL health assessments from radar archives</h1>
+      <p class="pg-text-muted">
+        Upload a <code class="pg-mono">radar-*.zip</code> collected
+        from a PostgreSQL host. The analyst reads the archive, checks
+        it against deterministic rules, and returns an assessment: a
+        verdict and a brief for every category.
+      </p>
+    </section>
+
+    <div class="pg-home__grid">
+      <UploadForm />
+      <UploadsList />
+    </div>
+  </div>
+</Base>
+
+<style>
+  .pg-home__hero {
+    margin-bottom: 2rem;
+  }
+  .pg-home__hero h1 { margin-bottom: 0.5rem; }
+  .pg-home__hero p { margin: 0; max-width: 60ch; }
+
+  .pg-home__grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 900px) {
+    .pg-home__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+</style>

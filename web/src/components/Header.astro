@@ -1,0 +1,97 @@
+---
+---
+
+<header class="pg-header">
+  <a href="/" class="pg-header__brand" aria-label="Home">
+    <img
+      class="pg-header__logo pg-header__logo--light"
+      src="/assets/pgedge-logo.svg"
+      alt="pgEdge"
+      width="96"
+      height="24"
+    />
+    <img
+      class="pg-header__logo pg-header__logo--dark"
+      src="/assets/pgedge-logo-white.png"
+      alt="pgEdge"
+      width="96"
+      height="24"
+    />
+    <span class="pg-header__title">radar-analyst</span>
+  </a>
+  <button
+    id="pg-theme-toggle"
+    class="pg-button pg-button--ghost pg-header__toggle"
+    type="button"
+    aria-label="Theme: system / light / dark"
+    title="Theme: system / light / dark"
+  >
+    <span id="pg-theme-icon" class="pg-header__toggle-icon">◐</span>
+    <span id="pg-theme-label" class="pg-header__toggle-label">
+      System
+    </span>
+  </button>
+</header>
+
+<script is:inline>
+  (function () {
+    var btn = document.getElementById('pg-theme-toggle');
+    var iconEl = document.getElementById('pg-theme-icon');
+    var labelEl = document.getElementById('pg-theme-label');
+    if (!btn || !iconEl || !labelEl || !window.pgTheme) return;
+
+    var ICONS = { system: '◐', light: '☀', dark: '☾' };
+    var LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
+
+    function render() {
+      var s = window.pgTheme.stored();
+      iconEl.textContent = ICONS[s];
+      labelEl.textContent = LABELS[s];
+    }
+
+    btn.addEventListener('click', window.pgTheme.cycle);
+    document.addEventListener('pg-theme-change', render);
+    render();
+  })();
+</script>
+
+<style>
+  .pg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background: var(--pg-bg-surface);
+    border-bottom: 1px solid var(--pg-divider);
+    box-shadow: var(--pg-elev-1);
+  }
+
+  .pg-header__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--pg-text);
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .pg-header__brand:hover { text-decoration: none; }
+
+  .pg-header__logo { display: block; height: 24px; width: auto; }
+  .pg-header__logo--dark { display: none; }
+  :root[data-theme='dark'] .pg-header__logo--light { display: none; }
+  :root[data-theme='dark'] .pg-header__logo--dark { display: block; }
+
+  .pg-header__title {
+    font-family: var(--pg-font-mono);
+    font-size: 0.95rem;
+    color: var(--pg-text-muted);
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--pg-divider);
+  }
+
+  .pg-header__toggle {
+    padding: 0.375rem 0.9rem;
+    font-size: 0.9rem;
+  }
+  .pg-header__toggle-icon { font-size: 1.1rem; line-height: 1; }
+</style>

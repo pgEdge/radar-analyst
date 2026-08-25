@@ -1,0 +1,155 @@
+---
+// Drag-drop or click-to-pick upload form. On successful POST,
+// redirects to /uploads/{id}/live for the SSE progress view.
+---
+
+<section class="pg-card pg-upload">
+  <h2 class="pg-upload__title">Upload a radar archive</h2>
+  <p class="pg-text-muted pg-upload__hint">
+    Drag a <code class="pg-mono">radar-*.zip</code> here, or click
+    to pick one. The analyst reads the archive, checks it against
+    deterministic rules, and returns a verdict and a brief for every
+    category.
+  </p>
+
+  <form id="pg-upload-form" class="pg-upload__form">
+    <label class="pg-upload__drop" id="pg-upload-drop">
+      <input
+        id="pg-upload-file"
+        type="file"
+        name="file"
+        accept=".zip,application/zip"
+        required
+        hidden
+      />
+      <span id="pg-upload-label">Choose a file or drop it here</span>
+    </label>
+    <div class="pg-upload__actions">
+      <button
+        id="pg-upload-submit"
+        type="submit"
+        class="pg-button"
+        disabled
+      >
+        Upload
+      </button>
+      <span id="pg-upload-error" class="pg-upload__error"></span>
+    </div>
+  </form>
+</section>
+
+<script is:inline>
+  (function () {
+    var form = document.getElementById('pg-upload-form');
+    var input = document.getElementById('pg-upload-file');
+    var drop = document.getElementById('pg-upload-drop');
+    var label = document.getElementById('pg-upload-label');
+    var submit = document.getElementById('pg-upload-submit');
+    var err = document.getElementById('pg-upload-error');
+    if (!form || !input || !drop || !label || !submit || !err)
+      return;
+
+    function setFile(file) {
+      if (!file) {
+        label.textContent = 'Choose a file or drop it here';
+        submit.disabled = true;
+        return;
+      }
+      label.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      submit.disabled = false;
+    }
+
+    input.addEventListener('change', function () {
+      setFile(input.files && input.files[0]);
+    });
+
+    drop.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      drop.classList.add('is-dragover');
+    });
+    drop.addEventListener('dragleave', function () {
+      drop.classList.remove('is-dragover');
+    });
+    drop.addEventListener('drop', function (e) {
+      e.preventDefault();
+      drop.classList.remove('is-dragover');
+      if (e.dataTransfer && e.dataTransfer.files[0]) {
+        input.files = e.dataTransfer.files;
+        setFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      err.textContent = '';
+      var file = input.files && input.files[0];
+      if (!file) return;
+      submit.disabled = true;
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        var resp = await fetch('/api/uploads', {
+          method: 'POST',
+          body: fd,
+        });
+        if (!resp.ok) {
+          var txt = await resp.text();
+          throw new Error(
+            'Upload failed (' + resp.status + '): ' + txt,
+          );
+        }
+        var body = await resp.json();
+        window.location.href =
+          '/live?upload=' + body.upload_id +
+          '&job=' + body.job_id;
+      } catch (e) {
+        err.textContent = String(e.message || e);
+        submit.disabled = false;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .pg-upload { padding: 1.5rem; }
+  .pg-upload__title {
+    margin-top: 0;
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+  .pg-upload__hint { margin: 0 0 1.25rem 0; }
+  .pg-upload__form { display: grid; gap: 1rem; }
+
+  .pg-upload__drop {
+    display: block;
+    padding: 2rem 1rem;
+    border: 2px dashed var(--pg-divider);
+    border-radius: var(--pg-radius-card);
+    text-align: center;
+    cursor: pointer;
+    color: var(--pg-text-muted);
+    background: transparent;
+    transition: border-color 150ms ease, background-color 150ms ease;
+    word-break: break-word;
+  }
+  @media (max-width: 600px) {
+    .pg-upload { padding: 1rem; }
+    .pg-upload__drop { padding: 1.5rem 0.75rem; }
+  }
+  .pg-upload__drop:hover,
+  .pg-upload__drop.is-dragover {
+    border-color: var(--pg-primary);
+    background: rgba(21, 170, 191, 0.06);
+    color: var(--pg-text);
+  }
+
+  .pg-upload__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .pg-upload__error {
+    color: var(--pg-status-critical-fg);
+    font-size: 0.95rem;
+  }
+</style>

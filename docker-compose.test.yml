@@ -1,0 +1,33 @@
+# docker-compose used by test-radar-analyst.sh in CI and locally.
+# Uses the built-in `mock` AI provider so no API keys are needed.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: radar_analyst
+      POSTGRES_PASSWORD: radar_analyst
+      POSTGRES_DB: radar_analyst
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radar_analyst -d radar_analyst"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RADAR_ANALYST_STATE_DB_URL: >-
+        postgresql://radar_analyst:radar_analyst@db:5432/radar_analyst?sslmode=prefer
+      RADAR_ANALYST_BLOB_DIR: /data/blobs
+      RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
+      RADAR_ANALYST_AI_PROVIDER: mock
+      RADAR_ANALYST_TEST: "1"
+    # Host port comes from $RADAR_ANALYST_E2E_PORT (default 28080) so
+    # the e2e stack doesn't collide with whatever the developer
+    # already has bound on 8080. Container always listens on 8080.
+    ports:
+      - "127.0.0.1:${RADAR_ANALYST_E2E_PORT:-28080}:8080"
