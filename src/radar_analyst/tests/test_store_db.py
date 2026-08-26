@@ -1,11 +1,14 @@
-"""Tests for the migrations runner and the `radar` schema layout."""
+"""Tests for the migration runner and the query helpers."""
 
+from pathlib import Path
+
+import pytest
 from psycopg_pool import AsyncConnectionPool
 
-from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.db import apply_migrations, execute
 
 
-async def test_apply_migrations_creates_radar_schema(
+async def test_apply_migrations_creates_the_radar_schema(
     fresh_pool: AsyncConnectionPool,
 ) -> None:
     await apply_migrations(fresh_pool)
@@ -60,6 +63,78 @@ async def test_apply_migrations_records_version(
         rows = await cur.fetchall()
     versions = [r[0] for r in rows]
     assert versions == applied
+
+
+async def test_a_new_migration_upgrades_an_existing_database(
+    fresh_pool: AsyncConnectionPool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reason the runner exists.
+
+    A build that has moved on has to open a data directory written by
+    an older one, apply what is missing, and leave the rows already
+    there untouched. Squashing the shipped migrations while
+    pre-release does not change that: the next schema change after
+    something is deployed goes into a new file, and this is what has
+    to happen when it does.
+    """
+    from radar_analyst.store import db
+
+    first = tmp_path / "0001_thing.sql"
+    first.write_text(
+        "CREATE TABLE radar.thing (id INT PRIMARY KEY);"
+    )
+    monkeypatch.setattr(db, "_migration_files", lambda: [first])
+
+    assert await apply_migrations(fresh_pool) == ["0001_thing.sql"]
+    await execute(
+        fresh_pool, "INSERT INTO radar.thing (id) VALUES (1)"
+    )
+
+    second = tmp_path / "0002_more.sql"
+    second.write_text(
+        "ALTER TABLE radar.thing ADD COLUMN label TEXT;"
+    )
+    monkeypatch.setattr(
+        db, "_migration_files", lambda: [first, second]
+    )
+
+    applied = await apply_migrations(fresh_pool)
+
+    assert applied == ["0002_more.sql"], "only the new one runs"
+    async with fresh_pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT id, label FROM radar.thing")
+        rows = await cur.fetchall()
+    assert rows == [(1, None)], "the existing row did not survive"
+
+
+async def test_apply_migrations_preserves_existing_rows(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    """A restart must not drop what is already stored."""
+    from uuid import uuid4
+
+    from radar_analyst.store.uploads import (
+        insert_upload,
+        list_uploads,
+    )
+
+    await apply_migrations(fresh_pool)
+    await insert_upload(
+        fresh_pool,
+        upload_id=uuid4(),
+        filename="radar-host.zip",
+        storage_url="file:///tmp/x.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname=None,
+        archive_timestamp=None,
+    )
+
+    await apply_migrations(fresh_pool)
+
+    assert len(await list_uploads(fresh_pool)) == 1
 
 
 async def test_execute_returns_rowcount(

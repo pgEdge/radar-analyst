@@ -1,9 +1,14 @@
 """psycopg async pool creation and migration runner.
 
-Migrations live as plain .sql files under ``migrations/`` and are applied
-in lexical order at startup. A bootstrap step creates the ``radar`` schema
-and the ``radar.schema_migrations`` bookkeeping table before any migration
-file runs, so migrations themselves assume ``CREATE SCHEMA`` is done.
+Migrations live as plain .sql files under ``migrations/`` and are
+applied in lexical order at startup. A bootstrap step creates the
+``radar`` schema and the ``radar.schema_migrations`` bookkeeping
+table before any migration file runs, so migrations themselves
+assume ``CREATE SCHEMA`` is done.
+
+While the project is pre-release there is only ``0001_init.sql``: a
+schema change goes into it rather than into a new file beside it,
+because there is nothing deployed whose data needs preserving.
 """
 
 import asyncio

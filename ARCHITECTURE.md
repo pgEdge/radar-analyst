@@ -71,7 +71,7 @@ briefing categories.
 | Backend language | Python 3.11+ | Prompt engineering is the real work, not CPU-bound parsing, and the AI SDKs are Python-first. |
 | Web framework | FastAPI | Async-native, SSE via sse-starlette, built-in OpenAPI, FastAPI `Depends()` for test injection. |
 | DB driver | psycopg v3 async + connection pool | Async throughout; `sslmode=prefer` matches radar's libpq behaviour. |
-| Migrations | Plain `.sql` files in `store/migrations/`, applied at startup | KISS: no alembic. Bookkeeping in `radar.schema_migrations`. |
+| Migrations | Plain `.sql` files in `store/migrations/`, applied in lexical order at startup | KISS: no alembic. Bookkeeping in `radar.schema_migrations`, so a newer build can open an older data directory and apply only what is missing. While pre-release there is one file: a schema change edits `0001_init.sql` rather than adding a second, because nothing deployed has data to preserve. |
 | Blob storage | `BlobStore` Protocol + `LocalFsStore` v0.1; S3-compatible impl deferred | Storage URL is opaque to the DB schema, so swapping later requires no migration. |
 | AI providers | Anthropic, Google Gemini, OpenAI (and any OpenAI-compatible endpoint), Ollama + Mock | One adapter covers OpenAI and every compatible server via `OPENAI_BASE_URL`, since the chat-completions request shape is identical; Mock provider gated on `RADAR_ANALYST_TEST=1` for e2e. |
 | Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real Postgres via Docker containers per test suite; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
@@ -147,15 +147,13 @@ radar-analyst/
 │   │   ├── routes_jobs.py         GET /api/jobs/{id} + SSE endpoint
 │   │   └── routes_config.py       GET /api/config (provider inventory)
 │   ├── store/
-│   │   ├── db.py                  psycopg async pool + migrations runner
+│   │   ├── db.py                  psycopg async pool + migration runner
 │   │   ├── uploads.py             CRUD for radar.uploads
 │   │   ├── jobs.py                CRUD for radar.jobs
 │   │   ├── snapshots.py           upsert/get for radar.snapshots
 │   │   ├── briefs.py              CRUD for radar.briefs
 │   │   └── migrations/
-│   │       ├── 0001_init.sql      CREATE SCHEMA radar + tables
-│   │       └── 0002_archive_files.sql  jsonb column on radar.uploads
-│   │                                   for the per-upload archive inventory
+│   │       └── 0001_init.sql   the whole radar schema, one file
 │   ├── blob/
 │   │   ├── base.py                BlobStore Protocol + PutResult
 │   │   └── localfs.py             file:// implementation
@@ -249,7 +247,7 @@ radar-analyst/
 ├── test-radar-analyst.sh          compose e2e (compose up, POST fixture, assert, teardown)
 ├── pyproject.toml                 hatchling + deps + flake8/pytest/mypy config
 ├── .github/workflows/ci.yml       runs run-ci-local.sh
-└── .github/workflows/image.yml    builds + pushes the image to GHCR (tags, manual)
+└── .github/workflows/release-image.yml  builds + pushes the image
 ```
 
 ## 6. The data-reduction pipeline (the core design)

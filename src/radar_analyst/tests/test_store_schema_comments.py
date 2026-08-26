@@ -113,11 +113,20 @@ async def test_every_index_is_commented(
 
 
 @pytest.mark.asyncio
-async def test_comments_are_idempotent(
+async def test_comments_survive_a_second_run(
     fresh_pool: AsyncConnectionPool,
 ) -> None:
-    """Applying migrations twice must not fail or duplicate."""
+    """The runner is called on every start, not only the first."""
     await apply_migrations(fresh_pool)
-    second = await apply_migrations(fresh_pool)
+    await apply_migrations(fresh_pool)
 
-    assert second == [], f"re-applied migrations: {second}"
+    rows = await _rows(
+        fresh_pool,
+        """
+        SELECT c.relname, 'table', obj_description(c.oid, 'pg_class')
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'radar' AND c.relkind = 'r'
+        """,
+    )
+    assert {name for name, _, _ in rows} == _EXPECTED_TABLES

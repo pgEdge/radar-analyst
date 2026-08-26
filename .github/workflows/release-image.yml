@@ -1,4 +1,4 @@
-name: Image
+name: Release image
 
 # Publishes the container image an end user runs. Manual by default,
 # plus every version tag, so nothing is pushed to the registry as a

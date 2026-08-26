@@ -25,8 +25,12 @@ and reaches it only through the uploaded archive.
 - Constraint naming: `chk_`, `fk_`, `{table}_{cols}_unique`
 - COMMENT ON for schema objects
 - Parameterized queries only, `%s` placeholders
-- Idempotent migrations, applied in lexical order at startup and
-  tracked in `radar.schema_migrations`
+- Idempotent migrations in `store/migrations/`, applied in lexical
+  order at startup and tracked in `radar.schema_migrations`. A newer
+  build must be able to open an older data directory and apply only
+  what is missing.
+- While pre-release there is one migration: a schema change edits
+  `0001_init.sql` rather than adding a second file.
 - The state database must use the UTF8 encoding. Under SQL_ASCII
   psycopg returns text as raw bytes and startup refuses.
 
