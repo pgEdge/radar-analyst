@@ -148,6 +148,27 @@ fi
 
 COMPOSE=(docker compose -p "$PROJECT" -f "$COMPOSE_FILE")
 
+echo -e "${YELLOW}Verifying only the analyst can reach the database...${NC}"
+# A container's bridge address is routable from the host, so "no
+# published port" is not containment on its own. The database must
+# refuse a direct connection from here and from any other container.
+DB_IP="$(docker inspect -f \
+    '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+    "$("${COMPOSE[@]}" ps -q db)")"
+python3 - "$DB_IP" <<'PYEOF'
+import socket
+import sys
+
+ip = sys.argv[1]
+sock = socket.socket()
+sock.settimeout(5)
+rc = sock.connect_ex((ip, 5432))
+if rc == 0:
+    sys.exit(f"the database at {ip}:5432 accepted a connection "
+             "from the host")
+print(f"  {ip}:5432 refused the host (errno {rc})")
+PYEOF
+
 echo -e "${YELLOW}Verifying the analyst does not run as root...${NC}"
 # PID 1 is the analyst: the entrypoint execs setpriv, which execs
 # the service, so nothing is served with privileges.

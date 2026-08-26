@@ -67,14 +67,19 @@ Set `RADAR_ANALYST_AI_PROVIDER` to `claude`, `gemini`, `openai`, or
 
 ## Where your data is kept
 
-The stack keeps two Docker volumes:
+The stack keeps three Docker volumes:
 
 | Volume | Holds |
 |---|---|
 | `db` | the assessments, findings, and briefs |
 | `archives` | the radar archives you uploaded, and the admin token |
+| `sock` | the socket the analyst talks to the database over |
 
-Both outlive the containers. `docker compose down` leaves them in
+The database has no network port at all. The analyst reaches it
+through that shared socket, so nothing else on your machine can
+connect to it.
+
+The first two outlive the containers. `docker compose down` leaves them in
 place, and so does pulling a newer image. `docker compose down -v` is
 what deletes them.
 

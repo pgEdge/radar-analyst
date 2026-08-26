@@ -8,12 +8,13 @@
 services:
   db:
     image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
-    # Unlike the upstream postgres image, this one leaves
-    # listen_addresses at its built-in 'localhost', so without
-    # this the server binds 127.0.0.1 inside its own container
-    # and the analyst cannot reach it. The port is not
-    # published, so it stays on the compose network.
-    command: ["postgres", "-c", "listen_addresses=*"]
+    # listen_addresses stays at the image default of localhost, so
+    # the only TCP socket is on the database container's own
+    # loopback. The analyst reaches it over the unix socket in the
+    # shared `sock` volume instead. Opening this to the compose
+    # network would also open it to every process on the host:
+    # container bridge addresses are routable from there, published
+    # port or not.
     environment:
       POSTGRES_USER: radar_analyst
       POSTGRES_PASSWORD: radar_analyst
@@ -32,6 +33,7 @@ services:
       retries: 15
     volumes:
       - db:/var/lib/pgsql/18/data
+      - sock:/run/postgresql
 
   app:
     build: .
@@ -40,7 +42,7 @@ services:
         condition: service_healthy
     environment:
       RADAR_ANALYST_STATE_DB_URL: >-
-        postgresql://radar_analyst:radar_analyst@db:5432/radar_analyst?sslmode=prefer
+        postgresql://radar_analyst:radar_analyst@/radar_analyst?host=/run/postgresql
       RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
       RADAR_ANALYST_AI_PROVIDER: mock
       RADAR_ANALYST_TEST: "1"
@@ -51,7 +53,9 @@ services:
       - "127.0.0.1:${RADAR_ANALYST_E2E_PORT:-28080}:8080"
     volumes:
       - archives:/data
+      - sock:/run/postgresql
 
 volumes:
   db:
   archives:
+  sock:

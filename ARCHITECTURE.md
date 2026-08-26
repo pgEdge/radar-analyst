@@ -540,25 +540,34 @@ One image, brought up next to a PostgreSQL service.
 docker compose up -d
         │
         ├── db   ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
-        │          -c listen_addresses=*        (else binds 127.0.0.1
-        │          POSTGRES_INITDB_ARGS=UTF8     only, inside its own
-        │          no published port             container)
-        │            └── volume: db
+        │          listen_addresses = localhost   (image default)
+        │          POSTGRES_INITDB_ARGS = UTF8
+        │          no published port
+        │            ├── volume: db
+        │            └── volume: sock → /run/postgresql
         │
         └── app  ghcr.io/pgedge/radar-analyst
                    docker-entrypoint.sh (root)
                      chown /data, setpriv → uid 10001
                    python -m radar_analyst
                      127.0.0.1:8080 published
-                     └── volume: archives → /data
+                     ├── volume: archives → /data
+                     └── volume: sock → /run/postgresql
+                           connects host=/run/postgresql
 ```
 
-Two properties of the pgEdge image differ from upstream `postgres`
-and the stack does not work without accounting for both:
+The database has no TCP listener anything else can reach. Only the
+analyst can talk to it, because the two containers share a volume
+holding the unix socket and nothing else mounts it. Not publishing
+the port would not have been enough: a container's bridge address
+is routable from the host it runs on, so a server on
+`listen_addresses=*` answers any local process, published port or
+not. That was measured, not assumed, and `test-radar-analyst.sh`
+now asserts the refusal.
 
-- `listen_addresses` stays at the built-in `localhost`, so without
-  `-c listen_addresses=*` the server binds 127.0.0.1 inside its own
-  container and no other service can reach it.
+One property of the pgEdge image differs from upstream `postgres`
+and the stack does not work without accounting for it:
+
 - `initdb` defaults to SQL_ASCII, under which psycopg returns every
   text column as `bytes`. Nothing fails at connect time. What fails
   is a job whose `state` never equals `"done"`, so the progress

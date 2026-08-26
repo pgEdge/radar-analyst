@@ -131,13 +131,16 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml \
 carries no database of its own, and the database service publishes no
 port, so it is reachable only over the compose network.
 
-Two details about the pgEdge image are worth knowing, because it is
-not a drop-in for upstream `postgres`:
+The analyst reaches PostgreSQL over a unix socket in a volume the
+two containers share, and the server keeps the image's default of
+listening on its own loopback only. Not publishing the port is not
+containment on its own: a container's bridge address is routable
+from the host, so a server listening on all interfaces answers any
+local process whether or not compose maps a port.
 
-- It leaves `listen_addresses` at the built-in `localhost`, so the
-  compose file passes `-c listen_addresses=*`. Without that the
-  server binds 127.0.0.1 inside its own container and the analyst
-  cannot reach it at all.
+One more thing about the pgEdge image, because it is not a drop-in
+for upstream `postgres`:
+
 - Its `initdb` defaults to the SQL_ASCII encoding, under which
   psycopg returns every text column as raw `bytes`. The compose file
   passes `POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C.UTF-8"`,
