@@ -67,8 +67,10 @@ def test_static_root_returns_html_if_built() -> None:
 
 
 def test_unknown_api_path_returns_json_not_html() -> None:
-    """The console mount is a catch-all, so it would otherwise
-    answer a mistyped API path with an HTML 404.
+    """A mistyped API path gets a JSON 404, not HTML.
+
+    The console mount is a catch-all and would otherwise answer
+    it.
     """
     app = create_app()
     with TestClient(app) as client:

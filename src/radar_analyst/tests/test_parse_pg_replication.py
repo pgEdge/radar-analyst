@@ -1,5 +1,6 @@
-"""Tests for pg_wal.py replication parsers (streaming replicas,
-WAL receiver, subscriptions).
+"""Tests for the replication parsers in pg_wal.py.
+
+Streaming replicas, the WAL receiver, and subscriptions.
 """
 
 from __future__ import annotations

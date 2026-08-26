@@ -56,12 +56,13 @@ def parse_lscpu(data: bytes) -> dict[str, str]:
 
 
 def parse_hypervisor(data: bytes) -> str:
-    """``system/hypervisor.out``: single token; ``none`` means
-    bare metal, anything else (``kvm``, ``vmware``, ``xen``,
-    ``microsoft``, ``oracle``, etc.) names the virtualisation
-    layer detected by ``systemd-detect-virt``. Returns the raw
-    token (lowercased, whitespace stripped); empty string when
-    the file is absent or unreadable.
+    """Read the virtualisation layer from ``system/hypervisor.out``.
+
+    A single token, as reported by ``systemd-detect-virt``:
+    ``none`` means bare metal, and anything else (``kvm``,
+    ``vmware``, ``xen``, ``microsoft``, ``oracle``) names the
+    layer. Returns the raw token, lowercased and stripped, or an
+    empty string when the file is absent or unreadable.
     """
     return _text(data).lower()
 

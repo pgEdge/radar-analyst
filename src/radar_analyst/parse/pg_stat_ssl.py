@@ -41,11 +41,14 @@ class StatSsl:
     rows: list[SslConnection]
 
     def __len__(self) -> int:
+        """Return how many rows were parsed."""
         return len(self.rows)
 
     def insecure(self) -> list[SslConnection]:
-        """Return non-SSL backends, excluding the special
-        ``pid = NULL`` row that some PG versions emit.
+        """Return the backends not using SSL.
+
+        Excludes the special ``pid = NULL`` row that some
+        PostgreSQL versions emit.
         """
         return [
             r for r in self.rows

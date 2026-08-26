@@ -1,5 +1,7 @@
-"""Internals & I/O Health rules over bgwriter, checkpointer, and
-WAL activity counters.
+"""Internals & I/O Health rules over background activity.
+
+Covers the bgwriter, the checkpointer, and WAL activity
+counters.
 """
 
 from __future__ import annotations

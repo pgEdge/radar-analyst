@@ -246,8 +246,9 @@ class DatabaseConflictStats:
 def parse_database_conflicts(
     data: bytes,
 ) -> dict[str, DatabaseConflictStats]:
-    """Per-db replica-conflict counters from
-    ``database_conflicts.tsv``.
+    """Per-database replica-conflict counters.
+
+    Read from ``database_conflicts.tsv``.
 
     Non-zero ``confl_lock`` or ``confl_deadlock`` on a standby
     means queries are being cancelled to keep up with the

@@ -8,6 +8,7 @@ terminal event) runs without hitting any real LLM API.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import zipfile
 from pathlib import Path
@@ -55,11 +56,9 @@ async def _run_task_for_job(
     task = runner.task_for(job_id)
     if task is None:
         return
-    try:
+    # Errors are persisted to jobs.error, which the test reads.
+    with contextlib.suppress(Exception):
         await asyncio.wait_for(task, timeout=10.0)
-    except Exception:
-        # Errors are persisted to jobs.error; test inspects DB.
-        pass
 
 
 @pytest.mark.asyncio

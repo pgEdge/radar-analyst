@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 
@@ -131,10 +132,8 @@ def _iostat_rows(
         parts = stripped.split()
         util: float | None = None
         if util_col is not None and util_col < len(parts):
-            try:
+            with contextlib.suppress(ValueError):
                 util = float(parts[util_col])
-            except ValueError:
-                pass
         out.append(
             IostatDevice(device=parts[0], util_pct=util)
         )

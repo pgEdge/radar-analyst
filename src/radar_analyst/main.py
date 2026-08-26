@@ -16,7 +16,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -162,7 +162,9 @@ def build_production_app() -> FastAPI:
     )
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(
+        _: FastAPI,
+    ) -> AsyncGenerator[None, None]:
         """Open the pool, run migrations, and wire the job runner."""
         _logger.info("connecting to %s", dsn)
         pool = await create_pool(dsn)

@@ -43,6 +43,7 @@ class StatReplicationSlots:
     rows: list[SlotStat]
 
     def __len__(self) -> int:
+        """Return how many rows were parsed."""
         return len(self.rows)
 
     def spilling(self) -> list[SlotStat]:

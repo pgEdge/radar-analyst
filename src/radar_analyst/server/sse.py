@@ -25,6 +25,7 @@ _TERMINAL_EVENTS: frozenset[str] = frozenset({"done", "error"})
 class SSEHub:
     """In-process pub/sub for job progress events."""
     def __init__(self) -> None:
+        """Start with no subscribers."""
         self._queues: dict[
             UUID, list[asyncio.Queue[dict[str, Any]]]
         ] = defaultdict(list)
@@ -47,6 +48,7 @@ class SSEHub:
 class SSESubscription:
     """One subscriber's queue, scoped to a job."""
     def __init__(self, hub: SSEHub, job_id: UUID) -> None:
+        """Prepare a queue for *job_id* on *hub*."""
         self._hub = hub
         self._job_id = job_id
         self._queue: asyncio.Queue[dict[str, Any]] = (
@@ -54,6 +56,7 @@ class SSESubscription:
         )
 
     async def __aenter__(self) -> SSESubscription:
+        """Register this subscriber's queue with the hub."""
         self._hub._queues[self._job_id].append(self._queue)
         return self
 
@@ -63,6 +66,7 @@ class SSESubscription:
         exc: object,
         tb: object,
     ) -> None:
+        """Remove this subscriber's queue from the hub."""
         queues = self._hub._queues.get(self._job_id)
         if queues is not None and self._queue in queues:
             queues.remove(self._queue)

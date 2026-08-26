@@ -70,6 +70,7 @@ class IndexesPerDb:
     rows: list[IndexRow]
 
     def __len__(self) -> int:
+        """Return how many rows were parsed."""
         return len(self.rows)
 
 

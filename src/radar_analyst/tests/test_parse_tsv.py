@@ -1,4 +1,4 @@
-"""Tests for the radar-style TSV parser.
+r"""Tests for the radar-style TSV parser.
 
 Covers the escape rules documented at radar/radar.go:682-684:
 - values with \\t, \\n, \\r, or " are wrapped in double-quotes

@@ -58,6 +58,7 @@ class PgStatTuplePerDb:
     rows: list[PgStatTupleRow]
 
     def __len__(self) -> int:
+        """Return how many rows were parsed."""
         return len(self.rows)
 
 
@@ -124,6 +125,7 @@ class BloatPerDb:
     rows: list[BloatRow]
 
     def __len__(self) -> int:
+        """Return how many rows were parsed."""
         return len(self.rows)
 
 

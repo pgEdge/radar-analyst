@@ -1,4 +1,4 @@
-"""Parse radar-style TSV files (inverse of radar.go::rowsToTSV).
+r"""Parse radar-style TSV files (inverse of radar.go::rowsToTSV).
 
 Radar's TSV format (radar.go:682-684):
 

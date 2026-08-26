@@ -33,8 +33,9 @@ async def _seed_upload_with_zip(
     *,
     entries: dict[str, bytes],
 ) -> tuple[str, list[dict[str, Any]]]:
-    """Create an upload row + write a real zip blob + persist
-    the inventory snapshot. Returns (upload_id_str, inventory).
+    """Set up one upload with a real zip and its inventory.
+
+    Returns the upload id as a string, and the inventory.
     """
     upload_id = uuid4()
     raw = _make_zip_bytes(entries)

@@ -1,5 +1,7 @@
-"""Tests for parse/host_os.py: PSI pressure, iostat,
-cgroup memory bytes, dmesg summary.
+"""Tests for parse/host_os.py.
+
+PSI pressure, iostat, cgroup memory bytes, and the dmesg
+summary.
 """
 
 from __future__ import annotations

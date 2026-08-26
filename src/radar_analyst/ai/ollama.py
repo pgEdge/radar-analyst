@@ -12,6 +12,7 @@ global bounds shares one adapter instance.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from dataclasses import dataclass, field
@@ -63,10 +64,8 @@ class OllamaAdapter:
             "RADAR_ANALYST_OLLAMA_CONCURRENCY"
         )
         if env_conc:
-            try:
+            with contextlib.suppress(ValueError):
                 self.concurrency = int(env_conc)
-            except ValueError:
-                pass
 
     def available(self) -> bool:
         """Report availability, which is unconditional here."""

@@ -47,7 +47,9 @@ async def download_to_temp(
     download the tempfile is removed before the error propagates,
     so an aborted stream cannot leak files.
     """
-    tmp = tempfile.NamedTemporaryFile(
+    # Not a context manager: the caller owns the file after this
+    # returns, so it must outlive the handle that made it.
+    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
         suffix=suffix, delete=False
     )
     tmp_path = Path(tmp.name)

@@ -30,6 +30,8 @@ dev = [
     "flake8>=7.1",
     "mypy>=1.13",
     "respx>=0.21",
+    "ruff>=0.16",
+    "pyright>=1.1.400",
     "testcontainers[postgres]>=4.8",
     "build>=1.2",
 ]
@@ -89,10 +91,31 @@ lines-after-imports = 2
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+# pyright runs strict alongside mypy strict. The rules turned off
+# below fire on idioms this codebase uses on purpose, not on defects;
+# everything else is left on, and both checkers must pass.
 [tool.pyright]
 include = ["src/radar_analyst"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
+# The AI SDKs, psycopg row factories, and the Google client ship
+# incomplete type information, so values crossing those boundaries
+# are Unknown no matter what this code does.
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+# FastAPI route handlers and pytest fixtures are called through
+# their decorators, which no static checker can see.
+reportUnusedFunction = false
+# Tests exercise private helpers deliberately, and SSEHub and
+# SSESubscription are one mechanism split across two classes.
+reportPrivateUsage = false
+# psycopg types its query parameter as LiteralString to discourage
+# interpolation. Every statement here is a module-level constant and
+# every value is bound with a placeholder; mypy checks the same code
+# without objecting.
+reportArgumentType = false
+reportCallIssue = false
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

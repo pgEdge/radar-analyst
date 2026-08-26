@@ -33,7 +33,7 @@ def test_data_dir_defaults_beside_the_source_tree() -> None:
     is where its volume is mounted.
     """
     assert layout.data_dir_from_env({}) == Path("data")
-    assert layout.DEFAULT_DATA_DIR == Path("data")
+    assert Path("data") == layout.DEFAULT_DATA_DIR
 
 
 def test_data_dir_is_overridable() -> None:

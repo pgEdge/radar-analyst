@@ -1,7 +1,8 @@
-"""Tight unit tests for the per-category facts builders in
-:mod:`radar_analyst.analyze.orchestrator`. The integration tests
-exercise the full pipeline; these lock in specific
-prompt-shaping choices that the LLM downstream depends on.
+"""The per-category facts builders, in isolation.
+
+Covers :mod:`radar_analyst.analyze.orchestrator`. The
+integration tests exercise the full pipeline; these lock in the
+prompt-shaping choices the model downstream depends on.
 """
 
 from __future__ import annotations

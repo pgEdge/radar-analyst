@@ -1,5 +1,7 @@
-"""Tests for parse/pg_internals.py: bgwriter, checkpointer,
-stat_wal, stat_io, stat_slru parsers.
+"""Tests for parse/pg_internals.py.
+
+The bgwriter, checkpointer, stat_wal, stat_io, and stat_slru
+parsers.
 """
 
 from __future__ import annotations

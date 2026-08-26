@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -435,7 +435,7 @@ def open_entry(
     entry_path: str,
     *,
     max_bytes: int = MAX_ENTRY_SIZE_BYTES,
-) -> Iterator[IO[bytes]]:
+) -> Generator[IO[bytes], None, None]:
     """Open a zip entry as a streaming binary file-like.
 
     Yields the ``ZipExtFile`` returned by :meth:`zipfile.ZipFile.open`,

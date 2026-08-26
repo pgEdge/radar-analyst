@@ -59,6 +59,7 @@ class Captured:
     """Requests seen by the mock transport."""
 
     def __init__(self) -> None:
+        """Start with no recorded requests."""
         self.requests: list[httpx2.Request] = []
 
     @property

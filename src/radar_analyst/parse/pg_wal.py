@@ -17,6 +17,7 @@ Covers:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 
 from radar_analyst.parse.coerce import (
@@ -374,10 +375,8 @@ def parse_subscriptions(data: bytes) -> list[Subscription] | None:
         pid_raw = r.get("pid") or ""
         pid: int | None = None
         if pid_raw.strip():
-            try:
+            with contextlib.suppress(ValueError):
                 pid = int(pid_raw.strip())
-            except ValueError:
-                pass
         relid = r.get("relid") or ""
         is_apply_worker = relid.strip() == ""
         if name not in by_name or is_apply_worker:

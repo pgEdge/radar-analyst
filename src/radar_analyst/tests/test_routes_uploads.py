@@ -148,7 +148,7 @@ async def test_post_upload_deletes_blob_when_insert_upload_fails(
     # If the DB insert fails after the blob has been written,
     # the blob must be cleaned up: otherwise every transient
     # DB error leaks a file with no tracking row.
-    app, store = await build_app(fresh_pool, tmp_path)
+    app, _store = await build_app(fresh_pool, tmp_path)
 
     async def _boom(*args: object, **kwargs: object) -> None:
         raise RuntimeError("simulated DB outage")

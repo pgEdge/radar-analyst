@@ -1,5 +1,6 @@
-"""Tests for rules/host_os.py: all 8 rules including the 6
-added in Phase 3C.
+"""Tests for rules/host_os.py.
+
+Covers all eight rules in the module.
 """
 
 from __future__ import annotations

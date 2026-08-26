@@ -52,15 +52,18 @@ class Analyzer(Protocol):
 
     def available(self) -> bool:
         """Report whether this provider is configured to be called."""
+        ...
 
     def unavailable_reason(self) -> str:
         """Explain an ``available() is False`` result for the UI.
 
         Empty for providers with no startup precondition.
         """
+        ...
 
     async def analyze(self, req: Request) -> Result:
         """Analyze one category, raising ``AIError`` on failure."""
+        ...
 
 
 def usage_tokens(

@@ -274,7 +274,7 @@ async def test_orchestrate_marks_job_failed_on_error(
         upload_id=upload_id,
         ai_provider="mock",
     )
-    with pytest.raises(Exception):
+    with pytest.raises(OSError):
         await orchestrate(
             upload_id=upload_id,
             job_id=job_id,
@@ -297,7 +297,7 @@ async def test_orchestrate_marks_job_failed_on_corrupt_zip(
     corrupt = tmp_path / "corrupt.zip"
     corrupt.write_bytes(b"PK\x03\x04" + b"\x00" * 64)
     upload_id, job_id = await _seed(fresh_pool, corrupt)
-    with pytest.raises(Exception):
+    with pytest.raises(zipfile.BadZipFile):
         await orchestrate(
             upload_id=upload_id,
             job_id=job_id,
@@ -403,8 +403,10 @@ async def test_orchestrate_active_db_gets_brief_markdown(
 async def test_orchestrate_idle_db_gets_static_no_issues(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """Idledb (0 commits, 0 rollbacks, 0 backends, no findings)
-    gets the static 'no issues observed' card without an LLM call.
+    """An idle database gets a static card and no LLM call.
+
+    Idle meaning no commits, no rollbacks, no backends, and no
+    findings.
     """
     await apply_migrations(fresh_pool)
     z = _make_radar_zip_with_dbs(tmp_path)
@@ -431,8 +433,10 @@ async def test_orchestrate_idle_db_gets_static_no_issues(
 async def test_orchestrate_per_db_severity_floor_applied(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """A db with a critical rule finding gets at least CRITICAL tag,
-    even though the mock returns HEALTHY.
+    """A critical finding outranks what the provider says.
+
+    The database is tagged CRITICAL even though the mock provider
+    answers HEALTHY.
     """
     await apply_migrations(fresh_pool)
     # Build a zip where activedb has a checksum failure (critical

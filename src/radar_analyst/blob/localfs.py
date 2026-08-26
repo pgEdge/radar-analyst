@@ -25,6 +25,7 @@ class LocalFsStore:
     _GET_CHUNK = 64 * 1024
 
     def __init__(self, data_dir: Path) -> None:
+        """Store blobs under *data_dir*, creating it if needed."""
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
 

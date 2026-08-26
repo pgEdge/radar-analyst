@@ -1,5 +1,7 @@
-"""Internals & I/O Health rules over storage hygiene: wraparound,
-dead rows, bloat, TOAST, duplicate/unused indexes, sequences.
+"""Internals & I/O Health rules covering storage hygiene.
+
+Wraparound, dead rows, bloat, TOAST, duplicate and unused
+indexes, and sequences.
 """
 
 from __future__ import annotations
@@ -65,8 +67,10 @@ _AV_LAGGING_AGE_S = 3600
 
 @register("Internals & I/O Health")
 def txid_wraparound_high(parsed: dict[str, Any]) -> list[Finding]:
-    """Critical when any database's xid age approaches the hard
-    wraparound ceiling.
+    """Critical as a database approaches wraparound.
+
+    Fires on the transaction-id age of any database nearing the
+    hard ceiling.
 
     Threshold tiers:
     - age >= 1.5B → critical (autovacuum's emergency vacuum has

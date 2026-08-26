@@ -171,10 +171,12 @@ async def fetch_all(
     row_factory: AsyncRowFactory[R],
 ) -> list[R]:
     """Run a query and return every row via *row_factory*."""
-    async with pool.connection() as conn:
-        async with conn.cursor(row_factory=row_factory) as cur:
-            await cur.execute(sql, params)
-            return await cur.fetchall()
+    async with (
+        pool.connection() as conn,
+        conn.cursor(row_factory=row_factory) as cur,
+    ):
+        await cur.execute(sql, params)
+        return await cur.fetchall()
 
 
 async def fetch_one(
@@ -185,10 +187,12 @@ async def fetch_one(
     row_factory: AsyncRowFactory[R],
 ) -> R | None:
     """Run a query and return the first row, or None."""
-    async with pool.connection() as conn:
-        async with conn.cursor(row_factory=row_factory) as cur:
-            await cur.execute(sql, params)
-            return await cur.fetchone()
+    async with (
+        pool.connection() as conn,
+        conn.cursor(row_factory=row_factory) as cur,
+    ):
+        await cur.execute(sql, params)
+        return await cur.fetchone()
 
 
 async def fetch_scalar(

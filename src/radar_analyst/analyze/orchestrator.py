@@ -459,7 +459,7 @@ async def _analyze_databases(
             ]
         )
     )
-    for db, (md, tag) in zip(databases, db_results):
+    for db, (md, tag) in zip(databases, db_results, strict=True):
         db["brief_markdown"] = md
         db["brief_verdict"] = tag
     # Persist snapshot with per-db analysis fields added.

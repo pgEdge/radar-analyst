@@ -1,5 +1,6 @@
-"""Tests for parse/pg_diagnostics.py: tablespaces, roles,
-shmem_allocations, stat_progress.
+"""Tests for parse/pg_diagnostics.py.
+
+Tablespaces, roles, shmem_allocations, and stat_progress.
 """
 
 from __future__ import annotations

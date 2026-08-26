@@ -129,7 +129,7 @@ async def test_stream_delivers_live_events_mid_run(
 
     hub = SSEHub()
     app, _ = await build_app(fresh_pool, tmp_path, sse_hub=hub)
-    upload_id, job_id = await _seed(fresh_pool)
+    _upload_id, job_id = await _seed(fresh_pool)
     await update_job_state(
         fresh_pool, job_id, state="parsing", phase="reading"
     )

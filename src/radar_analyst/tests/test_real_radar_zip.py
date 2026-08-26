@@ -110,7 +110,7 @@ def test_sysctl_parser_matches_real_output() -> None:
     # Whitelist is ~30 keys; a real Linux host has at least some of
     # them. We don't assert a strict count (non-Linux or kernel
     # variants may omit some), but require the filter worked.
-    assert all(k in PG_RELEVANT_KEYS for k in out.keys())
+    assert all(k in PG_RELEVANT_KEYS for k in out)
     assert len(out) > 0
 
 

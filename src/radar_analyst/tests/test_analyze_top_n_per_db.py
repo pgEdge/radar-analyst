@@ -1,6 +1,7 @@
-"""Tests for the per-db top-N summary in Internals & I/O Health
-facts. These guard the LLM prompt against unbounded per-table or
-per-index dumps.
+"""The per-database top-N summary in Internals & I/O Health facts.
+
+These guard the prompt against unbounded per-table or per-index
+dumps.
 """
 
 from radar_analyst.analyze.facts import _append_top_n_per_db

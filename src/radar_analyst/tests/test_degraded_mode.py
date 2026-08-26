@@ -150,8 +150,9 @@ async def test_every_brief_keeps_a_verdict_when_the_llm_is_down(
 async def test_per_db_verdict_survives_the_llm_being_down(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """Activedb has a critical checksum finding, so it stays CRITICAL
-    even though the provider never answered.
+    """A critical checksum finding survives a silent provider.
+
+    The database stays CRITICAL even though no brief came back.
     """
     await apply_migrations(fresh_pool)
     z = _make_zip(tmp_path)

@@ -433,8 +433,9 @@ def _parse_fixed_entry(
     entry: ClassifiedEntry,
     parsed: dict[str, Any],
 ) -> None:
-    """Parse one fixed-kind entry into *parsed*, when a parser
-    is registered for its kind.
+    """Parse one fixed-kind entry into *parsed*.
+
+    Does nothing when no parser is registered for its kind.
     """
     parser = _PARSERS.get(entry.kind)
     if parser is None:

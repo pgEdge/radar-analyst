@@ -1,5 +1,6 @@
-"""Tests for parse/pg_conf.py: file_settings, hba_file_rules,
-db_role_setting parsers.
+"""Tests for parse/pg_conf.py.
+
+The file_settings, hba_file_rules, and db_role_setting parsers.
 """
 
 from __future__ import annotations

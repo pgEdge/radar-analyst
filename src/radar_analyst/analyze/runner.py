@@ -33,7 +33,7 @@ _logger = logging.getLogger(__name__)
 
 class JobRunner:
     """Background driver running one analysis task per job."""
-    def __init__(
+    def __init__(  # noqa: D107
         self,
         *,
         pool: AsyncConnectionPool,
