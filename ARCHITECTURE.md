@@ -588,11 +588,22 @@ early failure could leave it idle for sixteen seconds while the
 server sat there ready. `store.db.wait_for_server` probes directly
 at a steady interval instead.
 
-Three properties `test-radar-analyst.sh` pins:
+Four properties `test-radar-analyst.sh` pins:
 
-- **Restarting loses nothing.** The volumes outlive the containers,
-  so the assessment, the archive bytes, and the admin token are all
-  still there after a stop and start.
+- **Replacing the containers loses nothing.** The e2e runs `down`
+  without `-v` and then `up`, which is what `docker pull` followed
+  by `up` does: new containers, same volumes. It asserts the
+  container ids actually changed, because `stop` and `start` would
+  reuse them and prove nothing about an upgrade. The assessment, the
+  archive bytes, and the admin token are all still there afterwards.
+- **Logs cannot fill the disk.** The database runs with
+  `logging_collector=off`, so nothing accumulates inside PGDATA. Its
+  defaults bound the file count, one per weekday truncated on reuse,
+  but `log_rotation_size` is 0, so a single heavy day would grow one
+  file until the volume filled. On stdout instead, both services'
+  logs go through a json-file driver capped at three files of 10 MB,
+  and `docker compose logs db` shows something useful for the first
+  time.
 - **The database has no network presence.** No published port, and
   it is reachable only over the compose network.
 - **PID 1 is unprivileged.** Root exists only inside the entrypoint,

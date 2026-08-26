@@ -79,6 +79,13 @@ The database has no network port at all. The analyst reaches it
 through that shared socket, so nothing else on your machine can
 connect to it.
 
+Replacing the containers keeps all of it. `docker compose down`
+followed by `docker compose up -d`, which is what upgrading does,
+gives you new containers reading the same volumes.
+
+Logs go to `docker compose logs`, capped at three files of 10 MB per
+service, so they cannot grow until the disk is full.
+
 The first two outlive the containers. `docker compose down` leaves them in
 place, and so does pulling a newer image. `docker compose down -v` is
 what deletes them.

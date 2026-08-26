@@ -17,6 +17,17 @@
 
 services:
   db:
+    # Logs go to stdout, not into PGDATA. The collector's defaults
+    # bound the file count, one per weekday truncated on reuse, but
+    # log_rotation_size is 0, so one heavy day grows a single file
+    # until the volume is full. It also hides everything from
+    # `docker compose logs db`.
+    #
+    # listen_addresses is NOT set here: it stays at the image default
+    # of localhost, so the only TCP socket is on this container's own
+    # loopback and the analyst reaches the server over the shared
+    # unix socket instead.
+    command: ["postgres", "-c", "logging_collector=off"]
     image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
     # listen_addresses stays at the image default of localhost, so
     # the only TCP socket is on the database container's own
@@ -44,6 +55,14 @@ services:
     # No published port: this database holds only the analyst's own
     # state and is reachable from the analyst alone, over the
     # compose network. Publishing 5432 would put it on the host.
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - db:/var/lib/pgsql/18/data
       - sock:/run/postgresql
@@ -79,6 +98,14 @@ services:
       - "127.0.0.1:8080:8080"
     # Uploaded radar archives and the generated admin token. The
     # assessments themselves live in the db volume.
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - archives:/data
       - sock:/run/postgresql

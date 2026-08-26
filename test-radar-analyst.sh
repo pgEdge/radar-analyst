@@ -189,12 +189,16 @@ assert files, 'no archive was written under /data/archives'
 print('  archives:', ' '.join(str(p) for p in files))
 "
 
-# The point of the volumes: stop the stack, bring it back, and find
-# the work still there. This is what separates a deployment someone
-# can rely on from one that quietly loses everything on upgrade.
-echo -e "${YELLOW}Restarting the stack...${NC}"
-"${COMPOSE[@]}" stop >/dev/null
-"${COMPOSE[@]}" start >/dev/null
+# The point of the volumes: destroy the containers, build new ones,
+# and find the work still there. `stop` and `start` would reuse the
+# same containers and prove nothing about an upgrade, which replaces
+# them. `down` without -v removes the containers and keeps the
+# volumes, which is what `docker pull` then `up` does.
+echo -e "${YELLOW}Replacing the containers...${NC}"
+OLD_APP="$("${COMPOSE[@]}" ps -q app)"
+OLD_DB="$("${COMPOSE[@]}" ps -q db)"
+"${COMPOSE[@]}" down >/dev/null 2>&1
+"${COMPOSE[@]}" up -d >/dev/null 2>&1
 for i in $(seq 1 90); do
     curl -fsS ${BASE_URL}/readyz >/dev/null 2>&1 && break
     if [ "$i" = "90" ]; then
@@ -204,7 +208,13 @@ for i in $(seq 1 90); do
     fi
     sleep 1
 done
-echo -e "${GREEN}Stack came back${NC}"
+NEW_APP="$("${COMPOSE[@]}" ps -q app)"
+NEW_DB="$("${COMPOSE[@]}" ps -q db)"
+if [ "$OLD_APP" = "$NEW_APP" ] || [ "$OLD_DB" = "$NEW_DB" ]; then
+    echo -e "${RED}Containers were reused, so this proves nothing${NC}"
+    exit 1
+fi
+echo -e "${GREEN}New containers, same volumes${NC}"
 
 echo -e "${YELLOW}Verifying the assessment survived the restart...${NC}"
 curl -fsS "${BASE_URL}/api/uploads/${UPLOAD_ID}/assessment" \
@@ -224,6 +234,25 @@ ENTRY="$(curl -fsS "${BASE_URL}/api/uploads/${UPLOAD_ID}/files" \
 curl -fsS -o /dev/null \
     "${BASE_URL}/api/uploads/${UPLOAD_ID}/files/${ENTRY}"
 echo -e "${GREEN}Read back ${ENTRY}${NC}"
+
+echo -e "${YELLOW}Verifying the database logs nowhere but stdout...${NC}"
+# PostgreSQL's collector bounds the file count, one per weekday, but
+# not the size of any one of them: log_rotation_size is 0. Left on,
+# a single heavy day fills the volume. Logs belong on stdout, where
+# the capped json-file driver rotates them.
+"${COMPOSE[@]}" exec -T db sh -c '
+  d="/var/lib/pgsql/${PG_MAJOR}/data/log"
+  if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then
+    echo "database is writing logs into its volume: $(ls "$d")"
+    exit 1
+  fi
+  echo "  no log files in PGDATA"
+'
+if [ -z "$("${COMPOSE[@]}" logs db 2>&1 | head -c 1)" ]; then
+    echo -e "${RED}No database logs on stdout either${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Database logs reach stdout${NC}"
 
 echo -e "${YELLOW}Verifying delete works with the generated token...${NC}"
 # Nobody configured a shared secret, but deletes still have to be
