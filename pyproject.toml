@@ -104,6 +104,12 @@ convention = "google"
 include = ["src/radar_analyst"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
+# Name the environment explicitly. Left to discovery, pyright found
+# the right site-packages on a developer machine and the wrong one on
+# a clean runner, where every third-party import came back
+# unresolved and strict mode turned that into hundreds of errors.
+venvPath = "."
+venv = ".venv"
 # The AI SDKs, psycopg row factories, and the Google client ship
 # incomplete type information, so values crossing those boundaries
 # are Unknown no matter what this code does.
