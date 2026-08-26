@@ -23,6 +23,7 @@ from radar_analyst.ai import openai_compat
 from radar_analyst.ai.base import AIError, Analyzer, Request
 from radar_analyst.ai.openai_compat import OpenAIAdapter
 
+
 _FAKE_RESPONSE: dict[str, Any] = {
     "id": "chatcmpl-test",
     "object": "chat.completion",

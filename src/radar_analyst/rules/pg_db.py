@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+
 # Floor thresholds for when a per-db rule is meaningful.
 _CACHE_HIT_MIN_BLOCKS = 100_000
 _CACHE_HIT_WARN_BELOW = 0.95
@@ -182,7 +183,7 @@ def run_per_db_rules(
     for fn in _RULES:
         try:
             out.extend(fn(db))
-        except Exception:  # noqa: BLE001
+        except Exception:
             # A broken rule must not break the summary build.
             # Logging is handled at orchestrator level.
             continue

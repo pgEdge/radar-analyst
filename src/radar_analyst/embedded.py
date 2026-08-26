@@ -31,6 +31,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from urllib.parse import quote
 
+
 _logger = logging.getLogger(__name__)
 
 # Relative by default so a developer checkout keeps its state beside

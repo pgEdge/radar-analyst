@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _HOOK_PATH = _REPO_ROOT / "hatch_build.py"
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
@@ -38,7 +39,10 @@ def _load_hook() -> ModuleType:
     iface = ModuleType(
         "hatchling.builders.hooks.plugin.interface"
     )
-    setattr(iface, "BuildHookInterface", _StubHookBase)
+    # setattr, not attribute assignment: the target is a ModuleType
+    # built at runtime, and mypy rejects assigning an attribute a
+    # module does not declare.
+    setattr(iface, "BuildHookInterface", _StubHookBase)  # noqa: B010
     injected = {
         "hatchling": pkg,
         "hatchling.builders": ModuleType("hatchling.builders"),

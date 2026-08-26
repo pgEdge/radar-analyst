@@ -20,6 +20,7 @@ from radar_analyst.ai.gemini import GeminiAdapter
 from radar_analyst.ai.ollama import OllamaAdapter
 from radar_analyst.ai.openai_compat import OpenAIAdapter
 
+
 DEFAULT_PROVIDER = "claude"
 
 

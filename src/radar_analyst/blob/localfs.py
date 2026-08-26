@@ -7,7 +7,7 @@ during ``put``.
 
 import hashlib
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from radar_analyst.blob.base import PutResult
@@ -29,7 +29,7 @@ class LocalFsStore:
         self._data_dir.mkdir(parents=True, exist_ok=True)
 
     def _path_for(self, key: str) -> Path:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         sub = self._data_dir / f"{now:%Y}" / f"{now:%m}" / f"{now:%d}"
         sub.mkdir(parents=True, exist_ok=True)
         return sub / key

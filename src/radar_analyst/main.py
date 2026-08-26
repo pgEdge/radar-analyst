@@ -15,8 +15,8 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 
@@ -34,6 +34,7 @@ from radar_analyst.embedded import (
 )
 from radar_analyst.server.app import create_app
 from radar_analyst.store.db import apply_migrations, create_pool
+
 
 _logger = logging.getLogger(__name__)
 

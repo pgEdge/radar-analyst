@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 
+
 _LINE_RE = re.compile(r"^(?P<dev>[^:]+):\s*(?P<rest>.+)$")
 _ACTIVE_RE = re.compile(r"\[([^\]]+)\]")
 

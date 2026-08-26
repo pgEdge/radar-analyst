@@ -18,6 +18,7 @@ import pytest
 import radar_analyst.main as main_mod
 from radar_analyst import embedded
 
+
 _FAKE_DSN = "postgresql://fake@/fake?host=%2Ftmp"
 
 

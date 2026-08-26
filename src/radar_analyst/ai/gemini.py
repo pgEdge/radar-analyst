@@ -29,6 +29,7 @@ from radar_analyst.ai.base import (
     usage_tokens,
 )
 
+
 # Flash-class is the most capable Gemini the free tier covers.
 _DEFAULT_MODEL = "gemini-3.7-flash"
 

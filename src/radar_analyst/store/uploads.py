@@ -16,6 +16,7 @@ from radar_analyst.store.db import (
     fetch_scalar,
 )
 
+
 _UPLOAD_COLUMNS = (
     "id, filename, storage_url, size_bytes, sha256, hostname, "
     "archive_timestamp, created_at"

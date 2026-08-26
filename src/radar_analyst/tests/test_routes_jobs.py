@@ -69,12 +69,11 @@ async def test_sse_stream_replays_done_state_for_finished_job(
     await update_job_state(
         fresh_pool, job_id, state="done", phase="complete"
     )
-    with TestClient(app) as client:
-        with client.stream(
-            "GET", f"/api/jobs/{job_id}/events"
-        ) as resp:
-            assert resp.status_code == 200
-            body = resp.read().decode()
+    with TestClient(app) as client, client.stream(
+        "GET", f"/api/jobs/{job_id}/events"
+    ) as resp:
+        assert resp.status_code == 200
+        body = resp.read().decode()
     # sse-starlette formats events as "data: {...}\n\n"
     assert "data:" in body
     data_line = next(
@@ -95,12 +94,11 @@ async def test_sse_stream_replays_error_state(
         state="failed",
         error="something broke",
     )
-    with TestClient(app) as client:
-        with client.stream(
-            "GET", f"/api/jobs/{job_id}/events"
-        ) as resp:
-            assert resp.status_code == 200
-            body = resp.read().decode()
+    with TestClient(app) as client, client.stream(
+        "GET", f"/api/jobs/{job_id}/events"
+    ) as resp:
+        assert resp.status_code == 200
+        body = resp.read().decode()
     data_line = next(
         line for line in body.splitlines() if line.startswith("data:")
     )
@@ -142,19 +140,18 @@ async def test_stream_delivers_live_events_mid_run(
         collected: list[dict[str, str]] = []
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
-        ) as client:
-            async with client.stream(
-                "GET", f"/api/jobs/{job_id}/events"
-            ) as resp:
-                assert resp.status_code == 200
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    collected.append(
-                        json.loads(line[5:].strip())
-                    )
-                    if collected[-1].get("type") == "done":
-                        break
+        ) as client, client.stream(
+            "GET", f"/api/jobs/{job_id}/events"
+        ) as resp:
+            assert resp.status_code == 200
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                collected.append(
+                    json.loads(line[5:].strip())
+                )
+                if collected[-1].get("type") == "done":
+                    break
         return collected
 
     consumer = asyncio.create_task(_consume())

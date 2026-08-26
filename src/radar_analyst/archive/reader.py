@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, cast
 
+
 # Real radar archives ship ~150–250 entries for a small instance,
 # scaling with database count: per-db data is 17 files and pg_statviz
 # adds 11 more, so 100 databases ≈ 2.9k entries and 500 databases ≈
@@ -449,16 +450,15 @@ def open_entry(
 
     Raises ``KeyError`` if *entry_path* is not in the archive.
     """
-    with zipfile.ZipFile(zip_path) as zf:
-        with zf.open(entry_path, "r") as raw:
-            # The helper exposes just the subset of IO[bytes] we
-            # actually use (.read, iter). `cast` lets type-checkers
-            # treat it as IO[bytes] without forcing us to stub the
-            # other 20+ methods.
-            yield cast(
-                IO[bytes],
-                _CappedReader(raw, max_bytes, entry_path),
-            )
+    with zipfile.ZipFile(zip_path) as zf, zf.open(entry_path, "r") as raw:
+        # The helper exposes just the subset of IO[bytes] we
+        # actually use (.read, iter). `cast` lets type-checkers
+        # treat it as IO[bytes] without forcing us to stub the
+        # other 20+ methods.
+        yield cast(
+            IO[bytes],
+            _CappedReader(raw, max_bytes, entry_path),
+        )
 
 
 class _CappedReader:

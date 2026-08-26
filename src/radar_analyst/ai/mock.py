@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from radar_analyst.ai.base import Request, Result, result_from
 
+
 _TEMPLATE = (
     "**[HEALTHY]**\n"
     "Mock analysis for category {category}. "

@@ -605,6 +605,7 @@ def test_pg_version_eol_critical_for_pg11(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.pg_config as mod
     from radar_analyst.parse.pg_version import PgVersionInfo
 
@@ -628,6 +629,7 @@ def test_pg_version_eol_warning_within_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.pg_config as mod
     from radar_analyst.parse.pg_version import PgVersionInfo
 
@@ -652,6 +654,7 @@ def test_pg_version_eol_silent_far_from_eol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.pg_config as mod
     from radar_analyst.parse.pg_version import PgVersionInfo
 

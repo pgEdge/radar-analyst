@@ -50,6 +50,50 @@ exclude = ["src/radar_analyst/webdist"]
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build.py"
 
+# flake8 stays the gate that code is written to comply with, and ruff
+# runs alongside it for the rules flake8 has no equivalent for
+# (import order, docstring convention, modernisation, bugbear). Lint
+# only: `ruff format` is never run, because the project has no
+# auto-formatter.
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "D"]
+ignore = [
+    # Matches the flake8 invocation in src/radar_analyst/flake.sh.
+    "F722",
+    # FastAPI reads dependencies out of argument defaults, so
+    # Depends(...) there is the framework's interface, not a shared
+    # mutable default.
+    "B008",
+    # En dashes and typographic quotes in prose are deliberate.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.isort]
+# flake8 wants two blank lines before the first definition (E302).
+# Left to its default, ruff's import sorting leaves one and the two
+# linters undo each other's work.
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+# Test names and their docstrings carry the intent; requiring a
+# docstring on all 900-odd of them would add noise, not meaning.
+"src/radar_analyst/tests/*" = ["D100", "D101", "D102", "D103", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pyright]
+include = ["src/radar_analyst"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["src/radar_analyst/tests"]

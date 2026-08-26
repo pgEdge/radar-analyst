@@ -9,6 +9,7 @@ import respx
 from radar_analyst.ai.base import AIError, Request
 from radar_analyst.ai.claude import ClaudeAdapter
 
+
 _FAKE_RESPONSE = {
     "id": "msg_test",
     "type": "message",

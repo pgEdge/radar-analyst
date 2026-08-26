@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 # Top-level categories (must mirror the names persisted by the
 # orchestrator at insert_brief time: see analyze/categories.py).
 CATEGORY_KINDS: dict[str, frozenset[str]] = {

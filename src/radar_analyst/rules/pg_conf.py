@@ -12,6 +12,7 @@ from typing import Any
 from radar_analyst.parse.pg_conf import HbaRule
 from radar_analyst.rules.base import Finding, register
 
+
 # Connection types that reach the network: trust here is dangerous.
 _NETWORK_TYPES = frozenset(
     {"host", "hostssl", "hostnossl", "hostgssenc", "hostnogssenc"}

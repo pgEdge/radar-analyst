@@ -18,6 +18,7 @@ from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.jobs import get_job
 from radar_analyst.store.uploads import get_upload
 
+
 _T = TypeVar("_T")
 
 

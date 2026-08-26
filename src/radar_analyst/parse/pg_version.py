@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
+
 _VERSION_RE = re.compile(
     r"PostgreSQL\s+(\d+)(?:\.(\d+))?"
 )

@@ -6,6 +6,7 @@ from radar_analyst.parse.pg_stat_replication_slots import (
     parse_stat_replication_slots,
 )
 
+
 _HEADER = (
     "slot_name\tspill_txns\tspill_count\tspill_bytes\t"
     "stream_txns\tstream_count\tstream_bytes\t"

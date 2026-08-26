@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-
 from google import genai
 
 from radar_analyst.ai.base import AIError, Request

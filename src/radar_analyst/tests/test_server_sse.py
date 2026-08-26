@@ -59,7 +59,7 @@ async def test_publish_with_no_subscribers_is_noop() -> None:
     hub = SSEHub()
     # Must not raise, must not grow an orphan queue.
     hub.publish(uuid4(), {"type": "phase"})
-    assert hub._queues == {}  # noqa: SLF001
+    assert hub._queues == {}
 
 
 async def test_subscriber_cleans_up_on_exit() -> None:
@@ -78,7 +78,7 @@ async def test_subscriber_cleans_up_on_exit() -> None:
     await asyncio.wait_for(task, timeout=1.0)
     # After the subscriber has exited, the hub must not be holding a
     # stale queue for the job.
-    assert job_id not in hub._queues  # noqa: SLF001
+    assert job_id not in hub._queues
 
 
 async def test_error_event_is_also_terminal() -> None:

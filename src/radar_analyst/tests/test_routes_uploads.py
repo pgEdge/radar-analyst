@@ -325,12 +325,11 @@ async def test_delete_logs_warning_on_unexpected_blob_error(
     uid = await _seed_upload(fresh_pool, base_store)
     with caplog.at_level(
         logging.WARNING, logger="radar_analyst.server.routes_uploads"
-    ):
-        with TestClient(app) as client:
-            resp = client.delete(
-                f"/api/uploads/{uid}",
-                headers={"Authorization": "Bearer s3cret"},
-            )
+    ), TestClient(app) as client:
+        resp = client.delete(
+            f"/api/uploads/{uid}",
+            headers={"Authorization": "Bearer s3cret"},
+        )
     assert resp.status_code == 204
     # DB row gone even though blob delete failed.
     assert await get_upload(fresh_pool, uid) is None
@@ -359,12 +358,11 @@ async def test_delete_silent_on_blob_already_missing(
     uid = await _seed_upload(fresh_pool, base_store)
     with caplog.at_level(
         logging.WARNING, logger="radar_analyst.server.routes_uploads"
-    ):
-        with TestClient(app) as client:
-            resp = client.delete(
-                f"/api/uploads/{uid}",
-                headers={"Authorization": "Bearer s3cret"},
-            )
+    ), TestClient(app) as client:
+        resp = client.delete(
+            f"/api/uploads/{uid}",
+            headers={"Authorization": "Bearer s3cret"},
+        )
     assert resp.status_code == 204
     # No warning for the already-gone case: that's expected state.
     assert caplog.records == []

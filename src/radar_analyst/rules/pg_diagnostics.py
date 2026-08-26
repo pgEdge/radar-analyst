@@ -7,6 +7,7 @@ from typing import Any
 from radar_analyst.parse.pg_diagnostics import PgRole, ProgressRow
 from radar_analyst.rules.base import Finding, register
 
+
 # System roles: postgres is the expected superuser; pg_* prefix
 # roles are internal PostgreSQL system roles.
 _SYSTEM_SUPERUSERS = {"postgres"}

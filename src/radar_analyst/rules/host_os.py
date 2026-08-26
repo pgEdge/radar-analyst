@@ -18,6 +18,7 @@ from radar_analyst.rules.base import (
     top_n,
 )
 
+
 # Thresholds
 _CGROUP_MEM_WARN_RATIO = 0.80    # 80 % of cgroup memory limit
 _PRESSURE_MEMORY_WARN = 25.0     # avg300 > 25 % stall time

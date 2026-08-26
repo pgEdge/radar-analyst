@@ -21,7 +21,7 @@ def test_find_static_dir_returns_path_when_build_exists() -> None:
 
 
 def test_mount_returns_false_when_no_build(
-    tmp_path: Path, monkeypatch: "object"
+    tmp_path: Path, monkeypatch: object
 ) -> None:
     # Point the candidates at a non-existent directory.
     from radar_analyst.server import static as static_mod
@@ -68,7 +68,8 @@ def test_static_root_returns_html_if_built() -> None:
 
 def test_unknown_api_path_returns_json_not_html() -> None:
     """The console mount is a catch-all, so it would otherwise
-    answer a mistyped API path with an HTML 404."""
+    answer a mistyped API path with an HTML 404.
+    """
     app = create_app()
     with TestClient(app) as client:
         resp = client.get("/api/no-such-endpoint")

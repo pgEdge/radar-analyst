@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from radar_analyst.parse.pg_activity import parse_pg_interval_seconds
 from radar_analyst.parse.coerce import (
     row_int,
 )
+from radar_analyst.parse.pg_activity import parse_pg_interval_seconds
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
 

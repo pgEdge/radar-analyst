@@ -17,6 +17,7 @@ import sys
 import zipfile
 from pathlib import Path
 
+
 _VERSION_TSV = (
     "version\n"
     "PostgreSQL 17.2 on x86_64-pc-linux-gnu, compiled by gcc "

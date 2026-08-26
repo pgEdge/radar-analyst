@@ -14,6 +14,7 @@ from collections.abc import Iterable
 
 from radar_analyst.rules.base import rank_to_verdict, severity_rank
 
+
 UNKNOWN = "UNKNOWN"
 
 

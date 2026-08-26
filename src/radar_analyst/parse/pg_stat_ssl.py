@@ -45,7 +45,8 @@ class StatSsl:
 
     def insecure(self) -> list[SslConnection]:
         """Return non-SSL backends, excluding the special
-        ``pid = NULL`` row that some PG versions emit."""
+        ``pid = NULL`` row that some PG versions emit.
+        """
         return [
             r for r in self.rows
             if r.pid and not r.ssl

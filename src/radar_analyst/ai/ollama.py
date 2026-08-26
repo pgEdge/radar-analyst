@@ -26,6 +26,7 @@ from radar_analyst.ai.base import (
     result_from,
 )
 
+
 _DEFAULT_HOST = "http://localhost:11434"
 # Gemma 4 E4B: ~4.5B effective params, needing ~10 GB VRAM to run
 # fully on GPU and partially offloading to CPU on smaller cards.

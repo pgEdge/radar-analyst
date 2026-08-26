@@ -34,6 +34,7 @@ from radar_analyst.ai.base import (
     usage_tokens,
 )
 
+
 # Sonnet rather than Opus, because one upload costs a call per
 # category plus a call for every active database, and the prompts
 # carry structured facts rather than open-ended reasoning.

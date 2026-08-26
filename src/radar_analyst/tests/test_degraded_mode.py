@@ -22,6 +22,7 @@ from radar_analyst.store.jobs import insert_job
 from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import insert_upload
 
+
 _PG_VERSION = (
     "version\nPostgreSQL 17.2 on x86_64-pc-linux-gnu, "
     "compiled by gcc 13.2.0, 64-bit\n"
@@ -149,8 +150,9 @@ async def test_every_brief_keeps_a_verdict_when_the_llm_is_down(
 async def test_per_db_verdict_survives_the_llm_being_down(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """activedb has a critical checksum finding, so it stays CRITICAL
-    even though the provider never answered."""
+    """Activedb has a critical checksum finding, so it stays CRITICAL
+    even though the provider never answered.
+    """
     await apply_migrations(fresh_pool)
     z = _make_zip(tmp_path)
     upload_id, job_id = await _seed(fresh_pool, z)

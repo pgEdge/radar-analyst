@@ -213,7 +213,8 @@ def test_render_db_user_prompt_includes_synthesize_instruction() -> None:
 
 def test_every_category_has_calibration() -> None:
     """Every LLM-analysed category must have a calibration block
-    so the model knows thresholds and what to ignore."""
+    so the model knows thresholds and what to ignore.
+    """
     for cat in CATEGORIES:
         assert cat.name in CATEGORY_CALIBRATION, (
             f"Missing CATEGORY_CALIBRATION for '{cat.name}'"
@@ -222,7 +223,8 @@ def test_every_category_has_calibration() -> None:
 
 def test_calibration_rendered_in_user_prompt() -> None:
     """Calibration text must appear in the rendered user prompt
-    for categories that have it."""
+    for categories that have it.
+    """
     for cat_name, cal_text in CATEGORY_CALIBRATION.items():
         rendered = render_user_prompt(
             category=cat_name,

@@ -1,8 +1,8 @@
 """Tests for parse/pg_db_indexes.py."""
 
 from radar_analyst.parse.pg_db_indexes import (
-    IndexRow,
     IndexesPerDb,
+    IndexRow,
     parse_db_indexes,
 )
 

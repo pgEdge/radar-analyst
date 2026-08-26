@@ -9,13 +9,12 @@ async def test_apply_migrations_creates_radar_schema(
     fresh_pool: AsyncConnectionPool,
 ) -> None:
     await apply_migrations(fresh_pool)
-    async with fresh_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT schema_name FROM information_schema.schemata "
-                "WHERE schema_name = 'radar'"
-            )
-            assert await cur.fetchone() is not None
+    async with fresh_pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT schema_name FROM information_schema.schemata "
+            "WHERE schema_name = 'radar'"
+        )
+        assert await cur.fetchone() is not None
 
 
 async def test_apply_migrations_creates_expected_tables(
@@ -30,13 +29,12 @@ async def test_apply_migrations_creates_expected_tables(
         "findings",
         "briefs",
     }
-    async with fresh_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = 'radar'"
-            )
-            rows = await cur.fetchall()
+    async with fresh_pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'radar'"
+        )
+        rows = await cur.fetchall()
     got = {r[0] for r in rows}
     assert expected <= got, f"missing: {expected - got}"
 
@@ -54,13 +52,12 @@ async def test_apply_migrations_records_version(
     fresh_pool: AsyncConnectionPool,
 ) -> None:
     applied = await apply_migrations(fresh_pool)
-    async with fresh_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT version FROM radar.schema_migrations "
-                "ORDER BY version"
-            )
-            rows = await cur.fetchall()
+    async with fresh_pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT version FROM radar.schema_migrations "
+            "ORDER BY version"
+        )
+        rows = await cur.fetchall()
     versions = [r[0] for r in rows]
     assert versions == applied
 

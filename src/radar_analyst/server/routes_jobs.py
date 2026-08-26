@@ -13,6 +13,7 @@ from radar_analyst.model import Job
 from radar_analyst.server.deps import get_sse_hub, require_job
 from radar_analyst.server.sse import SSEHub
 
+
 router = APIRouter(prefix="/api", tags=["jobs"])
 
 

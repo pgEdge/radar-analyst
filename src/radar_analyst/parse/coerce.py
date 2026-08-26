@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+
 _TRUE_WORDS = frozenset({"t", "true", "yes", "1"})
 
 

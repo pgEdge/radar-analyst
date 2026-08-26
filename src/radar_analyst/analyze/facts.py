@@ -12,13 +12,23 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-
 from radar_analyst.ai.prompts import (
     SystemContext,
 )
 from radar_analyst.analyze.categories import Category
+from radar_analyst.analyze.humanize import (
+    format_age_seconds,
+    format_count,
+    format_size_bytes,
+    format_uptime,
+)
 from radar_analyst.parse.databases import (
     DatabaseXactStats,
+)
+from radar_analyst.parse.host_os import (
+    DmesgSummary,
+    IostatDevice,
+    PsiPressure,
 )
 from radar_analyst.parse.pg_activity import (
     ConnectionSummary,
@@ -27,11 +37,6 @@ from radar_analyst.parse.pg_activity import (
     RunningActivityMaxage,
     RunningLocks,
     WaitsSample,
-)
-from radar_analyst.parse.host_os import (
-    DmesgSummary,
-    IostatDevice,
-    PsiPressure,
 )
 from radar_analyst.parse.pg_conf import (
     DbRoleSetting,
@@ -45,16 +50,16 @@ from radar_analyst.parse.pg_diagnostics import (
     Tablespace,
     TablespaceSize,
 )
+from radar_analyst.parse.pg_internals import (
+    PgBgwriter,
+    PgCheckpointer,
+    PgStatWal,
+)
 from radar_analyst.parse.pg_settings import (
     PgSettings,
 )
 from radar_analyst.parse.pg_version import (
     PgVersionInfo,
-)
-from radar_analyst.parse.pg_internals import (
-    PgBgwriter,
-    PgCheckpointer,
-    PgStatWal,
 )
 from radar_analyst.parse.pg_wal import (
     PgArchiver,
@@ -66,13 +71,6 @@ from radar_analyst.parse.pg_wal import (
     WalReceiver,
 )
 from radar_analyst.parse.swaps import SwapDevice
-
-from radar_analyst.analyze.humanize import (
-    format_age_seconds,
-    format_count,
-    format_size_bytes,
-    format_uptime,
-)
 
 
 _logger = logging.getLogger(__name__)

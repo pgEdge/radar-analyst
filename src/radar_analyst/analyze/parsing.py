@@ -12,7 +12,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-
 from radar_analyst.archive.reader import (
     ClassifiedEntry,
     ZipSafetyError,
@@ -33,17 +32,19 @@ from radar_analyst.parse.databases import (
     parse_extension_names,
     parse_schema_oids,
 )
+from radar_analyst.parse.diskspace import parse_diskspace
 from radar_analyst.parse.extensions import (
     parse_available_extensions,
 )
-from radar_analyst.parse.diskspace import parse_diskspace
+from radar_analyst.parse.host_os import (
+    parse_cgroup_memory_bytes,
+    parse_dmesg,
+    parse_iostat,
+    parse_pressure,
+)
+from radar_analyst.parse.io_schedulers import parse_io_schedulers
 from radar_analyst.parse.loadavg import parse_loadavg
 from radar_analyst.parse.meminfo import parse_meminfo
-from radar_analyst.parse.pg_stat_statements import parse_stat_statements
-from radar_analyst.parse.postmaster_start_time import (
-    parse_postmaster_start_time,
-)
-from radar_analyst.parse.radar_version import parse_radar_meta
 from radar_analyst.parse.pg_activity import (
     parse_blocking_locks_count,
     parse_connection_summary,
@@ -53,47 +54,11 @@ from radar_analyst.parse.pg_activity import (
     parse_running_locks,
     parse_waits_sample,
 )
-from radar_analyst.parse.host_os import (
-    parse_cgroup_memory_bytes,
-    parse_dmesg,
-    parse_iostat,
-    parse_pressure,
-)
 from radar_analyst.parse.pg_conf import (
     parse_db_role_setting,
     parse_file_settings,
     parse_hba_file_rules,
 )
-from radar_analyst.parse.pg_diagnostics import (
-    parse_roles,
-    parse_shmem_allocations,
-    parse_stat_progress,
-    parse_tablespace_sizes,
-    parse_tablespaces,
-)
-from radar_analyst.parse.pg_settings import (
-    parse_pg_settings,
-)
-from radar_analyst.parse.pg_version import (
-    parse_version,
-)
-from radar_analyst.parse.pg_internals import (
-    parse_bgwriter,
-    parse_checkpointer,
-    parse_stat_io,
-    parse_stat_slru,
-    parse_stat_wal,
-)
-from radar_analyst.parse.pg_wal import (
-    parse_archiver,
-    parse_replication,
-    parse_replication_origins,
-    parse_replication_slots,
-    parse_subscriptions,
-    parse_wal_position,
-    parse_wal_receiver,
-)
-from radar_analyst.parse.swaps import parse_swaps
 from radar_analyst.parse.pg_db_bloat import (
     parse_db_bloat,
     parse_db_pgstattuple,
@@ -105,11 +70,45 @@ from radar_analyst.parse.pg_db_repl_tables import (
 )
 from radar_analyst.parse.pg_db_sequences import parse_db_sequences
 from radar_analyst.parse.pg_db_tables import parse_db_tables
+from radar_analyst.parse.pg_diagnostics import (
+    parse_roles,
+    parse_shmem_allocations,
+    parse_stat_progress,
+    parse_tablespace_sizes,
+    parse_tablespaces,
+)
+from radar_analyst.parse.pg_internals import (
+    parse_bgwriter,
+    parse_checkpointer,
+    parse_stat_io,
+    parse_stat_slru,
+    parse_stat_wal,
+)
+from radar_analyst.parse.pg_settings import (
+    parse_pg_settings,
+)
 from radar_analyst.parse.pg_stat_replication_slots import (
     parse_stat_replication_slots,
 )
 from radar_analyst.parse.pg_stat_ssl import parse_stat_ssl
-from radar_analyst.parse.io_schedulers import parse_io_schedulers
+from radar_analyst.parse.pg_stat_statements import parse_stat_statements
+from radar_analyst.parse.pg_version import (
+    parse_version,
+)
+from radar_analyst.parse.pg_wal import (
+    parse_archiver,
+    parse_replication,
+    parse_replication_origins,
+    parse_replication_slots,
+    parse_subscriptions,
+    parse_wal_position,
+    parse_wal_receiver,
+)
+from radar_analyst.parse.postmaster_start_time import (
+    parse_postmaster_start_time,
+)
+from radar_analyst.parse.radar_version import parse_radar_meta
+from radar_analyst.parse.swaps import parse_swaps
 from radar_analyst.parse.sysctl import parse_sysctl
 from radar_analyst.parse.system_facts import (
     parse_hostname,
@@ -435,7 +434,8 @@ def _parse_fixed_entry(
     parsed: dict[str, Any],
 ) -> None:
     """Parse one fixed-kind entry into *parsed*, when a parser
-    is registered for its kind."""
+    is registered for its kind.
+    """
     parser = _PARSERS.get(entry.kind)
     if parser is None:
         return

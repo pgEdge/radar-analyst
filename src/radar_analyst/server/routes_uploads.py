@@ -52,6 +52,7 @@ from radar_analyst.store.uploads import (
     list_uploads,
 )
 
+
 _logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["uploads"])
@@ -150,7 +151,7 @@ async def post_upload(
     except BaseException:
         try:
             await store.delete(result.url)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _logger.warning(
                 "blob rollback failed for %s: %s",
                 upload_id,
@@ -231,7 +232,7 @@ async def delete_upload_route(
         await store.delete(upload.storage_url)
     except FileNotFoundError:
         pass
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _logger.warning(
             "blob delete failed for %s: %s", upload.id, exc
         )
@@ -385,4 +386,4 @@ async def download_file_route(
     )
 
 
-__all__ = ["router", "UUID"]
+__all__ = ["UUID", "router"]

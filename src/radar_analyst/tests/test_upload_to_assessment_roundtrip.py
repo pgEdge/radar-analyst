@@ -57,7 +57,7 @@ async def _run_task_for_job(
         return
     try:
         await asyncio.wait_for(task, timeout=10.0)
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Errors are persisted to jobs.error; test inspects DB.
         pass
 

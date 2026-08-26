@@ -6,6 +6,7 @@ from radar_analyst.parse.pg_stat_ssl import (
     parse_stat_ssl,
 )
 
+
 _HEADER = (
     "pid\tssl\tversion\tcipher\tbits\tclient_dn\tclient_serial\t"
     "issuer_dn\tusename\tapplication_name\tclient_addr\n"

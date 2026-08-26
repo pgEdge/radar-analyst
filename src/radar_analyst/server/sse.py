@@ -18,6 +18,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
+
 _TERMINAL_EVENTS: frozenset[str] = frozenset({"done", "error"})
 
 

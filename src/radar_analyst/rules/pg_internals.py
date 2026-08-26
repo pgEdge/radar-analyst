@@ -1,5 +1,6 @@
 """Internals & I/O Health rules over bgwriter, checkpointer, and
-WAL activity counters."""
+WAL activity counters.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from radar_analyst.parse.pg_internals import (
     PgStatWal,
 )
 from radar_analyst.rules.base import Finding, register
+
 
 # Checkpoint requested-ratio threshold: > 50% of checkpoints
 # triggered by demand rather than schedule indicates the checkpoint

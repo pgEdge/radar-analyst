@@ -1,11 +1,11 @@
 """Internals & I/O Health rules over storage hygiene: wraparound,
-dead rows, bloat, TOAST, duplicate/unused indexes, sequences."""
+dead rows, bloat, TOAST, duplicate/unused indexes, sequences.
+"""
 
 from __future__ import annotations
 
-from typing import Any
-
 from collections import defaultdict
+from typing import Any
 
 from radar_analyst.analyze.humanize import format_size_bytes
 from radar_analyst.parse.databases import DatabaseInfo
@@ -19,6 +19,7 @@ from radar_analyst.parse.pg_db_tables import TablesPerDb
 from radar_analyst.parse.pg_settings import PgSettings
 from radar_analyst.parse.pg_wal import PgArchiver
 from radar_analyst.rules.base import Finding, register
+
 
 # Wraparound is a critical event at age >= 2 billion (autovacuum's
 # emergency threshold). PostgreSQL's hard ceiling is ~2.1B before

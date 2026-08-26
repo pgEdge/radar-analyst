@@ -8,6 +8,7 @@ from psycopg_pool import AsyncConnectionPool
 from radar_analyst.model import Job
 from radar_analyst.store.db import execute, fetch_one
 
+
 # Allowed job states; not enforced by the DB (plain TEXT column) so
 # the rule lives here in code. The orchestrator drives every
 # transition through these states.

@@ -1,5 +1,6 @@
 """Tests for rules/host_os.py: all 8 rules including the 6
-added in Phase 3C."""
+added in Phase 3C.
+"""
 
 from __future__ import annotations
 
@@ -412,6 +413,7 @@ def test_os_eol_critical_for_centos_7(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.host_os as mod
 
     class _Fixed(date):
@@ -436,6 +438,7 @@ def test_os_eol_warning_within_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.host_os as mod
 
     class _Fixed(date):
@@ -461,6 +464,7 @@ def test_os_eol_handles_minor_in_version_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from datetime import date
+
     import radar_analyst.rules.host_os as mod
 
     class _Fixed(date):

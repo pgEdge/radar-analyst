@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
+
 _REQUIRED_COLUMNS: frozenset[str] = frozenset(
     {"name", "version", "installed"}
 )

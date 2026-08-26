@@ -8,6 +8,7 @@ silently.
 
 from __future__ import annotations
 
+
 # Kernel tunables that meaningfully affect a PostgreSQL database
 # server's performance, durability, or connection capacity.
 PG_RELEVANT_KEYS: frozenset[str] = frozenset(

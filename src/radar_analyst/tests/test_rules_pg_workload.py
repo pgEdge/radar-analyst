@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from radar_analyst.parse.databases import DatabaseXactStats
 from radar_analyst.parse.pg_activity import (
@@ -303,7 +303,7 @@ def _bgwriter(
 def test_xact_rate_high_fires_above_threshold() -> None:
     # stats_reset 1 hour ago, 4M xacts = ~1111 TPS > 1000
     one_hour_ago = (
-        datetime.now(timezone.utc) - timedelta(hours=1)
+        datetime.now(UTC) - timedelta(hours=1)
     )
     parsed = {
         "pg.databases_xact": {
@@ -319,7 +319,7 @@ def test_xact_rate_high_fires_above_threshold() -> None:
 
 def test_xact_rate_high_silent_below_threshold() -> None:
     one_hour_ago = (
-        datetime.now(timezone.utc) - timedelta(hours=1)
+        datetime.now(UTC) - timedelta(hours=1)
     )
     parsed = {
         "pg.databases_xact": {

@@ -25,9 +25,10 @@ from radar_analyst.rules.base import (
     severity_rank,
 )
 
+
 __all__ = [
-    "Finding",
     "REGISTRY",
+    "Finding",
     "apply_finding_floor",
     "rank_to_verdict",
     "register",

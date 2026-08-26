@@ -1,5 +1,6 @@
 """Tests for parse/pg_conf.py: file_settings, hba_file_rules,
-db_role_setting parsers."""
+db_role_setting parsers.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from radar_analyst.parse.pg_conf import (
     parse_file_settings,
     parse_hba_file_rules,
 )
+
 
 # ---------------------------------------------------------------
 # parse_file_settings

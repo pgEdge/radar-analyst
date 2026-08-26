@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import date, timedelta
+from typing import Any
 
 from radar_analyst.analyze.eol import PG_MAJOR_EOL
 from radar_analyst.parse.extensions import AvailableExtensions
 from radar_analyst.parse.pg_settings import PgSetting, PgSettings
-from radar_analyst.parse.system_facts import cpu_count_from_lscpu
 from radar_analyst.parse.pg_version import PgVersionInfo
+from radar_analyst.parse.system_facts import cpu_count_from_lscpu
 from radar_analyst.rules.base import Finding, register
+
 
 _SHARED_BUFFERS_MIN_RATIO = 0.10
 _SHARED_BUFFERS_MAX_RATIO = 0.40

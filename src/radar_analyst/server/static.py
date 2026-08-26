@@ -15,6 +15,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+
 # Candidate locations, in priority order:
 # 1. Packaged assets copied into the wheel by the hatchling hook.
 # 2. The sibling web/dist produced by `npm run build` during dev.

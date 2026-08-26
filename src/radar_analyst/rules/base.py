@@ -16,6 +16,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
+
 _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")

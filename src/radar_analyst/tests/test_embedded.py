@@ -37,7 +37,7 @@ def test_data_dir_defaults_beside_the_source_tree() -> None:
     the volume is mounted.
     """
     assert embedded.data_dir_from_env({}) == Path("data")
-    assert embedded.DEFAULT_DATA_DIR == Path("data")
+    assert Path("data") == embedded.DEFAULT_DATA_DIR
 
 
 def test_data_dir_is_overridable() -> None:

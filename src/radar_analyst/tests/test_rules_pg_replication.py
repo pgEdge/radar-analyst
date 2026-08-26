@@ -1,5 +1,6 @@
 """Tests for rules/pg_replication.py: streaming replicas,
-WAL receiver, subscriptions."""
+WAL receiver, subscriptions.
+"""
 
 from __future__ import annotations
 

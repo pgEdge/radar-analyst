@@ -1,5 +1,6 @@
 """Tests for parse/host_os.py: PSI pressure, iostat,
-cgroup memory bytes, dmesg summary."""
+cgroup memory bytes, dmesg summary.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from radar_analyst.parse.host_os import (
     parse_iostat,
     parse_pressure,
 )
+
 
 # ---------------------------------------------------------------
 # parse_pressure (PSI: /proc/pressure/*)

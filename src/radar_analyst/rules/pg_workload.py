@@ -8,17 +8,16 @@ strictly cluster-wide; per-database workload signals live in
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
-from datetime import datetime, timezone
-
 from radar_analyst.parse.databases import DatabaseXactStats
-from radar_analyst.parse.pg_internals import PgBgwriter
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
     RunningActivityMaxage,
 )
+from radar_analyst.parse.pg_internals import PgBgwriter
 from radar_analyst.parse.pg_settings import PgSettings
 from radar_analyst.parse.pg_stat_ssl import StatSsl
 from radar_analyst.parse.pg_stat_statements import StatementRow
@@ -27,6 +26,7 @@ from radar_analyst.rules.base import (
     register,
     tier,
 )
+
 
 _ROLLBACK_WARN_RATIO = 0.05  # > 5 % rollback rate
 _ROLLBACK_MIN_XACTS = 500    # ignore low-traffic clusters
@@ -280,7 +280,7 @@ def xact_rate_high(
     bg: PgBgwriter | None = parsed.get("pg.bgwriter")
     if bg is None or bg.stats_reset is None:
         return []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     elapsed = (now - bg.stats_reset).total_seconds()
     if elapsed <= 0:
         return []

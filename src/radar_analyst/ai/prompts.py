@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+
 SYSTEM_PROMPT = """\
 You are a Senior PostgreSQL DBA reviewing an operational snapshot of a
 PostgreSQL database server. The data comes from parsed output of standard

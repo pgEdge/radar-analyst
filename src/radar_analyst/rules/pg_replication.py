@@ -14,6 +14,7 @@ from radar_analyst.parse.pg_wal import (
 )
 from radar_analyst.rules.base import Finding, register, top_n
 
+
 # Lag thresholds for streaming replicas (time-based).
 _LAG_WARN_S = 5 * 60.0    # 5 min
 _LAG_CRIT_S = 30 * 60.0   # 30 min

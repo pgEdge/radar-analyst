@@ -376,7 +376,7 @@ def _make_radar_zip_with_dbs(tmp_path: Path) -> Path:
 async def test_orchestrate_active_db_gets_brief_markdown(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """activedb (commits+rollbacks > 100) triggers an LLM call."""
+    """Activedb (commits+rollbacks > 100) triggers an LLM call."""
     await apply_migrations(fresh_pool)
     z = _make_radar_zip_with_dbs(tmp_path)
     upload_id, job_id = await _seed(fresh_pool, z)
@@ -403,8 +403,9 @@ async def test_orchestrate_active_db_gets_brief_markdown(
 async def test_orchestrate_idle_db_gets_static_no_issues(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
-    """idledb (0 commits, 0 rollbacks, 0 backends, no findings)
-    gets the static 'no issues observed' card without an LLM call."""
+    """Idledb (0 commits, 0 rollbacks, 0 backends, no findings)
+    gets the static 'no issues observed' card without an LLM call.
+    """
     await apply_migrations(fresh_pool)
     z = _make_radar_zip_with_dbs(tmp_path)
     upload_id, job_id = await _seed(fresh_pool, z)
@@ -431,7 +432,8 @@ async def test_orchestrate_per_db_severity_floor_applied(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
     """A db with a critical rule finding gets at least CRITICAL tag,
-    even though the mock returns HEALTHY."""
+    even though the mock returns HEALTHY.
+    """
     await apply_migrations(fresh_pool)
     # Build a zip where activedb has a checksum failure (critical
     # rule). We use the checksums file; the rule fires when

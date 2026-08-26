@@ -13,6 +13,7 @@ from typing import Any, TypeVar
 from psycopg.rows import AsyncRowFactory
 from psycopg_pool import AsyncConnectionPool
 
+
 R = TypeVar("R")
 
 _BOOTSTRAP_SQL = """
@@ -91,10 +92,9 @@ async def fetch_scalar(
     A missing row and a NULL value both read as None; callers
     needing the distinction should fetch the row instead.
     """
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(sql, params)
-            row = await cur.fetchone()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(sql, params)
+        row = await cur.fetchone()
     if row is None:
         return None
     return row[0]

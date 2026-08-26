@@ -42,6 +42,7 @@ from radar_analyst.ai.base import (
     usage_tokens,
 )
 
+
 # OPENAI_MODEL overrides this, and a compatible server needs it to,
 # because each names its models its own way.
 _DEFAULT_MODEL = "gpt-5.6-luna"

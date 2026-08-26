@@ -1,5 +1,6 @@
 """Tests for rules/pg_conf.py: HBA trust/md5/error,
-ALTER SYSTEM drift."""
+ALTER SYSTEM drift.
+"""
 
 from __future__ import annotations
 

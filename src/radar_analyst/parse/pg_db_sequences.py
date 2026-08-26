@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from radar_analyst.parse.coerce import as_int_or_none
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
+
 _BIGINT_MAX = 9_223_372_036_854_775_807
 
 
@@ -106,8 +107,8 @@ def parse_db_sequences(data: bytes) -> SequencesPerDb:
 
 
 __all__ = [
+    "_BIGINT_MAX",
     "SequenceRow",
     "SequencesPerDb",
     "parse_db_sequences",
-    "_BIGINT_MAX",
 ]

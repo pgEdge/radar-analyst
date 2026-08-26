@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from radar_analyst.ai import DEFAULT_PROVIDER, providers
 
+
 router = APIRouter(prefix="/api", tags=["config"])
 
 

@@ -1,11 +1,12 @@
 """Tests for parse/pg_diagnostics.py: tablespaces, roles,
-shmem_allocations, stat_progress."""
+shmem_allocations, stat_progress.
+"""
 
 from __future__ import annotations
 
 from radar_analyst.parse.pg_diagnostics import (
-    ProgressRow,
     PgRole,
+    ProgressRow,
     ShmemAllocation,
     Tablespace,
     TablespaceSize,

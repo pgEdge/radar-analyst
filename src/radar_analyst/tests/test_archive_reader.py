@@ -183,9 +183,8 @@ def test_list_entries_rejects_total_uncompressed_too_large(
 
 def test_open_entry_missing_path_raises(tmp_path: Path) -> None:
     z = _make_zip(tmp_path, {"postgresql/version.tsv": b"x"})
-    with pytest.raises(KeyError):
-        with open_entry(z, "nope.tsv") as fh:
-            fh.read()
+    with pytest.raises(KeyError), open_entry(z, "nope.tsv") as fh:
+        fh.read()
 
 
 def test_public_limits_are_sane() -> None:
@@ -233,12 +232,11 @@ def test_open_entry_enforces_max_bytes_on_read(
         tmp_path,
         {"postgresql/version.tsv": b"x" * 1024},
     )
-    with pytest.raises(ZipSafetyError):
-        with open_entry(
-            z, "postgresql/version.tsv", max_bytes=10
-        ) as fh:
-            # Trigger the cap on the first read.
-            fh.read(1024)
+    with pytest.raises(ZipSafetyError), open_entry(
+        z, "postgresql/version.tsv", max_bytes=10
+    ) as fh:
+        # Trigger the cap on the first read.
+        fh.read(1024)
 
 
 def test_open_entry_iterates_in_chunks(

@@ -24,12 +24,18 @@ from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.ai.base import AIError, Analyzer, Request
 from radar_analyst.ai.prompts import (
+    SystemContext,
     render_db_user_prompt,
     render_system_prompt,
     render_user_prompt,
 )
-from radar_analyst.ai.prompts import SystemContext
 from radar_analyst.analyze.categories import CATEGORIES, Category
+from radar_analyst.analyze.facts import (
+    build_category_facts,
+    build_db_facts,
+    build_system_context,
+)
+from radar_analyst.analyze.parsing import read_and_parse
 from radar_analyst.parse.databases import (
     DatabaseBlkStats,
     DatabaseChecksums,
@@ -53,13 +59,6 @@ from radar_analyst.store.briefs import insert_brief
 from radar_analyst.store.jobs import update_job_state
 from radar_analyst.store.snapshots import upsert_snapshot
 from radar_analyst.store.uploads import set_archive_files
-
-from radar_analyst.analyze.facts import (
-    build_category_facts,
-    build_db_facts,
-    build_system_context,
-)
-from radar_analyst.analyze.parsing import read_and_parse
 
 
 _logger = logging.getLogger(__name__)

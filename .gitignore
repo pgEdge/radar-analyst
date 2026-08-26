@@ -33,6 +33,10 @@ data/
 # CI logs
 ci-*.log
 
+# Claude Code local configuration
+.claude/
+CLAUDE.local.md
+
 # IDE / OS
 .vscode/
 .idea/
