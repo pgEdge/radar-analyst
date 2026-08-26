@@ -12,9 +12,6 @@ filled in, reflect that here alongside the code change.
   [CLAUDE.md](CLAUDE.md) is the hard rules that apply to every
   change in the repo (TDD, `radar` schema, no AI-attribution in
   commits, …).
-- The approved design plan that guided v0.1.0 lives at
-  `/home/vyruss/.claude/plans/snappy-bubbling-porcupine.md` (outside
-  the repo).
 
 ## 1. Intent
 
@@ -83,8 +80,9 @@ briefing categories.
 | Packaging | Hatchling with a custom build hook | The hook copies `web/dist/` into `src/radar_analyst/webdist/` so `pip install` ships a self-contained GUI; server falls back to API-only if the build is absent. |
 | HTTP server | uvicorn, plain (not `[standard]`) | The analyst serves one local user over loopback, so uvloop and httptools buy nothing and `watchfiles` / `python-dotenv` / `PyYAML` are dead weight. Plain uvicorn runs asyncio + h11, which the e2e exercises including the SSE stream. |
 | Bind address | `127.0.0.1:8080` by default, `RADAR_ANALYST_LISTEN` to override | The analyst is a local tool. An omitted host means loopback, so only a deliberate `0.0.0.0:8080` opens it to the network, and that logs a warning. In the container it binds `0.0.0.0` out of necessity; compose publishes `127.0.0.1:8080:8080` to keep it local. |
-| Distribution | One container image, published to GHCR | Internal service; NOT published to PyPI or GitHub Releases. An end user runs one `docker run` with one volume and installs nothing else, so the image carries its own PostgreSQL (§10). Per-env config via environment variables only. |
-| State storage | PostgreSQL bundled in the image, `RADAR_ANALYST_STATE_DB_URL` to override | The end-user deployment cannot assume a database exists. The same image runs against an external one, so the service deployment is a config change rather than a second artifact. |
+| Distribution | Container image on GHCR, brought up by docker-compose | Internal service; NOT published to PyPI or GitHub Releases. An end user runs `docker compose up -d` and installs nothing else. Per-env config via environment variables only. |
+| State storage | A PostgreSQL service the deployment supplies, named by `RADAR_ANALYST_STATE_DB_URL` | The analyst carries no database of its own, so compose, a package install against the system server, and a customer's existing instance are all the same code path. |
+| PostgreSQL image | `ghcr.io/pgedge/pgedge-postgres:*-minimal` | The pgEdge standard image, in its minimal variant (583 MB against 1.35 GB for standard). This database holds only the analyst's own state and does not use Spock. |
 
 ## 4. Request lifecycles
 
@@ -138,8 +136,8 @@ radar-analyst/
 ├── src/radar_analyst/
 │   ├── main.py                    production entrypoint (lifespan-wired)
 │   ├── __main__.py                `python -m radar_analyst` launcher
-│   ├── embedded.py                bundled-deployment data layout + the
-│   │                              PostgreSQL server shipped in the image
+│   ├── layout.py                  where uploaded archives and the admin
+│   │                              token live under one data directory
 │   ├── server/
 │   │   ├── app.py                 FastAPI factory + route registration
 │   │   ├── deps.py                dependency-injection providers
@@ -244,11 +242,11 @@ radar-analyst/
 ├── hatch_build.py                 build hook: sync web/dist → src/radar_analyst/webdist
 ├── Dockerfile                     multi-stage: Astro → wheel → runtime + PostgreSQL
 ├── docker-entrypoint.sh           claims the volume as root, execs the service as uid 10001
-├── docker-compose.yml             service deployment: analyst + separate PostgreSQL
+├── docker-compose.yml             the deployment: analyst + pgEdge PostgreSQL
+├── docker-compose.build.yml       overlay that builds the analyst from source
 ├── docker-compose.test.yml        e2e with mock provider, no API keys
-├── run-ci-local.sh                flake8 → mypy → pytest → Astro → wheel → Docker → both e2e suites
+├── run-ci-local.sh                flake8 → ruff → mypy → pyright → pytest → Astro → wheel → Docker → e2e
 ├── test-radar-analyst.sh          compose e2e (compose up, POST fixture, assert, teardown)
-├── test-bundled-image.sh          bundled-image e2e (docker run, POST, restart, assert survival)
 ├── pyproject.toml                 hatchling + deps + flake8/pytest/mypy config
 ├── .github/workflows/ci.yml       runs run-ci-local.sh
 └── .github/workflows/image.yml    builds + pushes the image to GHCR (tags, manual)
@@ -487,17 +485,17 @@ written before the code it tests. `run-ci-local.sh` fails if
   `TestClient`, because the default TestClient tears down its event
   loop when the request returns, killing the background task before
   it can complete.
-- **e2e** (not marked as `e2e` in pytest yet) is two shell scripts,
-  one per deployment. `test-radar-analyst.sh`: docker compose up →
-  POST a synthetic radar zip built inline via a Python heredoc →
-  poll `/api/jobs/{id}` → assert 6 briefs + zero `unknown_entries`.
-  The synthetic zip is built on the fly, which removes any binary
-  fixture from the repo. `test-bundled-image.sh` runs the image
-  alone with no configuration and adds what only that deployment can
-  fail: no TCP listener on 5432, PID 1 unprivileged, the archive
-  written under `/data/archives`, and, after a container restart,
-  the assessment and the archive bytes still readable and the
-  generated token still authorising a delete.
+- **e2e** (not marked as `e2e` in pytest yet) is
+  `test-radar-analyst.sh`: docker compose up → POST a synthetic radar
+  zip built from `tests/make_sample_zip.py` → poll `/api/jobs/{id}`
+  → assert 5 briefs, valid verdicts, and zero `unknown_entries`. The
+  synthetic zip is built on the fly, which removes any binary
+  fixture from the repo. It then adds what only a real deployment can
+  fail: the progress stream over a real socket, PID 1 running
+  unprivileged, the archive written under `/data/archives`, and,
+  after stopping and starting the whole stack, the assessment and the
+  archive bytes still readable with the generated token still
+  authorising a delete.
 
 ## 10. Build + deploy pipeline
 
@@ -530,71 +528,68 @@ web/package.json ── npm run build ──▶ web/dist/
 
 The Dockerfile is three stages to keep the runtime image tight:
 Astro build in a Node image, wheel build in a full Python image,
-final stage installs the wheel on python:3.13-slim and adds
-PostgreSQL 17 from Debian trixie.
+final stage installs only the wheel on python:3.13-slim. The
+result is 216 MB with the console bundled in; PostgreSQL is a
+separate service, not part of this image.
 
-`postgresql-17` depends on `libllvm19` for the JIT provider, which
-brings LLVM and Z3 with it and is the largest thing in the image by
-a wide margin. The analyst's own queries are small and indexed, so
-the server runs with `jit=off` and the build drops the provider
-along with the libraries only it needed: 380 MB rather than 537 MB.
+### Deployment
 
-### Deployment shapes
-
-The image is the unit of distribution, and it serves two
-deployments from one artifact.
+One image, brought up next to a PostgreSQL service.
 
 ```
-                        ┌────────────────────────────────────┐
-docker run              │ ghcr.io/pgEdge/radar-analyst       │
-  -v vol:/data ────────▶│                                    │
-                        │  docker-entrypoint.sh (root)       │
-                        │    chown /data, setpriv → uid 10001│
-                        │            │                       │
-                        │            ▼                       │
-                        │  python -m radar_analyst           │
-                        │    embedded.EmbeddedPostgres       │
-                        │      initdb /data/db (first run)   │
-                        │      postgres -k /data/run         │
-                        │        listen_addresses=  (no TCP) │
-                        └────────────────────────────────────┘
-                                     │
-                                     ▼   one volume, whole state
-                        /data/db  /data/archives  /data/admin-token
+docker compose up -d
+        │
+        ├── db   ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
+        │          -c listen_addresses=*        (else binds 127.0.0.1
+        │          POSTGRES_INITDB_ARGS=UTF8     only, inside its own
+        │          no published port             container)
+        │            └── volume: db
+        │
+        └── app  ghcr.io/pgedge/radar-analyst
+                   docker-entrypoint.sh (root)
+                     chown /data, setpriv → uid 10001
+                   python -m radar_analyst
+                     127.0.0.1:8080 published
+                     └── volume: archives → /data
 ```
 
-Setting `RADAR_ANALYST_STATE_DB_URL` is the switch: the bundled
-server is never started and the analyst uses the database that URL
-names, which is the service deployment `docker-compose.yml` runs.
-`radar_analyst.embedded.use_embedded_db` holds that precedence in
-one place, and `is_bundled` answers the separate question of whether
-the container owns its data directory, which is what permits
-generating an admin token there.
+Two properties of the pgEdge image differ from upstream `postgres`
+and the stack does not work without accounting for both:
 
-Three properties this arrangement is built to hold, each pinned by
-`test-bundled-image.sh`:
+- `listen_addresses` stays at the built-in `localhost`, so without
+  `-c listen_addresses=*` the server binds 127.0.0.1 inside its own
+  container and no other service can reach it.
+- `initdb` defaults to SQL_ASCII, under which psycopg returns every
+  text column as `bytes`. Nothing fails at connect time. What fails
+  is a job whose `state` never equals `"done"`, so the progress
+  stream waits forever for a job that already finished, and the
+  first rule to call a string method returns 500.
+  `store.db.check_server_encoding` turns that into one message at
+  startup, and the compose file sets UTF8 so it never fires.
 
-- **One volume is the whole of the state.** Archives sit beside
-  PGDATA rather than in a second volume, so a copy cannot be half a
-  backup and the two cannot be restored out of step. Storing the
-  archives as rows instead would put 100-500 MiB of incompressible
-  zip through WAL for no gain once both live in the same volume.
-- **The database has no network presence.** `listen_addresses=`
-  means no TCP port, `unix_socket_permissions=0700` means only the
-  analyst's uid reaches the socket, and `--auth-host=reject` means a
-  future `listen_addresses` mistake still cannot open it. Publishing
-  the analyst's HTTP port is deliberate; the database behind it
-  never gains one.
+Startup also waits for the database rather than assuming it: the
+server usually starts at the same moment the analyst does, and
+psycopg-pool's own backoff doubles after each refusal, so a single
+early failure could leave it idle for sixteen seconds while the
+server sat there ready. `store.db.wait_for_server` probes directly
+at a steady interval instead.
+
+Three properties `test-radar-analyst.sh` pins:
+
+- **Restarting loses nothing.** The volumes outlive the containers,
+  so the assessment, the archive bytes, and the admin token are all
+  still there after a stop and start.
+- **The database has no network presence.** No published port, and
+  it is reachable only over the compose network.
 - **PID 1 is unprivileged.** Root exists only inside the entrypoint,
-  long enough to make a freshly mounted volume writable, and
-  `setpriv` execs the service under uid 10001 before anything is
-  served.
+  long enough to make a freshly mounted volume writable.
 
-PGDATA is bound to its PostgreSQL major version, so
-`embedded.check_major` compares `PG_VERSION` against the installed
-server and refuses to start on a mismatch, naming both versions. The
-alternative is a control-file error from deep inside PostgreSQL that
-does not say what to do about it.
+A package install (deb/rpm) is the same code path with
+`RADAR_ANALYST_STATE_DB_URL` pointed at the system PostgreSQL. The
+AI SDKs are packaged by no distribution, and Rocky/RHEL 9 ships
+neither a new enough `python3` nor eight of the nine runtime
+dependencies, so such a package has to vendor a virtualenv and
+depend on the system only for a `python3.11`-or-later interpreter.
 
 ### CI (`.github/workflows/ci.yml`)
 
@@ -603,10 +598,9 @@ does not say what to do about it.
                                                                 │
                                                                 ▼
                                                     run-ci-local.sh
-                                          (flake8 → mypy → pytest → npm ci
-                                           → Astro build → wheel → Docker
-                                           build → compose e2e → bundled
-                                           image e2e)
+                                          (flake8 → ruff → mypy → pyright
+                                           → pytest → npm ci → Astro build
+                                           → wheel → Docker build → e2e)
 ```
 
 Any step failing aborts. No separate jobs: the whole pipeline is

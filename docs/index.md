@@ -9,19 +9,16 @@ a browser console and a JSON API.
 
 ## What you need
 
-Docker. Nothing else.
-
-The analyst ships as a single container image with its own
-PostgreSQL server inside it, so there is no database to install, no
-configuration file to write, and nothing to clone.
+Docker, with the Compose plugin. Nothing else: the analyst and the
+PostgreSQL it keeps its own state in both come up as containers.
 
 ## Quick start
 
+Save `docker-compose.yml` from the repository into an empty
+directory, then:
+
 ```bash
-docker run -d --name radar-analyst \
-    -p 127.0.0.1:8080:8080 \
-    -v radar-analyst-data:/data \
-    ghcr.io/pgedge/radar-analyst
+docker compose up -d
 ```
 
 Open [http://localhost:8080/](http://localhost:8080/) and drag a
@@ -29,30 +26,31 @@ Open [http://localhost:8080/](http://localhost:8080/) and drag a
 applies the rules, and returns the assessment in the console. A file
 that is not a zip archive is refused at upload time.
 
-The `-p 127.0.0.1:8080:8080` is what keeps the analyst reachable only
-from your own machine. Dropping the `127.0.0.1` prefix would publish
-it on every network interface of the host.
-
-The image is published to the pgEdge container registry. If the pull
-is refused, sign in first with a token that can read packages:
+Both images live in the pgEdge container registry. If the pull is
+refused, sign in first with a token that can read packages:
 
 ```bash
 docker login ghcr.io
 ```
 
+The compose file publishes the console on `127.0.0.1:8080`, so it is
+reachable only from your own machine, and gives the database no
+published port at all.
+
+To stop it, `docker compose stop`. To bring it back,
+`docker compose start`. Your uploads and their assessments are still
+there.
+
 ## Adding a provider for the briefs
 
-The assessment works without one: findings and verdicts are computed
-from the archive and come back either way. A provider adds the
-written brief for each category. Set one of these when you start the
-container:
+The assessment works without one: the findings and verdicts are
+computed from the archive and come back either way. A provider adds
+the written brief for each category. Put a credential in a `.env`
+file next to `docker-compose.yml`:
 
 ```bash
-docker run -d --name radar-analyst \
-    -p 127.0.0.1:8080:8080 \
-    -v radar-analyst-data:/data \
-    -e ANTHROPIC_API_KEY=sk-ant-... \
-    ghcr.io/pgedge/radar-analyst
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
+docker compose up -d
 ```
 
 The analyst supports these providers:
@@ -69,64 +67,52 @@ Set `RADAR_ANALYST_AI_PROVIDER` to `claude`, `gemini`, `openai`, or
 
 ## Where your data is kept
 
-Everything the analyst keeps lives in the one volume you mounted at
-`/data`:
+The stack keeps two Docker volumes:
 
-| Path | Holds |
+| Volume | Holds |
 |---|---|
-| `/data/archives` | the radar archives you uploaded |
-| `/data/db` | the assessments, findings, and briefs |
-| `/data/admin-token` | the token that authorises a delete |
+| `db` | the assessments, findings, and briefs |
+| `archives` | the radar archives you uploaded, and the admin token |
 
-The volume outlives the container. Replacing the container, pulling a
-newer image, or restarting the machine leaves your uploads and their
-assessments in place. Removing the volume is what deletes them.
+Both outlive the containers. `docker compose down` leaves them in
+place, and so does pulling a newer image. `docker compose down -v` is
+what deletes them.
 
-To keep the archives somewhere you can see them, mount a directory
-from your own machine instead of a named volume:
+To keep the uploaded archives somewhere you can see, replace the
+`archives` volume in the compose file with a directory of your own:
 
-```bash
--v "$HOME/radar-analyst:/data"
+```yaml
+    volumes:
+      - /home/you/radar-analyst:/data
 ```
 
 ### Backing up
 
-Stop the container first: copying a running server's data directory
-does not give a consistent snapshot.
+Stop the stack first: copying a running server's data directory does
+not give a consistent snapshot.
 
 ```bash
-docker stop radar-analyst
-docker run --rm -v radar-analyst-data:/data -v "$PWD:/backup" \
-    alpine tar czf /backup/radar-analyst-backup.tar.gz -C /data .
-docker start radar-analyst
+docker compose stop
+docker run --rm -v radar-analyst_db:/db -v radar-analyst_archives:/archives \
+    -v "$PWD:/backup" alpine \
+    tar czf /backup/radar-analyst-backup.tar.gz /db /archives
+docker compose start
 ```
 
-Restore into an empty volume the same way, with `tar xzf`.
-
-### Upgrading
-
-```bash
-docker pull ghcr.io/pgedge/radar-analyst
-docker rm -f radar-analyst
-docker run -d --name radar-analyst ...   # same -v, same volume
-```
-
-A PostgreSQL data directory is bound to the major version that
-created it. If a future image ships a different major, the analyst
-refuses to start and names both versions rather than failing part
-way through.
+The volume names are prefixed with the directory the compose file
+lives in; `docker volume ls` shows the real ones.
 
 ## Deleting an assessment
 
-The delete button in the console asks for an admin token. The
-analyst generates one on first start and keeps it in the volume:
+The delete button in the console asks for an admin token. The analyst
+generates one on first start and keeps it in the archives volume:
 
 ```bash
-docker exec radar-analyst cat /data/admin-token
+docker compose exec app cat /data/admin-token
 ```
 
 Paste it into the prompt. To choose the token yourself, set
-`RADAR_ANALYST_ADMIN_TOKEN` when you start the container.
+`RADAR_ANALYST_ADMIN_TOKEN` in your `.env` file.
 
 ## What you get
 
@@ -156,35 +142,27 @@ are omitted, and the findings and verdicts still come back.
 ## Using your own PostgreSQL
 
 Set `RADAR_ANALYST_STATE_DB_URL` and the analyst uses the database
-that URL names instead of starting its own. This is the database the
-analyst keeps its own state in, never the server being assessed: the
-analyst works from the uploaded archive and holds no credentials for
-the assessed host.
+that URL names instead of the one in the compose file. This is the
+database the analyst keeps its own state in, never the server being
+assessed: the analyst works from the uploaded archive and holds no
+credentials for the assessed host.
 
-```bash
-docker run -d --name radar-analyst \
-    -p 127.0.0.1:8080:8080 \
-    -v radar-analyst-data:/data \
-    -e RADAR_ANALYST_STATE_DB_URL=postgresql://user:pw@dbhost:5432/radar_analyst \
-    ghcr.io/pgedge/radar-analyst
-```
-
-Archives still land in `/data/archives`, so the volume is still
-worth mounting. The repository's `docker-compose.yml` runs this
-arrangement with a PostgreSQL service alongside the analyst.
+The database must use the UTF8 encoding. Under SQL_ASCII, PostgreSQL
+hands text back as raw bytes and the analyst refuses to start rather
+than misreading its own rows.
 
 ## Environment variables
 
-The following table describes the settings the analyst reads from
-its environment. The README documents the full list.
+The following table describes the settings the analyst reads from its
+environment. The README documents the full list.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RADAR_ANALYST_DATA_DIR` | `/data` | the one directory holding archives, the database, and the admin token |
-| `RADAR_ANALYST_STATE_DB_URL` | _(unset)_ | use this PostgreSQL for the analyst's own state instead of the bundled server; never the assessed server |
+| `RADAR_ANALYST_STATE_DB_URL` | _(set by the compose file)_ | PostgreSQL for the analyst's own state; never the assessed server |
+| `RADAR_ANALYST_DATA_DIR` | `/data` in the image | holds uploaded archives and the admin token |
 | `RADAR_ANALYST_AI_PROVIDER` | `claude` | `claude`, `gemini`, `openai`, or `local` |
 | `RADAR_ANALYST_ADMIN_TOKEN` | _(generated)_ | bearer token required to delete an upload; generated into `/data/admin-token` when unset |
-| `RADAR_ANALYST_LISTEN` | `0.0.0.0:8080` in the image | listen address inside the container; what keeps the analyst local is the `127.0.0.1` prefix on the published port |
+| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | password for the bundled database service |
 | `ANTHROPIC_API_KEY` | _(unset)_ | required when the provider is `claude` |
 | `GOOGLE_API_KEY` | _(unset)_ | required when the provider is `gemini` |
 | `OPENAI_API_KEY` | _(unset)_ | required when the provider is `openai`, including for compatible servers that ignore the value |

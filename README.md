@@ -8,12 +8,11 @@
 
 Not for public distribution.
 
-The analyst ships as a single container image that carries its own
-PostgreSQL server, so an end user runs one `docker run` with one
-volume and needs nothing else installed. The same image runs against
-an external PostgreSQL instead: setting `RADAR_ANALYST_STATE_DB_URL`
-leaves the bundled server unstarted, which is what `docker-compose.yml`
-does.
+The deployment an end user gets is `docker compose up -d`: the
+analyst alongside a pgEdge PostgreSQL service, with the console
+published on loopback. `RADAR_ANALYST_STATE_DB_URL` points the
+analyst at any other PostgreSQL, which is how a package install will
+use the system server.
 
 For the engineering design (module layering, pipeline stages, adapter
 architecture, deferred work) see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -106,15 +105,11 @@ static "no issues" card.
 
 ## Quick start
 
-The bundled image is the default deployment, and the one
-[docs/index.md](docs/index.md) documents for end users:
+What [docs/index.md](docs/index.md) documents for end users:
 
 ```bash
-docker run -d --name radar-analyst \
-    -p 127.0.0.1:8080:8080 \
-    -v radar-analyst-data:/data \
-    -e ANTHROPIC_API_KEY=sk-ant-... \
-    ghcr.io/pgedge/radar-analyst
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env   # optional
+docker compose up -d
 ```
 
 Open [http://localhost:8080/](http://localhost:8080/) and drag a
@@ -122,73 +117,47 @@ Open [http://localhost:8080/](http://localhost:8080/) and drag a
 without it the findings and verdicts still come back, minus the
 briefs.
 
-To run the analyst against a separate PostgreSQL service instead:
+To build the analyst from this checkout instead of pulling it:
 
 ```bash
-echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.build.yml \
+    up -d --build
 ```
 
-To build the image from a checkout rather than pulling it:
+## Deployment
 
-```bash
-docker build -t radar-analyst .
-```
+`docker-compose.yml` is the deployment: the analyst plus
+`ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal`. The analyst image
+carries no database of its own, and the database service publishes no
+port, so it is reachable only over the compose network.
 
-## The bundled image
+Two details about the pgEdge image are worth knowing, because it is
+not a drop-in for upstream `postgres`:
 
-`RADAR_ANALYST_EMBEDDED_DB=1` is set in the image, which tells the
-entrypoint to run the PostgreSQL server that ships inside it. An
-explicit `RADAR_ANALYST_STATE_DB_URL` always wins, so the same
-artifact serves both deployments.
+- It leaves `listen_addresses` at the built-in `localhost`, so the
+  compose file passes `-c listen_addresses=*`. Without that the
+  server binds 127.0.0.1 inside its own container and the analyst
+  cannot reach it at all.
+- Its `initdb` defaults to the SQL_ASCII encoding, under which
+  psycopg returns every text column as raw `bytes`. The compose file
+  passes `POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C.UTF-8"`,
+  and `store.db.check_server_encoding` refuses to start against a
+  SQL_ASCII database rather than misreading its own rows.
 
-Everything the analyst keeps lives under `RADAR_ANALYST_DATA_DIR`
-(`/data` in the image, `./data` in a checkout), which makes one
-volume the whole of its state:
+Everything the analyst itself writes lives under
+`RADAR_ANALYST_DATA_DIR` (`/data` in the image, `./data` in a
+checkout): uploaded archives in `archives/`, and the admin token
+generated on first start beside them.
 
-| Path | Holds |
-|---|---|
-| `db/` | PGDATA of the bundled server |
-| `archives/` | uploaded radar archives |
-| `run/` | the server's unix socket |
-| `admin-token` | generated on first start, authorises deletes |
+`docker-entrypoint.sh` runs as root only long enough to make a
+freshly mounted volume writable, then execs the service under uid
+10001 via `setpriv`. PID 1 in a running container is the analyst
+itself, unprivileged.
 
-The bundled server runs with `listen_addresses=` and
-`unix_socket_permissions=0700`, so it has no TCP port at all and only
-the analyst's own uid can reach the socket. `initdb` runs with
-`--auth-host=reject`, so a stray `listen_addresses` could not turn
-into an open database either.
-
-PGDATA is bound to a PostgreSQL major version. If the volume was
-written by a different major than the image ships,
-`radar_analyst.embedded.check_major` refuses to start and names both
-versions rather than letting PostgreSQL fail on control-file
-mismatch.
-
-The entrypoint (`docker-entrypoint.sh`) runs as root only long enough
-to make a freshly mounted volume writable, then execs the service
-under uid 10001 via `setpriv`. PID 1 in a running container is the
-analyst itself, unprivileged; PostgreSQL inherits that.
-
-## Development setup
-
-Requires Python 3.11+, Node.js 20+, Docker.
-
-```bash
-# Backend: create a venv and install in editable mode
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-
-# Frontend
-cd web && npm install && npm run dev        # :4321
-# In another shell, run the backend:
-RADAR_ANALYST_STATE_DB_URL=postgresql://... \
-  python -m radar_analyst                   # :8080, archives in ./data
-```
-
-The Astro dev server proxies `/api/*` and `/readyz` to the backend on
-`:8080`, so same-origin assumptions hold.
+Startup tolerates a database that is still coming up: `create_pool`
+probes at a steady half-second interval for up to a minute rather
+than leaving it to psycopg-pool, whose own backoff doubles after
+each failure and can leave sixteen seconds with no attempt at all.
 
 ## Environment variables
 
@@ -201,12 +170,11 @@ assessed host.
 | Variable | Default | Purpose |
 |---|---|---|
 | `RADAR_ANALYST_LISTEN` | `127.0.0.1:8080` | listen address (`host:port`, or a bare port). Loopback by default; set `0.0.0.0:8080` to accept connections from other hosts. A malformed value stops startup rather than opening an unexpected port. |
-| `RADAR_ANALYST_STATE_DB_URL` | _(required unless the bundled server is enabled)_ | PostgreSQL URL for the analyst's own state; `sslmode=prefer`. Takes precedence over `RADAR_ANALYST_EMBEDDED_DB` |
-| `RADAR_ANALYST_EMBEDDED_DB` | _(unset; `1` in the image)_ | run the PostgreSQL server bundled in the image, and generate an admin token in the data directory |
-| `RADAR_ANALYST_DATA_DIR` | `data` (`/data` in the image) | the one directory holding `db/`, `archives/`, `run/`, and `admin-token` |
+| `RADAR_ANALYST_STATE_DB_URL` | _(required)_ | PostgreSQL URL for the analyst's own state; `sslmode=prefer`. Must be a UTF8 database |
+| `RADAR_ANALYST_DATA_DIR` | `data` (`/data` in the image) | holds `archives/` and `admin-token` |
 | `RADAR_ANALYST_BLOB_DIR` | `<data dir>/archives` | local-filesystem blob root; overrides the location derived from the data directory |
 | `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | upload size ceiling; real archives heavy with per-database time-series land at 100-150 MiB compressed |
-| `RADAR_ANALYST_ADMIN_TOKEN` | _(unset; generated in the image)_ | shared bearer token required for `DELETE /api/uploads/{id}`. The bundled image generates one into `<data dir>/admin-token` on first start; anywhere else an unset token means deletes return 503. There is no role separation: every authenticated caller is treated as admin. |
+| `RADAR_ANALYST_ADMIN_TOKEN` | _(generated)_ | shared bearer token required for `DELETE /api/uploads/{id}`. Generated into `<data dir>/admin-token` on first start; if that directory cannot be written, deletes return 503. There is no role separation: every authenticated caller is treated as admin. |
 | `RADAR_ANALYST_AI_PROVIDER` | `claude` | `claude` / `gemini` / `openai` / `local` / `mock` |
 | `ANTHROPIC_API_KEY` | _(unset)_ | Claude adapter |
 | `GOOGLE_API_KEY` / `GEMINI_API_KEY` | _(unset)_ | Gemini adapter |
@@ -288,13 +256,17 @@ local CI before committing:
 ./run-ci-local.sh
 ```
 
-Two e2e suites cover the two deployments, and `run-ci-local.sh` runs
-both. `test-radar-analyst.sh` drives the compose stack against a
-separate PostgreSQL service. `test-bundled-image.sh` runs the image
-on its own with no configuration, then restarts the container and
-checks that the archive, its assessment, and the generated admin
-token all survived, which is the property the single volume exists
-to provide.
+`test-radar-analyst.sh` is the e2e: it brings the compose stack up,
+uploads a generated radar archive, and checks the assessment. It then
+stops and restarts the stack and checks that the archive bytes, the
+assessment, and the generated admin token all survived, which is the
+property the volumes exist to provide.
+
+`run-ci-local.sh` runs ten steps: flake8, ruff, mypy, pyright,
+pytest, npm ci, the Astro build, the wheel build, the Docker build,
+and that e2e. flake8 and ruff both lint, and mypy and pyright both
+type-check; each pair catches things the other does not, and all four
+must be clean.
 
 The radar-format validation suite
 (`tests/test_real_radar_zip.py`) runs against an archive generated
@@ -325,7 +297,8 @@ The following table describes every endpoint the service exposes:
 
 See [CLAUDE.md](CLAUDE.md). In summary: TDD is a hard requirement,
 code is linted with `flake8 --ignore F722,W503
---max-line-length=79 --max-complexity=8`,
+--max-line-length=79 --max-complexity=8` and with ruff,
+type-checked by both mypy and pyright in strict mode,
 tests live in `src/radar_analyst/tests/`, all
 DB tables live in the `radar` schema, and commits are short and
 imperative with no AI attribution.
