@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # So a run can be started by hand. A push event lost to a GitHub
+  # incident is not recreated, and without this the only way to
+  # re-run CI is an empty commit.
+  workflow_dispatch:
 
 jobs:
   ci:
