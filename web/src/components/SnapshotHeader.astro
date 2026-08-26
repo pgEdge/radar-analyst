@@ -14,20 +14,13 @@
   (function () {
     var body = document.getElementById('pg-snapshot-body');
     if (!body) return;
-    var id = new URLSearchParams(window.location.search).get(
-      'id',
-    );
+    var id = new URLSearchParams(window.location.search).get('id');
     if (!id) return;
 
     function esc(s) {
-      return String(s == null ? '' : s).replace(
-        /[&<>]/g,
-        function (c) {
-          return (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
-          );
-        },
-      );
+      return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c;
+      });
     }
 
     function row(label, valueHtml) {
@@ -47,19 +40,15 @@
       fetch('/api/uploads/' + id).then(function (r) {
         return r.ok ? r.json() : Promise.reject(r.status);
       }),
-      fetch('/api/uploads/' + id + '/snapshot').then(
-        function (r) {
-          return r.ok ? r.json() : null;
-        },
-      ),
+      fetch('/api/uploads/' + id + '/snapshot').then(function (r) {
+        return r.ok ? r.json() : null;
+      }),
     ])
       .then(function (data) {
         var u = data[0];
         var s = data[1] || {};
         var filenameHost = null;
-        var m = /^radar-(.+?)-\d{8}-\d{6}\.zip$/.exec(
-          u.filename || '',
-        );
+        var m = /^radar-(.+?)-\d{8}-\d{6}\.zip$/.exec(u.filename || '');
         if (m) filenameHost = m[1];
         var hostname =
           s.hostname ||
@@ -67,17 +56,13 @@
           filenameHost ||
           u.filename ||
           'host';
-        var uploadedAt = new Date(
-          u.created_at,
-        ).toLocaleString();
+        var uploadedAt = new Date(u.created_at).toLocaleString();
 
         var osParts = [];
         if (s.os) osParts.push(esc(s.os));
         if (s.kernel)
           osParts.push(
-            'kernel <span class="pg-mono">' +
-              esc(s.kernel) +
-              '</span>',
+            'kernel <span class="pg-mono">' + esc(s.kernel) + '</span>',
           );
         var osLine = osParts.length
           ? osParts.join(' · ')
@@ -86,12 +71,9 @@
         var hwParts = [];
         if (s.cpu_count)
           hwParts.push(
-            esc(s.cpu_count) +
-              ' vCPU' +
-              (s.cpu_count === 1 ? '' : 's'),
+            esc(s.cpu_count) + ' vCPU' + (s.cpu_count === 1 ? '' : 's'),
           );
-        if (s.total_ram)
-          hwParts.push(esc(s.total_ram) + ' RAM');
+        if (s.total_ram) hwParts.push(esc(s.total_ram) + ' RAM');
         if (s.cpu_model)
           hwParts.push(
             '<span class="pg-text-muted">' +
@@ -120,8 +102,7 @@
               esc(runtimeLabel) +
               '</span>',
           );
-        else
-          runtimeParts.push(esc(runtimeLabel));
+        else runtimeParts.push(esc(runtimeLabel));
         if (s.k8s_namespace)
           runtimeParts.push(
             'k8s namespace <span class="pg-mono">' +
@@ -147,8 +128,7 @@
           : '';
         var pgParts = [];
         if (pgShort) pgParts.push(esc(pgShort));
-        if (s.pg_started)
-          pgParts.push('started ' + esc(s.pg_started));
+        if (s.pg_started) pgParts.push('started ' + esc(s.pg_started));
         var pgLine = pgParts.length
           ? pgParts.join(' · ')
           : '<span class="pg-text-muted">(not parsed)</span>';
@@ -159,9 +139,7 @@
         var radarLine;
         if (s.radar_version) {
           radarLine =
-            '<span class="pg-mono">' +
-            esc(s.radar_version) +
-            '</span>';
+            '<span class="pg-mono">' + esc(s.radar_version) + '</span>';
           if (s.radar_commit) {
             radarLine +=
               ' <span class="pg-text-muted">(' +
@@ -202,7 +180,9 @@
 </script>
 
 <style is:global>
-  .pg-snapshot { padding: 1.25rem 1.5rem; }
+  .pg-snapshot {
+    padding: 1.25rem 1.5rem;
+  }
   .pg-snapshot__head {
     display: flex;
     align-items: baseline;
@@ -219,9 +199,15 @@
     font-weight: 600;
     color: var(--pg-text);
   }
-  .pg-snapshot__subtitle { font-size: 0.9rem; }
+  .pg-snapshot__subtitle {
+    font-size: 0.9rem;
+  }
 
-  .pg-kv { margin: 0; display: grid; gap: 0; }
+  .pg-kv {
+    margin: 0;
+    display: grid;
+    gap: 0;
+  }
   .pg-kv__row {
     display: grid;
     grid-template-columns: minmax(8rem, 10rem) 1fr;
@@ -230,7 +216,9 @@
     padding: 0.5rem 0;
     border-bottom: 1px solid var(--pg-divider);
   }
-  .pg-kv__row:last-child { border-bottom: 0; }
+  .pg-kv__row:last-child {
+    border-bottom: 0;
+  }
   .pg-kv__label {
     margin: 0;
     font-size: 0.8rem;

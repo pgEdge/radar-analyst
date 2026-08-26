@@ -23,6 +23,10 @@ dependencies = [
     "openai>=3.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/pgEdge/radar-analyst"
+Documentation = "https://github.com/pgEdge/radar-analyst/blob/main/docs/index.md"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",
@@ -32,6 +36,8 @@ dev = [
     "respx>=0.21",
     "ruff>=0.16",
     "pyright>=1.1.400",
+    "pytest-cov>=6.0",
+    "interrogate>=1.7",
     "testcontainers[postgres]>=4.8",
     "build>=1.2",
 ]
@@ -116,6 +122,26 @@ reportPrivateUsage = false
 # without objecting.
 reportArgumentType = false
 reportCallIssue = false
+
+# Coverage measures the production package only: including the test
+# modules would count them against themselves and inflate the
+# number past anything meaningful.
+[tool.coverage.run]
+source = ["radar_analyst"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+# The suite currently covers 90% of the package. 85 leaves room to
+# move without letting coverage quietly fall away.
+fail_under = 85
+
+# Docstring coverage. Test names and their bodies carry the intent,
+# so the suite is excluded here for the same reason ruff's D103 is.
+[tool.interrogate]
+exclude = ["src/radar_analyst/tests"]
+fail-under = 80
+ignore-init-module = true
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

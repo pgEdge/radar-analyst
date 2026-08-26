@@ -30,6 +30,17 @@ DEFAULT_WAIT_SECONDS = 60.0
 _PROBE_INTERVAL = 0.5
 _PROBE_CONNECT_TIMEOUT = 5
 
+# The analyst serves one user at a time, so a large pool would hold
+# connections open for nothing. psycopg-pool's own default minimum
+# is four.
+_MIN_SIZE = 1
+_MAX_SIZE = 5
+# Recycle an idle connection after five minutes and any connection
+# after an hour, so a long-running instance does not accumulate
+# connections the server has since forgotten about.
+_MAX_IDLE = 300.0
+_MAX_LIFETIME = 3600.0
+
 _BOOTSTRAP_SQL = """
 CREATE SCHEMA IF NOT EXISTS radar;
 CREATE TABLE IF NOT EXISTS radar.schema_migrations (
@@ -129,17 +140,38 @@ async def check_encoding(pool: AsyncConnectionPool) -> None:
     )
 
 
+def pool_settings(
+    *, min_size: int = _MIN_SIZE, max_size: int = _MAX_SIZE
+) -> dict[str, Any]:
+    """Return the pool arguments, spelled out rather than defaulted.
+
+    ``check`` is the one that matters in practice: without it the
+    pool hands out a connection the server closed during a restart,
+    and the caller sees that error instead of the pool replacing the
+    connection underneath it.
+    """
+    return {
+        "min_size": min_size,
+        "max_size": max_size,
+        "max_idle": _MAX_IDLE,
+        "max_lifetime": _MAX_LIFETIME,
+        "check": AsyncConnectionPool.check_connection,
+    }
+
+
 async def create_pool(
     dsn: str,
     *,
-    min_size: int = 1,
-    max_size: int = 5,
+    min_size: int = _MIN_SIZE,
+    max_size: int = _MAX_SIZE,
     wait_seconds: float = DEFAULT_WAIT_SECONDS,
 ) -> AsyncConnectionPool:
     """Create and open an async connection pool against *dsn*."""
     await wait_for_server(dsn, timeout=wait_seconds)
     pool: AsyncConnectionPool = AsyncConnectionPool(
-        dsn, min_size=min_size, max_size=max_size, open=False
+        dsn,
+        open=False,
+        **pool_settings(min_size=min_size, max_size=max_size),
     )
     await pool.open()
     await pool.wait()

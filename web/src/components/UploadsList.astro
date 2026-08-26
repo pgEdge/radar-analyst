@@ -29,8 +29,7 @@
 
     function kb(n) {
       if (n < 1024) return n + ' B';
-      if (n < 1024 * 1024)
-        return Math.round(n / 1024) + ' KB';
+      if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
       return (n / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
@@ -62,16 +61,27 @@
             var host = u.hostname || '-';
             return (
               '<tr>' +
-              '<td>' + fmt(u.created_at) + '</td>' +
-              '<td class="pg-mono pg-col-hostname">' + host + '</td>' +
-              '<td class="pg-uploads-list__filename">' +
-              u.filename + '</td>' +
-              '<td class="pg-col-size">' + kb(u.size_bytes) + '</td>' +
               '<td>' +
-              '<a href="/upload?id=' + u.id + '">' +
+              fmt(u.created_at) +
+              '</td>' +
+              '<td class="pg-mono pg-col-hostname">' +
+              host +
+              '</td>' +
+              '<td class="pg-uploads-list__filename">' +
+              u.filename +
+              '</td>' +
+              '<td class="pg-col-size">' +
+              kb(u.size_bytes) +
+              '</td>' +
+              '<td>' +
+              '<a href="/upload?id=' +
+              u.id +
+              '">' +
               'Open➡️</a> ' +
               '<button class="pg-btn-delete" ' +
-              'data-upload-id="' + u.id + '" ' +
+              'data-upload-id="' +
+              u.id +
+              '" ' +
               'title="Delete upload" ' +
               'aria-label="Delete upload">❌</button>' +
               '</td>' +
@@ -91,7 +101,7 @@
           var t = !force && sessionStorage.getItem(TOKEN_KEY);
           if (t) return t;
           var entered = window.prompt(
-            'Admin token (RADAR_ANALYST_ADMIN_TOKEN):'
+            'Admin token (RADAR_ANALYST_ADMIN_TOKEN):',
           );
           if (entered) sessionStorage.setItem(TOKEN_KEY, entered);
           return entered;
@@ -110,43 +120,48 @@
           fetch('/api/uploads/' + uid, {
             method: 'DELETE',
             headers: { Authorization: 'Bearer ' + token },
-          }).then(function (r) {
-            if (r.ok) {
-              var row = btn.closest('tr');
-              if (row) row.remove();
-              return;
-            }
-            if (r.status === 401) {
-              sessionStorage.removeItem(TOKEN_KEY);
-              alert('Auth failed - token cleared, try again.');
-            } else if (r.status === 503) {
-              alert(
-                'Server admin auth not configured ' +
-                '(RADAR_ANALYST_ADMIN_TOKEN unset).'
-              );
-            } else {
-              alert('Delete failed: HTTP ' + r.status);
-            }
-            btn.disabled = false;
-            btn.textContent = '\u274C';
-          }).catch(function () {
-            alert('Delete failed');
-            btn.disabled = false;
-            btn.textContent = '\u274C';
-          });
+          })
+            .then(function (r) {
+              if (r.ok) {
+                var row = btn.closest('tr');
+                if (row) row.remove();
+                return;
+              }
+              if (r.status === 401) {
+                sessionStorage.removeItem(TOKEN_KEY);
+                alert('Auth failed - token cleared, try again.');
+              } else if (r.status === 503) {
+                alert(
+                  'Server admin auth not configured ' +
+                    '(RADAR_ANALYST_ADMIN_TOKEN unset).',
+                );
+              } else {
+                alert('Delete failed: HTTP ' + r.status);
+              }
+              btn.disabled = false;
+              btn.textContent = '\u274C';
+            })
+            .catch(function () {
+              alert('Delete failed');
+              btn.disabled = false;
+              btn.textContent = '\u274C';
+            });
         });
       })
       .catch(function (e) {
         tbody.innerHTML =
           '<tr><td colspan="5" class="pg-text-muted">' +
-          'Failed to load: ' + String(e.message || e) +
+          'Failed to load: ' +
+          String(e.message || e) +
           '</td></tr>';
       });
   })();
 </script>
 
 <style>
-  .pg-uploads-list { padding: 1.5rem; }
+  .pg-uploads-list {
+    padding: 1.5rem;
+  }
   .pg-uploads-list__title {
     margin-top: 0;
     font-size: 1.25rem;
@@ -155,7 +170,9 @@
   /* Belt-and-braces: if a row ever exceeds the card width despite
    * the wrap rules below, scroll inside the card instead of pushing
    * the whole page off-viewport. */
-  .pg-uploads-list__scroller { overflow-x: auto; }
+  .pg-uploads-list__scroller {
+    overflow-x: auto;
+  }
   .pg-uploads-list__table {
     width: 100%;
     border-collapse: collapse;
@@ -188,12 +205,20 @@
    * Size columns so the timestamp + filename + actions fit
    * without horizontal scroll. */
   @media (max-width: 600px) {
-    .pg-uploads-list { padding: 1rem; }
-    .pg-uploads-list__table { font-size: 0.9rem; }
+    .pg-uploads-list {
+      padding: 1rem;
+    }
+    .pg-uploads-list__table {
+      font-size: 0.9rem;
+    }
     .pg-uploads-list__table th,
-    .pg-uploads-list__table td { padding: 0.5rem 0.375rem; }
+    .pg-uploads-list__table td {
+      padding: 0.5rem 0.375rem;
+    }
     :global(.pg-col-hostname),
-    :global(.pg-col-size) { display: none; }
+    :global(.pg-col-size) {
+      display: none;
+    }
   }
   /* Delete button: a bare ❌ emoji. The colour comes from the
    * emoji glyph itself; no border / background: just a click

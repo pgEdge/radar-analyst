@@ -33,9 +33,7 @@ import Base from '../layouts/Base.astro';
 
     function esc(s) {
       return String(s || '').replace(/[&<>]/g, function (c) {
-        return (
-          { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
-        );
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c;
       });
     }
 
@@ -47,9 +45,7 @@ import Base from '../layouts/Base.astro';
       listEl.appendChild(li);
     }
 
-    var source = new EventSource(
-      '/api/jobs/' + jobId + '/events',
-    );
+    var source = new EventSource('/api/jobs/' + jobId + '/events');
     source.addEventListener('message', function (e) {
       try {
         var event = JSON.parse(e.data);
@@ -69,15 +65,11 @@ import Base from '../layouts/Base.astro';
         } else if (event.type === 'done') {
           phaseEl.textContent = 'Assessment complete.';
           source.close();
-          window.location.href =
-            '/upload?id=' + uploadId;
+          window.location.href = '/upload?id=' + uploadId;
         } else if (event.type === 'error') {
           phaseEl.textContent =
             'Failed: ' + esc(event.message || 'unknown error');
-          append(
-            'error: ' + (event.message || ''),
-            'critical',
-          );
+          append('error: ' + (event.message || ''), 'critical');
           source.close();
         }
       } catch (_) {
@@ -92,10 +84,20 @@ import Base from '../layouts/Base.astro';
 </script>
 
 <style>
-  .pg-live { display: grid; gap: 1rem; }
-  .pg-live__crumb { font-size: 0.95rem; }
-  .pg-live__card { padding: 1.5rem; }
-  .pg-live__title { margin-top: 0; font-size: 1.25rem; }
+  .pg-live {
+    display: grid;
+    gap: 1rem;
+  }
+  .pg-live__crumb {
+    font-size: 0.95rem;
+  }
+  .pg-live__card {
+    padding: 1.5rem;
+  }
+  .pg-live__title {
+    margin-top: 0;
+    font-size: 1.25rem;
+  }
   .pg-live__phase {
     font-size: 1.1rem;
     padding: 0.75rem 1rem;
@@ -112,9 +114,20 @@ import Base from '../layouts/Base.astro';
     font-family: var(--pg-font-mono);
     font-size: 0.9rem;
   }
-  .pg-live__event { padding: 0.25rem 0.5rem; border-radius: 4px; }
-  .pg-live__event--healthy { color: var(--pg-status-healthy-fg); }
-  .pg-live__event--warning { color: var(--pg-status-warning-fg); }
-  .pg-live__event--critical { color: var(--pg-status-critical-fg); }
-  .pg-live__event--neutral { color: var(--pg-text-muted); }
+  .pg-live__event {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+  .pg-live__event--healthy {
+    color: var(--pg-status-healthy-fg);
+  }
+  .pg-live__event--warning {
+    color: var(--pg-status-warning-fg);
+  }
+  .pg-live__event--critical {
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-live__event--neutral {
+    color: var(--pg-text-muted);
+  }
 </style>

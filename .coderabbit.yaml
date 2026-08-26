@@ -1,0 +1,33 @@
+language: "en-US"
+
+reviews:
+  auto_review:
+    enabled: true
+    incremental: true
+  drafts: false
+  high_level_summary: false
+  poem: false
+  sequence_diagrams: false
+  related_issues: false
+  related_prs: false
+
+chat:
+  auto_reply: true
+
+tools:
+  gitleaks:
+    enabled: true
+  yamllint:
+    enabled: true
+  markdownlint:
+    enabled: true
+  ruff:
+    enabled: true
+  eslint:
+    enabled: true
+  hadolint:
+    enabled: true
+  semgrep:
+    enabled: true
+  checkov:
+    enabled: true

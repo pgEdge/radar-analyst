@@ -9,10 +9,10 @@ import UploadsList from '../components/UploadsList.astro';
     <section class="pg-home__hero">
       <h1>PostgreSQL health assessments from radar archives</h1>
       <p class="pg-text-muted">
-        Upload a <code class="pg-mono">radar-*.zip</code> collected
-        from a PostgreSQL host. The analyst reads the archive, checks
-        it against deterministic rules, and returns an assessment: a
-        verdict and a brief for every category.
+        Upload a <code class="pg-mono">radar-*.zip</code> collected from a
+        PostgreSQL host. The analyst reads the archive, checks it against
+        deterministic rules, and returns an assessment: a verdict and a brief
+        for every category.
       </p>
     </section>
 
@@ -27,8 +27,13 @@ import UploadsList from '../components/UploadsList.astro';
   .pg-home__hero {
     margin-bottom: 2rem;
   }
-  .pg-home__hero h1 { margin-bottom: 0.5rem; }
-  .pg-home__hero p { margin: 0; max-width: 60ch; }
+  .pg-home__hero h1 {
+    margin-bottom: 0.5rem;
+  }
+  .pg-home__hero p {
+    margin: 0;
+    max-width: 60ch;
+  }
 
   .pg-home__grid {
     display: grid;

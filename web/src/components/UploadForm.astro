@@ -6,10 +6,9 @@
 <section class="pg-card pg-upload">
   <h2 class="pg-upload__title">Upload a radar archive</h2>
   <p class="pg-text-muted pg-upload__hint">
-    Drag a <code class="pg-mono">radar-*.zip</code> here, or click
-    to pick one. The analyst reads the archive, checks it against
-    deterministic rules, and returns a verdict and a brief for every
-    category.
+    Drag a <code class="pg-mono">radar-*.zip</code> here, or click to pick
+    one. The analyst reads the archive, checks it against deterministic rules,
+    and returns a verdict and a brief for every category.
   </p>
 
   <form id="pg-upload-form" class="pg-upload__form">
@@ -46,8 +45,7 @@
     var label = document.getElementById('pg-upload-label');
     var submit = document.getElementById('pg-upload-submit');
     var err = document.getElementById('pg-upload-error');
-    if (!form || !input || !drop || !label || !submit || !err)
-      return;
+    if (!form || !input || !drop || !label || !submit || !err) return;
 
     function setFile(file) {
       if (!file) {
@@ -55,7 +53,8 @@
         submit.disabled = true;
         return;
       }
-      label.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      label.textContent =
+        file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
       submit.disabled = false;
     }
 
@@ -100,8 +99,7 @@
         }
         var body = await resp.json();
         window.location.href =
-          '/live?upload=' + body.upload_id +
-          '&job=' + body.job_id;
+          '/live?upload=' + body.upload_id + '&job=' + body.job_id;
       } catch (e) {
         err.textContent = String(e.message || e);
         submit.disabled = false;
@@ -111,14 +109,21 @@
 </script>
 
 <style>
-  .pg-upload { padding: 1.5rem; }
+  .pg-upload {
+    padding: 1.5rem;
+  }
   .pg-upload__title {
     margin-top: 0;
     font-size: 1.375rem;
     font-weight: 600;
   }
-  .pg-upload__hint { margin: 0 0 1.25rem 0; }
-  .pg-upload__form { display: grid; gap: 1rem; }
+  .pg-upload__hint {
+    margin: 0 0 1.25rem 0;
+  }
+  .pg-upload__form {
+    display: grid;
+    gap: 1rem;
+  }
 
   .pg-upload__drop {
     display: block;
@@ -129,12 +134,18 @@
     cursor: pointer;
     color: var(--pg-text-muted);
     background: transparent;
-    transition: border-color 150ms ease, background-color 150ms ease;
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease;
     word-break: break-word;
   }
   @media (max-width: 600px) {
-    .pg-upload { padding: 1rem; }
-    .pg-upload__drop { padding: 1.5rem 0.75rem; }
+    .pg-upload {
+      padding: 1rem;
+    }
+    .pg-upload__drop {
+      padding: 1.5rem 0.75rem;
+    }
   }
   .pg-upload__drop:hover,
   .pg-upload__drop.is-dragover {

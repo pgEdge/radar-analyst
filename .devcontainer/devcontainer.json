@@ -1,0 +1,22 @@
+{
+  "name": "radar-analyst",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13-trixie",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "python -m venv .venv && .venv/bin/pip install --upgrade pip build && .venv/bin/pip install -e '.[dev]' && cd web && npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.flake8",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "astro-build.astro-vscode"
+      ]
+    }
+  },
+  "forwardPorts": [8080, 4321],
+  "remoteUser": "vscode"
+}

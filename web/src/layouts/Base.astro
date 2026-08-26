@@ -12,16 +12,17 @@ const { title = 'pgEdge Radar Analyst' } = Astro.props;
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/pgedge-favicon.ico" sizes="any" />
     <title>{title}</title>
     <script is:inline>
       (function () {
         var STATES = ['system', 'light', 'dark'];
-        var mq = window.matchMedia(
-          '(prefers-color-scheme: dark)',
-        );
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
 
         function stored() {
           var s = localStorage.getItem('theme-mode');
@@ -49,8 +50,7 @@ const { title = 'pgEdge Radar Analyst' } = Astro.props;
         function cycle() {
           var next =
             STATES[(STATES.indexOf(stored()) + 1) % STATES.length];
-          if (next === 'system')
-            localStorage.removeItem('theme-mode');
+          if (next === 'system') localStorage.removeItem('theme-mode');
           else localStorage.setItem('theme-mode', next);
           apply();
         }

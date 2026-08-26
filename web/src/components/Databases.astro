@@ -13,20 +13,13 @@
   (function () {
     var container = document.getElementById('pg-databases');
     if (!container) return;
-    var id = new URLSearchParams(window.location.search).get(
-      'id',
-    );
+    var id = new URLSearchParams(window.location.search).get('id');
     if (!id) return;
 
     function esc(s) {
-      return String(s == null ? '' : s).replace(
-        /[&<>]/g,
-        function (c) {
-          return (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
-          );
-        },
-      );
+      return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c;
+      });
     }
 
     function chip(tag) {
@@ -40,11 +33,7 @@
               ? 'warning'
               : 'unknown';
       return (
-        '<span class="pg-chip pg-chip--' +
-        cls +
-        '">' +
-        t +
-        '</span>'
+        '<span class="pg-chip pg-chip--' + cls + '">' + t + '</span>'
       );
     }
 
@@ -54,7 +43,7 @@
       if (n == null) return '-';
       try {
         return Number(n).toLocaleString('en-US');
-      } catch (e) {
+      } catch (_) {
         return String(n);
       }
     }
@@ -71,9 +60,7 @@
       parts.push(num(d.table_count) + ' tables');
       parts.push(num(d.index_count) + ' indexes');
       if (d.partitioned_tables_count != null) {
-        parts.push(
-          num(d.partitioned_tables_count) + ' partitioned',
-        );
+        parts.push(num(d.partitioned_tables_count) + ' partitioned');
       }
       if (d.partitions_count != null) {
         parts.push(num(d.partitions_count) + ' partitions');
@@ -95,10 +82,7 @@
 
     function replicationLine(d) {
       // Only render when at least one of pubs/subs is present.
-      if (
-        d.publication_count == null &&
-        d.subscription_count == null
-      ) {
+      if (d.publication_count == null && d.subscription_count == null) {
         return '';
       }
       var parts = [];
@@ -119,10 +103,7 @@
     function inlineFormat(s) {
       return s
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(
-          /`([^`]+)`/g,
-          '<code class="pg-mono">$1</code>',
-        );
+        .replace(/`([^`]+)`/g, '<code class="pg-mono">$1</code>');
     }
 
     function renderBlock(block) {
@@ -156,14 +137,15 @@
       if (!md) return '';
       // Strip the leading status tag line before rendering.
       var body = md.replace(VERDICT_RE, '');
-      return body.split(/\n{2,}/).map(renderBlock).join('');
+      return body
+        .split(/\n{2,}/)
+        .map(renderBlock)
+        .join('');
     }
 
     function activityLine(d) {
       var cacheHit =
-        d.cache_hit_ratio != null
-          ? pct(d.cache_hit_ratio, 1)
-          : '-';
+        d.cache_hit_ratio != null ? pct(d.cache_hit_ratio, 1) : '-';
       var parts = [];
       parts.push(
         (d.active_sessions || 0) +
@@ -227,8 +209,7 @@
               : '';
             // Use brief_verdict (LLM + severity floor) if
             // present; otherwise fall back to the rule-only severity.
-            var displayVerdict =
-              d.brief_verdict || d.severity;
+            var displayVerdict = d.brief_verdict || d.severity;
             var exts = (d.extensions || []).join(', ') || '-';
             return (
               '<details class="pg-category">' +

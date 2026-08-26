@@ -12,16 +12,12 @@
   (function () {
     var container = document.getElementById('pg-categories');
     if (!container) return;
-    var id = new URLSearchParams(window.location.search).get(
-      'id',
-    );
+    var id = new URLSearchParams(window.location.search).get('id');
     if (!id) return;
 
     function esc(s) {
       return String(s || '').replace(/[&<>]/g, function (c) {
-        return (
-          { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c
-        );
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c;
       });
     }
 
@@ -31,10 +27,7 @@
     function inlineFormat(s) {
       return s
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(
-          /`([^`]+)`/g,
-          '<code class="pg-mono">$1</code>',
-        );
+        .replace(/`([^`]+)`/g, '<code class="pg-mono">$1</code>');
     }
 
     function renderBlock(block) {
@@ -58,16 +51,17 @@
         );
       }
       return (
-        '<p>' +
-        inlineFormat(block).replace(/\n/g, '<br/>') +
-        '</p>'
+        '<p>' + inlineFormat(block).replace(/\n/g, '<br/>') + '</p>'
       );
     }
 
     function renderMarkdown(md) {
       if (!md) return '';
       var body = esc(md.replace(VERDICT_RE, ''));
-      return body.split(/\n{2,}/).map(renderBlock).join('');
+      return body
+        .split(/\n{2,}/)
+        .map(renderBlock)
+        .join('');
     }
 
     function chip(tag) {
@@ -89,11 +83,7 @@
               ? 'warning'
               : 'unknown';
       return (
-        '<span class="pg-chip pg-chip--' +
-        cls +
-        '">' +
-        t +
-        '</span>'
+        '<span class="pg-chip pg-chip--' + cls + '">' + t + '</span>'
       );
     }
 
@@ -135,9 +125,7 @@
         }
         container.innerHTML = items
           .map(function (a) {
-            var tag = (
-              a.verdict || 'UNKNOWN'
-            ).toUpperCase();
+            var tag = (a.verdict || 'UNKNOWN').toUpperCase();
             var tokens =
               a.prompt_tokens != null
                 ? '<span class="pg-text-muted pg-mono">' +
@@ -154,10 +142,7 @@
                     '<li><a class="pg-mono" href="/api/uploads/' +
                     encodeURIComponent(id) +
                     '/files/' +
-                    p
-                      .split('/')
-                      .map(encodeURIComponent)
-                      .join('/') +
+                    p.split('/').map(encodeURIComponent).join('/') +
                     '" download>' +
                     esc(p) +
                     '</a></li>'
@@ -228,7 +213,9 @@
   .pg-category {
     border-bottom: 1px solid var(--pg-divider);
   }
-  .pg-category:last-child { border-bottom: 0; }
+  .pg-category:last-child {
+    border-bottom: 0;
+  }
   .pg-category[open] {
     background: var(--pg-bg-canvas);
   }
@@ -270,10 +257,14 @@
     color: var(--pg-text-muted);
     font-size: 14px;
     line-height: 1;
-    transition: color 150ms ease, border-color 150ms ease,
+    transition:
+      color 150ms ease,
+      border-color 150ms ease,
       background 150ms ease;
   }
-  .pg-category__toggle::before { content: '+'; }
+  .pg-category__toggle::before {
+    content: '+';
+  }
   .pg-category[open] .pg-category__toggle {
     border-color: var(--pg-primary);
     color: var(--pg-primary);
@@ -293,14 +284,22 @@
     color: var(--pg-text);
     font-size: 0.95rem;
   }
-  .pg-category__body p { margin: 0.5rem 0; }
-  .pg-category__body p:first-child { margin-top: 0; }
-  .pg-category__body p:last-child { margin-bottom: 0; }
+  .pg-category__body p {
+    margin: 0.5rem 0;
+  }
+  .pg-category__body p:first-child {
+    margin-top: 0;
+  }
+  .pg-category__body p:last-child {
+    margin-bottom: 0;
+  }
   .pg-category__body ul {
     margin: 0.5rem 0;
     padding-left: 1.25rem;
   }
-  .pg-category__body li { margin: 0.25rem 0; }
+  .pg-category__body li {
+    margin: 0.25rem 0;
+  }
   .pg-category__body code {
     background: var(--pg-input-border);
     padding: 1px 5px;
@@ -308,8 +307,7 @@
     font-size: 0.9em;
   }
   .pg-category__meta {
-    padding: 0.5rem 1rem 0.75rem
-      calc(1rem + 18px + 0.75rem);
+    padding: 0.5rem 1rem 0.75rem calc(1rem + 18px + 0.75rem);
     display: flex;
     gap: 1.5rem;
     font-size: 0.8rem;

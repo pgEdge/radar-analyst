@@ -25,11 +25,7 @@ export interface Snapshot {
   [key: string]: unknown;
 }
 
-export type Verdict =
-  | 'HEALTHY'
-  | 'WARNING'
-  | 'CRITICAL'
-  | 'UNKNOWN';
+export type Verdict = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'UNKNOWN';
 
 export interface Brief {
   id: string;
@@ -52,12 +48,7 @@ export interface JobState {
   id: string;
   upload_id: string;
   state:
-    | 'queued'
-    | 'parsing'
-    | 'ruling'
-    | 'analyzing'
-    | 'done'
-    | 'failed';
+    'queued' | 'parsing' | 'ruling' | 'analyzing' | 'done' | 'failed';
   phase: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -95,9 +86,7 @@ export const api = {
     limit = 50,
     offset = 0,
   ): Promise<{ items: UploadSummary[] }> {
-    return getJson(
-      `/api/uploads?limit=${limit}&offset=${offset}`,
-    );
+    return getJson(`/api/uploads?limit=${limit}&offset=${offset}`);
   },
 
   getUpload(id: string): Promise<UploadSummary> {
@@ -130,9 +119,7 @@ export const api = {
       body: fd,
     });
     if (!resp.ok) {
-      throw new Error(
-        `POST /api/uploads returned ${resp.status}`,
-      );
+      throw new Error(`POST /api/uploads returned ${resp.status}`);
     }
     return (await resp.json()) as {
       upload_id: string;
