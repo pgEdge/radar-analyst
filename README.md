@@ -253,9 +253,19 @@ per-request flag to set.
 Run the unit and integration suites during development, and the full
 local CI before committing:
 
+The tests run against the same pgEdge PostgreSQL image the
+deployment uses, never upstream `postgres`. `RADAR_ANALYST_PG_MAJOR`
+picks the version and defaults to 18; CI runs all three.
+
 ```bash
-# unit + integration (uses testcontainers-python for real Postgres)
+# unit + integration (real PostgreSQL via testcontainers)
 .venv/bin/pytest -v -m 'not e2e'
+
+# the database tests on PostgreSQL 16, 17, and 18
+make matrix
+
+# one specific version
+RADAR_ANALYST_PG_MAJOR=16 ./run-ci-local.sh
 
 # full local CI (lint, type, unit, Astro build, Docker, both e2e suites)
 ./run-ci-local.sh
@@ -267,7 +277,7 @@ stops and restarts the stack and checks that the archive bytes, the
 assessment, and the generated admin token all survived, which is the
 property the volumes exist to provide.
 
-`run-ci-local.sh` runs ten steps: flake8, ruff, mypy, pyright,
+`run-ci-local.sh` runs eleven steps: flake8, ruff, mypy, pyright,
 pytest, npm ci, the Astro build, the wheel build, the Docker build,
 and that e2e. flake8 and ruff both lint, and mypy and pyright both
 type-check; each pair catches things the other does not, and all four

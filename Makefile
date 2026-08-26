@@ -7,7 +7,7 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci docs notice clean
+.PHONY: help venv build test unit e2e lint typecheck ci matrix docs notice clean
 
 help:
 	@echo "make venv       create .venv and install dev dependencies"
@@ -17,6 +17,7 @@ help:
 	@echo "make lint       flake8 and ruff"
 	@echo "make typecheck  mypy and pyright, both strict"
 	@echo "make ci         everything, the way CI runs it"
+	@echo "make matrix     the database tests on PostgreSQL 16, 17, and 18"
 	@echo "make docs       build the documentation site"
 	@echo "make notice     regenerate NOTICE.txt from the dependencies"
 	@echo "make clean      remove build output and caches"
@@ -54,6 +55,16 @@ typecheck: $(VENV)
 
 ci:
 	./run-ci-local.sh
+
+# What CI iterates over. Locally this is opt-in: a single version
+# is enough while writing code, and all three before a PR.
+matrix: $(VENV)
+	@for v in 16 17 18; do \
+		echo "=== PostgreSQL $$v ==="; \
+		RADAR_ANALYST_PG_MAJOR=$$v $(PYTEST) -q -m 'not e2e' || exit 1; \
+		RADAR_ANALYST_PG_MAJOR=$$v ./test-radar-analyst.sh || exit 1; \
+	done
+	@echo "matrix passed on 16, 17, and 18"
 
 docs: $(VENV)
 	$(PIP) install -q mkdocs-material

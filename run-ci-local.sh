@@ -16,6 +16,10 @@ cd "$SCRIPT_DIR"
 
 LOGFILE="ci-$(date +%Y%m%d-%H%M%S).log"
 
+# Which PostgreSQL the database-backed tests run against.
+# CI iterates 16, 17, and 18; a local run uses one.
+export RADAR_ANALYST_PG_MAJOR="${RADAR_ANALYST_PG_MAJOR:-18}"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -25,6 +29,7 @@ log() { echo -e "$@" | tee -a "$LOGFILE"; }
 
 log "=== radar-analyst Local CI ==="
 log "Log file: $LOGFILE"
+log "PostgreSQL: ${RADAR_ANALYST_PG_MAJOR} (pgEdge minimal)"
 log ""
 
 # Resolve Python tools: prefer venv in repo root if present.

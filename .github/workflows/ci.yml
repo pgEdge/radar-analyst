@@ -8,9 +8,18 @@ on:
 
 jobs:
   ci:
-    name: Local CI
+    name: CI (PostgreSQL ${{ matrix.pg }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    strategy:
+      # Every version is reported, rather than the run stopping at
+      # the first that breaks: knowing it fails on 16 and passes on
+      # 17 and 18 is the useful answer.
+      fail-fast: false
+      matrix:
+        pg: ["16", "17", "18"]
+    env:
+      RADAR_ANALYST_PG_MAJOR: ${{ matrix.pg }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +32,15 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
+
+      # The pgEdge images are not public, and both the test
+      # containers and the compose stack pull them.
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create venv + install dev deps
         run: |

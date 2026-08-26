@@ -74,7 +74,7 @@ briefing categories.
 | Migrations | Plain `.sql` files in `store/migrations/`, applied in lexical order at startup | KISS: no alembic. Bookkeeping in `radar.schema_migrations`, so a newer build can open an older data directory and apply only what is missing. While pre-release there is one file: a schema change edits `0001_init.sql` rather than adding a second, because nothing deployed has data to preserve. |
 | Blob storage | `BlobStore` Protocol + `LocalFsStore` v0.1; S3-compatible impl deferred | Storage URL is opaque to the DB schema, so swapping later requires no migration. |
 | AI providers | Anthropic, Google Gemini, OpenAI (and any OpenAI-compatible endpoint), Ollama + Mock | One adapter covers OpenAI and every compatible server via `OPENAI_BASE_URL`, since the chat-completions request shape is identical; Mock provider gated on `RADAR_ANALYST_TEST=1` for e2e. |
-| Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real Postgres via Docker containers per test suite; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
+| Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real PostgreSQL via Docker containers per test suite, running the same pgEdge image the deployment does rather than upstream `postgres`: the two differ in ways that reach this code, and testing against the wrong one hid the SQL_ASCII bug from nine hundred tests. `RADAR_ANALYST_PG_MAJOR` selects the version, and CI runs the whole script across 16, 17, and 18; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
 | Console | Astro (static) | The `web/` tree is a pure JSON-API consumer: anything that speaks the same endpoints can replace it. |
 | Visual identity | pgEdge visual-identity "Drop-in CSS tokens" (non-React path) | The pack prefers MUI, but the same markdown publishes the CSS tokens for non-React surfaces. radar-analyst uses the latter; pgEdge logos and Inter/JetBrains Mono fonts are the only other imports. |
 | Packaging | Hatchling with a custom build hook | The hook copies `web/dist/` into `src/radar_analyst/webdist/` so `pip install` ships a self-contained GUI; server falls back to API-only if the build is absent. |
@@ -82,7 +82,7 @@ briefing categories.
 | Bind address | `127.0.0.1:8080` by default, `RADAR_ANALYST_LISTEN` to override | The analyst is a local tool. An omitted host means loopback, so only a deliberate `0.0.0.0:8080` opens it to the network, and that logs a warning. In the container it binds `0.0.0.0` out of necessity; compose publishes `127.0.0.1:8080:8080` to keep it local. |
 | Distribution | Container image on GHCR, brought up by docker-compose | Internal service; NOT published to PyPI or GitHub Releases. An end user runs `docker compose up -d` and installs nothing else. Per-env config via environment variables only. |
 | State storage | A PostgreSQL service the deployment supplies, named by `RADAR_ANALYST_STATE_DB_URL` | The analyst carries no database of its own, so compose, a package install against the system server, and a customer's existing instance are all the same code path. |
-| PostgreSQL image | `ghcr.io/pgedge/pgedge-postgres:*-minimal` | The pgEdge standard image, in its minimal variant (583 MB against 1.35 GB for standard). This database holds only the analyst's own state and does not use Spock. |
+| PostgreSQL image | `ghcr.io/pgedge/pgedge-postgres:{16,17,18}-spock5-minimal` | The pgEdge standard image, in its minimal variant (583 MB against 1.35 GB for standard). Used by the test containers, the e2e stack, and the deployment alike. This database holds only the analyst's own state and does not use Spock. Two of its defaults differ from upstream `postgres` and both reach this code: `initdb` produces SQL_ASCII unless told otherwise, and `listen_addresses` stays at `localhost`. |
 
 ## 4. Request lifecycles
 
@@ -466,10 +466,17 @@ written before the code it tests. `run-ci-local.sh` fails if
 `pytest` returns non-zero, so a regression drops the whole CI run.
 
 - **Unit tests** (`test_*.py`): fast, module-scoped, no I/O.
-- **Integration tests** that need Postgres use the session-scoped
+- **Integration tests** that need PostgreSQL use the session-scoped
   `postgres_container` fixture in `tests/conftest.py`, which spins
-  up `postgres:17-alpine` via testcontainers. Each test uses a
-  `fresh_pool` fixture that drops `radar` schema before running,
+  up `ghcr.io/pgedge/pgedge-postgres:{major}-spock5-minimal` via
+  testcontainers, the same image the deployment runs.
+  `RADAR_ANALYST_PG_MAJOR` picks the major and defaults to 18; CI
+  runs 16, 17, and 18. The fixture passes
+  `POSTGRES_INITDB_ARGS=--encoding=UTF8` because this image's initdb
+  produces SQL_ASCII otherwise, and `logging_collector=off` because
+  its default sends the readiness line to a file inside the
+  container where testcontainers cannot see it. Each test uses a
+  `fresh_pool` fixture that drops the `radar` schema before running,
   giving isolation without per-test containers.
 - **HTTP-backed adapter tests** (Claude) use `respx.mock` to
   intercept the SDK's httpx client and assert request-body shape
@@ -606,8 +613,13 @@ depend on the system only for a `python3.11`-or-later interpreter.
                                                                 ▼
                                                     run-ci-local.sh
                                           (flake8 → ruff → mypy → pyright
-                                           → pytest → npm ci → Astro build
-                                           → wheel → Docker build → e2e)
+                                           → pytest → npm ci → web checks
+                                           → Astro build → wheel → Docker
+                                           build → e2e)
+
+    run three times over, once per PostgreSQL major: 16, 17, 18.
+    fail-fast is off, so a break on one version does not hide the
+    result on the others.
 ```
 
 Any step failing aborts. No separate jobs: the whole pipeline is

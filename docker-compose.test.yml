@@ -7,7 +7,7 @@
 
 services:
   db:
-    image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
+    image: ghcr.io/pgedge/pgedge-postgres:${RADAR_ANALYST_PG_MAJOR:-18}-spock5-minimal
     # listen_addresses stays at the image default of localhost, so
     # the only TCP socket is on the database container's own
     # loopback. The analyst reaches it over the unix socket in the
@@ -32,7 +32,9 @@ services:
       timeout: 3s
       retries: 15
     volumes:
-      - db:/var/lib/pgsql/18/data
+      # PGDATA is versioned in this image, so the mount point
+      # has to follow the tag.
+      - db:/var/lib/pgsql/${RADAR_ANALYST_PG_MAJOR:-18}/data
       - sock:/run/postgresql
 
   app:
