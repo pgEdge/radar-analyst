@@ -1,44 +1,60 @@
-# Service deployment: the analyst alongside a separate PostgreSQL
-# service. Run: docker compose up -d
+# pgEdge Radar Analyst. Bring it up with:
 #
-# Setting RADAR_ANALYST_STATE_DB_URL is what turns off the PostgreSQL
-# server bundled in the image, so this file also shows how to point
-# the analyst at an existing database. To run it as a single
-# self-contained container instead, see the docker run command in
-# docs/index.md.
+#     docker compose up -d
 #
-# Reads AI provider credentials from .env or the host environment.
-# Without one the assessment still comes back, minus the briefs. Set
-# one of:
-#   ANTHROPIC_API_KEY, GOOGLE_API_KEY (or GEMINI_API_KEY),
-#   OPENAI_API_KEY (optionally with OPENAI_BASE_URL for an
-#   OpenAI-compatible server), or a local Ollama server reachable via
-#   RADAR_ANALYST_OLLAMA_HOST.
+# then open http://localhost:8080/ and upload a radar archive.
+#
+# A provider credential is optional. Without one the findings and
+# verdicts still come back and the briefs are omitted. Set one of
+# ANTHROPIC_API_KEY, GOOGLE_API_KEY (or GEMINI_API_KEY),
+# OPENAI_API_KEY (with OPENAI_BASE_URL for an OpenAI-compatible
+# server), or point RADAR_ANALYST_OLLAMA_HOST at a local Ollama, in
+# a .env file beside this one or in the environment.
+#
+# To build the analyst from a checkout instead of pulling it:
+#     docker compose -f docker-compose.yml -f docker-compose.build.yml \
+#         up -d --build
 
 services:
   db:
-    image: postgres:17-alpine
+    image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
+    # Unlike the upstream postgres image, this one leaves
+    # listen_addresses at its built-in 'localhost', so without
+    # this the server binds 127.0.0.1 inside its own container
+    # and the analyst cannot reach it. The port is not
+    # published, so it stays on the compose network.
+    command: ["postgres", "-c", "listen_addresses=*"]
     environment:
       POSTGRES_USER: radar_analyst
-      POSTGRES_PASSWORD: radar_analyst
+      POSTGRES_PASSWORD: ${RADAR_ANALYST_DB_PASSWORD:-radar_analyst}
       POSTGRES_DB: radar_analyst
+      # This image's initdb defaults to SQL_ASCII, under which
+      # psycopg returns every text column as raw bytes. UTF8 is
+      # what the analyst needs to read back its own rows.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar_analyst -d radar_analyst"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U radar_analyst -d radar_analyst"]
+      # -h forces a TCP probe. Over the unix socket the temporary
+      # server that runs during initdb answers too, so the service
+      # would be called healthy before it is reachable.
       interval: 2s
       timeout: 3s
-      retries: 10
+      retries: 15
+    # No published port: this database holds only the analyst's own
+    # state and is reachable from the analyst alone, over the
+    # compose network. Publishing 5432 would put it on the host.
     volumes:
-      - db:/var/lib/postgresql/data
+      - db:/var/lib/pgsql/18/data
+    restart: unless-stopped
 
   app:
-    build: .
+    image: ghcr.io/pgedge/radar-analyst
     depends_on:
       db:
         condition: service_healthy
     environment:
       RADAR_ANALYST_STATE_DB_URL: >-
-        postgresql://radar_analyst:radar_analyst@db:5432/radar_analyst?sslmode=prefer
-      RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
+        postgresql://radar_analyst:${RADAR_ANALYST_DB_PASSWORD:-radar_analyst}@db:5432/radar_analyst?sslmode=prefer
       RADAR_ANALYST_AI_PROVIDER: ${RADAR_ANALYST_AI_PROVIDER:-claude}
       RADAR_ANALYST_ADMIN_TOKEN: ${RADAR_ANALYST_ADMIN_TOKEN:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -57,12 +73,12 @@ services:
     # 127.0.0.1 prefix would expose it on every interface.
     ports:
       - "127.0.0.1:8080:8080"
-    # Uploaded archives land in /data/archives. The database lives in
-    # its own service here, so this volume carries the archives and
-    # the generated admin token.
+    # Uploaded radar archives and the generated admin token. The
+    # assessments themselves live in the db volume.
     volumes:
-      - data:/data
+      - archives:/data
+    restart: unless-stopped
 
 volumes:
   db:
-  data:
+  archives:

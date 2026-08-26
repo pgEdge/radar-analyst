@@ -2,10 +2,10 @@
 #
 # Prepare the data volume, then drop privileges and start the
 # analyst. Root is used only to make a freshly mounted volume
-# writable: the service and the PostgreSQL server it starts both run
-# as the unprivileged `radar` user. Running the container with
-# --user skips the whole block, since there is then nothing to drop
-# to and nothing that could chown.
+# writable; the service itself runs as the unprivileged `radar`
+# user. Running the container with --user skips the whole block,
+# since there is then nothing to drop to and nothing that could
+# chown.
 
 set -e
 

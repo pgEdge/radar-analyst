@@ -1,22 +1,37 @@
 # docker-compose used by test-radar-analyst.sh in CI and locally.
 # Uses the built-in `mock` AI provider so no API keys are needed.
 #
-# This exercises the service deployment: naming a database in
-# RADAR_ANALYST_STATE_DB_URL leaves the image's bundled PostgreSQL
-# server unused. test-bundled-image.sh covers the other path.
+# Mirrors docker-compose.yml, with the analyst built from this
+# checkout and a named volume for the archives so the e2e can stop
+# the stack, start it again, and check that the work survived.
 
 services:
   db:
-    image: postgres:17-alpine
+    image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
+    # Unlike the upstream postgres image, this one leaves
+    # listen_addresses at its built-in 'localhost', so without
+    # this the server binds 127.0.0.1 inside its own container
+    # and the analyst cannot reach it. The port is not
+    # published, so it stays on the compose network.
+    command: ["postgres", "-c", "listen_addresses=*"]
     environment:
       POSTGRES_USER: radar_analyst
       POSTGRES_PASSWORD: radar_analyst
       POSTGRES_DB: radar_analyst
+      # This image's initdb defaults to SQL_ASCII, under which
+      # psycopg returns every text column as raw bytes. UTF8 is
+      # what the analyst needs to read back its own rows.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar_analyst -d radar_analyst"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U radar_analyst -d radar_analyst"]
+      # -h forces a TCP probe. Over the unix socket the temporary
+      # server that runs during initdb answers too, so the service
+      # would be called healthy before it is reachable.
       interval: 2s
       timeout: 3s
-      retries: 10
+      retries: 15
+    volumes:
+      - db:/var/lib/pgsql/18/data
 
   app:
     build: .
@@ -34,3 +49,9 @@ services:
     # already has bound on 8080. Container always listens on 8080.
     ports:
       - "127.0.0.1:${RADAR_ANALYST_E2E_PORT:-28080}:8080"
+    volumes:
+      - archives:/data
+
+volumes:
+  db:
+  archives:

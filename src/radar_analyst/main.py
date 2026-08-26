@@ -5,9 +5,10 @@ provider based on environment variables. Used by ``python -m
 radar_analyst`` (via ``__main__.py``) and by ``uvicorn
 radar_analyst.main:build_production_app --factory``.
 
-In the bundled deployment this is also what starts and stops the
-PostgreSQL server that ships inside the image; see
-:mod:`radar_analyst.embedded`.
+``RADAR_ANALYST_STATE_DB_URL`` names the PostgreSQL the analyst
+keeps its own state in; every deployment supplies one. Everything
+the analyst writes goes under the data directory described in
+:mod:`radar_analyst.layout`.
 """
 
 from __future__ import annotations
@@ -23,17 +24,18 @@ from fastapi import FastAPI
 from radar_analyst.ai import DEFAULT_PROVIDER, make
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.blob.localfs import LocalFsStore
-from radar_analyst.embedded import (
-    EmbeddedPostgres,
+from radar_analyst.layout import (
     admin_token_path,
     data_dir_from_env,
     ensure_admin_token,
-    is_bundled,
     resolve_archive_dir,
-    use_embedded_db,
 )
 from radar_analyst.server.app import create_app
-from radar_analyst.store.db import apply_migrations, create_pool
+from radar_analyst.store.db import (
+    apply_migrations,
+    check_encoding,
+    create_pool,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -106,28 +108,30 @@ def _int_env(name: str, default: int) -> int:
 
 
 def _resolve_admin_token() -> str | None:
-    """The token that authorises deletes, or None to refuse them.
+    """Return the token that authorises deletes, or None to refuse.
 
-    The bundled deployment owns its data directory, so it generates
-    a token there on first start rather than shipping a fixed one or
-    leaving the delete button permanently broken. Anywhere else an
-    unset token keeps its original meaning: deletes are refused.
+    With nothing configured the analyst generates a token into its
+    own data directory, so deletes work out of the box and still
+    require authentication. If that directory cannot be written the
+    route keeps failing closed rather than opening up.
     """
     configured = os.environ.get("RADAR_ANALYST_ADMIN_TOKEN") or None
     if configured:
         return configured
-    if is_bundled(os.environ):
-        path = admin_token_path(data_dir_from_env(os.environ))
+    path = admin_token_path(data_dir_from_env(os.environ))
+    try:
         token = ensure_admin_token(path)
-        _logger.info(
-            "deletes are authorised by the token in %s", path
+    except OSError as error:
+        _logger.warning(
+            "cannot write an admin token to %s (%s); DELETE "
+            "/api/uploads will refuse with 503 until "
+            "RADAR_ANALYST_ADMIN_TOKEN is set",
+            path,
+            error,
         )
-        return token
-    _logger.warning(
-        "RADAR_ANALYST_ADMIN_TOKEN is unset; DELETE /api/uploads "
-        "will refuse with 503 until it is configured"
-    )
-    return None
+        return None
+    _logger.info("deletes are authorised by the token in %s", path)
+    return token
 
 
 def build_production_app() -> FastAPI:
@@ -162,6 +166,7 @@ def build_production_app() -> FastAPI:
         """Open the pool, run migrations, and wire the job runner."""
         _logger.info("connecting to %s", dsn)
         pool = await create_pool(dsn)
+        await check_encoding(pool)
         await apply_migrations(pool)
         app.state.pool = pool
         analyzer = make(provider_name)
@@ -184,20 +189,6 @@ def build_production_app() -> FastAPI:
     # Attach lifespan to the router so uvicorn picks it up on startup.
     app.router.lifespan_context = lifespan
     return app
-
-
-def _start_embedded_db() -> EmbeddedPostgres | None:
-    """Start the bundled PostgreSQL and point the service at it.
-
-    Returns None when an external database was named, which is how
-    the service deployment runs.
-    """
-    if not use_embedded_db(os.environ):
-        return None
-    server = EmbeddedPostgres(data_dir_from_env(os.environ))
-    server.start()
-    os.environ["RADAR_ANALYST_STATE_DB_URL"] = server.dsn
-    return server
 
 
 def main() -> None:
@@ -230,18 +221,13 @@ def main() -> None:
             DEFAULT_LISTEN,
         )
 
-    server = _start_embedded_db()
     _logger.info("console + API on http://%s:%d/", host, port)
-    try:
-        uvicorn.run(
-            "radar_analyst.main:build_production_app",
-            factory=True,
-            host=host,
-            port=port,
-        )
-    finally:
-        if server is not None:
-            server.stop()
+    uvicorn.run(
+        "radar_analyst.main:build_production_app",
+        factory=True,
+        host=host,
+        port=port,
+    )
 
 
 if __name__ == "__main__":

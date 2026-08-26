@@ -146,4 +146,81 @@ if [ "$UNKNOWN_COUNT" != "0" ]; then
     exit 1
 fi
 
+COMPOSE=(docker compose -p "$PROJECT" -f "$COMPOSE_FILE")
+
+echo -e "${YELLOW}Verifying the analyst does not run as root...${NC}"
+# PID 1 is the analyst: the entrypoint execs setpriv, which execs
+# the service, so nothing is served with privileges.
+"${COMPOSE[@]}" exec -T app python -c "
+import pathlib
+status = pathlib.Path('/proc/1/status').read_text().splitlines()
+line = next(x for x in status if x.startswith('Uid:'))
+uids = set(line.split()[1:])
+print('  PID 1 uids:', ' '.join(sorted(uids)))
+assert uids == {'10001'}, f'service is not unprivileged: {line}'
+"
+
+echo -e "${YELLOW}Verifying the archive landed in the volume...${NC}"
+"${COMPOSE[@]}" exec -T app python -c "
+import pathlib
+files = [p for p in pathlib.Path('/data/archives').rglob('*') if p.is_file()]
+assert files, 'no archive was written under /data/archives'
+print('  archives:', ' '.join(str(p) for p in files))
+"
+
+# The point of the volumes: stop the stack, bring it back, and find
+# the work still there. This is what separates a deployment someone
+# can rely on from one that quietly loses everything on upgrade.
+echo -e "${YELLOW}Restarting the stack...${NC}"
+"${COMPOSE[@]}" stop >/dev/null
+"${COMPOSE[@]}" start >/dev/null
+for i in $(seq 1 90); do
+    curl -fsS ${BASE_URL}/readyz >/dev/null 2>&1 && break
+    if [ "$i" = "90" ]; then
+        echo -e "${RED}Service did not come back in 90s${NC}"
+        "${COMPOSE[@]}" logs --tail=50 app
+        exit 1
+    fi
+    sleep 1
+done
+echo -e "${GREEN}Stack came back${NC}"
+
+echo -e "${YELLOW}Verifying the assessment survived the restart...${NC}"
+curl -fsS "${BASE_URL}/api/uploads/${UPLOAD_ID}/assessment" \
+    | python3 -c '
+import json, sys
+body = json.load(sys.stdin)
+assert len(body["briefs"]) == 5, body["briefs"]
+print("  verdict still:", body["verdict"])
+'
+
+echo -e "${YELLOW}Verifying the stored archive is still readable...${NC}"
+# Streaming an entry back out proves the zip itself survived, not
+# just the rows describing it.
+ENTRY="$(curl -fsS "${BASE_URL}/api/uploads/${UPLOAD_ID}/files" \
+    | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["items"][0]["path"])')"
+curl -fsS -o /dev/null \
+    "${BASE_URL}/api/uploads/${UPLOAD_ID}/files/${ENTRY}"
+echo -e "${GREEN}Read back ${ENTRY}${NC}"
+
+echo -e "${YELLOW}Verifying delete works with the generated token...${NC}"
+# Nobody configured a shared secret, but deletes still have to be
+# authenticated.
+UNAUTH="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+    "${BASE_URL}/api/uploads/${UPLOAD_ID}")"
+if [ "$UNAUTH" != "401" ]; then
+    echo -e "${RED}Unauthenticated delete returned ${UNAUTH}, want 401${NC}"
+    exit 1
+fi
+TOKEN="$("${COMPOSE[@]}" exec -T app cat /data/admin-token | tr -d '\r\n')"
+CODE="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+    -H "Authorization: Bearer ${TOKEN}" \
+    "${BASE_URL}/api/uploads/${UPLOAD_ID}")"
+if [ "$CODE" != "204" ]; then
+    echo -e "${RED}Delete returned ${CODE}, want 204${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Delete authorised and applied${NC}"
+
 echo -e "${GREEN}=== e2e passed ===${NC}"
