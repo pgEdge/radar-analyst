@@ -16,6 +16,8 @@ published on loopback. `RADAR_ANALYST_STATE_DB_URL` points the
 analyst at any other PostgreSQL, which is how a package install will
 use the system server.
 
+Written by Jimmy Angelakos.
+
 For the engineering design (module layering, pipeline stages, adapter
 architecture, deferred work) see [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -289,6 +291,12 @@ by `tests/make_sample_zip.py`; point `RADAR_SAMPLE_ZIP` at a real
 radar zip to validate against live collector output instead.
 
 ## API surface
+
+`docs/openapi.json` is generated from the routes by `make openapi`.
+`test_openapi_spec.py` compares it against the running application,
+so a route change that is not regenerated fails the suite rather
+than leaving a stale description behind. A running analyst serves
+the same document at `/openapi.json`, with a browser at `/docs`.
 
 The following table describes every endpoint the service exposes:
 

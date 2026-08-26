@@ -7,7 +7,7 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci matrix docs notice clean
+.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice clean
 
 help:
 	@echo "make venv       create .venv and install dev dependencies"
@@ -19,6 +19,7 @@ help:
 	@echo "make ci         everything, the way CI runs it"
 	@echo "make matrix     the database tests on PostgreSQL 16, 17, and 18"
 	@echo "make docs       build the documentation site"
+	@echo "make openapi    regenerate docs/openapi.json from the routes"
 	@echo "make notice     regenerate NOTICE.txt from the dependencies"
 	@echo "make clean      remove build output and caches"
 
@@ -69,6 +70,17 @@ matrix: $(VENV)
 docs: $(VENV)
 	$(PIP) install -q mkdocs-material
 	$(VENV)/bin/mkdocs build --strict
+
+# The spec is generated, not hand-written. test_openapi_spec.py
+# fails if the committed copy drifts from the routes, so this is the
+# only way it changes.
+openapi: $(VENV)
+	$(PY) -c "import json, pathlib; \
+from radar_analyst.server.app import create_app; \
+pathlib.Path('docs/openapi.json').write_text( \
+json.dumps(create_app(serve_static=False).openapi(), indent=2, \
+sort_keys=True) + chr(10))"
+	@echo "wrote docs/openapi.json"
 
 # NOTICE.txt lists the licences of everything the wheel pulls in.
 # The container image and any future deb or rpm vendor the whole

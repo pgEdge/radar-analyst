@@ -165,23 +165,61 @@ than misreading its own rows.
 
 ## Environment variables
 
-The following table describes the settings the analyst reads from its
-environment. The README documents the full list.
+The settings the analyst reads from its environment. The README
+documents the full list.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `RADAR_ANALYST_STATE_DB_URL` | _(set by the compose file)_ | PostgreSQL for the analyst's own state; never the assessed server |
-| `RADAR_ANALYST_DATA_DIR` | `/data` in the image | holds uploaded archives and the admin token |
-| `RADAR_ANALYST_AI_PROVIDER` | `claude` | `claude`, `gemini`, `openai`, or `local` |
-| `RADAR_ANALYST_ADMIN_TOKEN` | _(generated)_ | bearer token required to delete an upload; generated into `/data/admin-token` when unset |
-| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | password for the bundled database service |
-| `ANTHROPIC_API_KEY` | _(unset)_ | required when the provider is `claude` |
-| `GOOGLE_API_KEY` | _(unset)_ | required when the provider is `gemini` |
-| `OPENAI_API_KEY` | _(unset)_ | required when the provider is `openai`, including for compatible servers that ignore the value |
-| `OPENAI_BASE_URL` | OpenAI's own endpoint | set to reach an OpenAI-compatible server, for example `http://localhost:8000/v1` |
-| `OPENAI_MODEL` | `gpt-5.6-luna` | model name; a compatible server needs its own, for example `Qwen/Qwen3-32B` |
-| `RADAR_ANALYST_OLLAMA_HOST` | `http://localhost:11434` | used when the provider is `local` |
-| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | used when the provider is `local`; needs roughly 10 GB of VRAM to run fully on GPU |
+Everything is optional. `docker-compose.yml` supplies the database
+URL, and without a provider credential you still get the findings
+and the verdicts.
+
+`RADAR_ANALYST_STATE_DB_URL`
+: PostgreSQL for the analyst's own state, never the assessed
+  server. Set by the compose file. Must be a UTF8 database.
+
+`RADAR_ANALYST_DATA_DIR`
+: Where uploaded archives and the admin token are kept. `/data` in
+  the image.
+
+`RADAR_ANALYST_AI_PROVIDER`
+: `claude`, `gemini`, `openai`, or `local`. Defaults to `claude`.
+
+`RADAR_ANALYST_ADMIN_TOKEN`
+: Bearer token required to delete an upload. Generated into
+  `/data/admin-token` when unset.
+
+`RADAR_ANALYST_DB_PASSWORD`
+: Password for the database service. Defaults to `radar_analyst`,
+  which is safe because the database has no reachable port.
+
+`ANTHROPIC_API_KEY`
+: Required when the provider is `claude`.
+
+`GOOGLE_API_KEY`
+: Required when the provider is `gemini`.
+
+`OPENAI_API_KEY`
+: Required when the provider is `openai`, including for compatible
+  servers that ignore the value.
+
+`OPENAI_BASE_URL`
+: Point this at an OpenAI-compatible server, for example
+  `http://localhost:8000/v1`. Defaults to OpenAI's own endpoint.
+
+`OPENAI_MODEL`
+: Model name. A compatible server needs its own, for example
+  `Qwen/Qwen3-32B`. Defaults to `gpt-5.6-luna`.
+
+`RADAR_ANALYST_OLLAMA_HOST`
+: Used when the provider is `local`. Defaults to
+  `http://localhost:11434`.
+
+`RADAR_ANALYST_OLLAMA_MODEL`
+: Used when the provider is `local`. Defaults to `gemma4:e4b`,
+  which needs roughly 10 GB of VRAM to run fully on GPU.
+
+## Author
+
+Written by Jimmy Angelakos.
 
 ## Licence
 

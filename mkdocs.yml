@@ -11,6 +11,7 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - tables
+  - def_list
 
 plugins:
   - search
@@ -55,5 +56,6 @@ repo_url: https://github.com/pgEdge/radar-analyst
 
 nav:
   - Introduction: index.md
+  - API: api.md
   - Changelog: changelog.md
   - Licence: LICENCE.md
