@@ -184,43 +184,117 @@ def test_uninitialised_pgdata_accepts_any_server() -> None:
 # ---------------------------------------------------------------
 
 
-def _fake_install(root: Path, major: str) -> Path:
+def _fake_install(bin_dir: Path) -> Path:
     """Create a directory tree that looks like a PostgreSQL install."""
-    bin_dir = root / major / "bin"
-    bin_dir.mkdir(parents=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
     for name in ("initdb", "pg_ctl", "postgres", "pg_isready"):
         (bin_dir / name).touch()
     return bin_dir
 
 
-def test_find_bin_dir_locates_an_install(tmp_path: Path) -> None:
-    expected = _fake_install(tmp_path, "17")
-    assert embedded.find_bin_dir([tmp_path]) == expected
+def test_default_globs_cover_the_packaged_layouts() -> None:
+    """Debian, PGDG on Red Hat, and Fedora each install elsewhere.
+
+    Debian versions the directory, PGDG versions its own prefix, and
+    Fedora's own packages put the binaries straight in /usr/bin.
+    """
+    globs = embedded.BIN_SEARCH_GLOBS
+    assert "/usr/lib/postgresql/*/bin" in globs
+    assert "/usr/pgsql-*/bin" in globs
+    assert "/usr/bin" in globs
+
+
+@pytest.mark.parametrize(
+    "path,major",
+    [
+        ("/usr/lib/postgresql/17/bin", 17),
+        ("/usr/lib/postgresql/9/bin", 9),
+        ("/usr/pgsql-17/bin", 17),
+        ("/usr/pgsql-18/bin", 18),
+        ("/usr/bin", None),
+        ("/opt/postgres/bin", None),
+    ],
+)
+def test_major_from_path(path: str, major: int | None) -> None:
+    assert embedded.major_from_path(Path(path)) == major
+
+
+def test_find_bin_dir_locates_a_debian_layout(
+    tmp_path: Path,
+) -> None:
+    expected = _fake_install(
+        tmp_path / "usr/lib/postgresql/17/bin"
+    )
+    found = embedded.find_bin_dir(
+        [str(tmp_path / "usr/lib/postgresql/*/bin")]
+    )
+    assert found == expected
+
+
+def test_find_bin_dir_locates_a_pgdg_layout(tmp_path: Path) -> None:
+    expected = _fake_install(tmp_path / "usr/pgsql-17/bin")
+    found = embedded.find_bin_dir(
+        [str(tmp_path / "usr/pgsql-*/bin")]
+    )
+    assert found == expected
+
+
+def test_find_bin_dir_locates_an_unversioned_layout(
+    tmp_path: Path,
+) -> None:
+    """Fedora and Red Hat's own packages have no version directory."""
+    expected = _fake_install(tmp_path / "usr/bin")
+    found = embedded.find_bin_dir([str(tmp_path / "usr/bin")])
+    assert found == expected
 
 
 def test_find_bin_dir_prefers_the_newest_major(
     tmp_path: Path,
 ) -> None:
-    _fake_install(tmp_path, "16")
-    newest = _fake_install(tmp_path, "17")
-    _fake_install(tmp_path, "9")
-    assert embedded.find_bin_dir([tmp_path]) == newest
+    _fake_install(tmp_path / "usr/lib/postgresql/16/bin")
+    newest = _fake_install(tmp_path / "usr/lib/postgresql/17/bin")
+    _fake_install(tmp_path / "usr/lib/postgresql/9/bin")
+    found = embedded.find_bin_dir(
+        [str(tmp_path / "usr/lib/postgresql/*/bin")]
+    )
+    assert found == newest
+
+
+def test_find_bin_dir_prefers_a_versioned_install(
+    tmp_path: Path,
+) -> None:
+    """With both installed, take the one whose version is known."""
+    _fake_install(tmp_path / "usr/bin")
+    versioned = _fake_install(tmp_path / "usr/pgsql-18/bin")
+    found = embedded.find_bin_dir(
+        [
+            str(tmp_path / "usr/bin"),
+            str(tmp_path / "usr/pgsql-*/bin"),
+        ]
+    )
+    assert found == versioned
 
 
 def test_find_bin_dir_ignores_an_incomplete_install(
     tmp_path: Path,
 ) -> None:
     """A directory without initdb is not an install."""
-    (tmp_path / "17" / "bin").mkdir(parents=True)
-    complete = _fake_install(tmp_path, "16")
-    assert embedded.find_bin_dir([tmp_path]) == complete
+    (tmp_path / "usr/lib/postgresql/17/bin").mkdir(parents=True)
+    complete = _fake_install(
+        tmp_path / "usr/lib/postgresql/16/bin"
+    )
+    found = embedded.find_bin_dir(
+        [str(tmp_path / "usr/lib/postgresql/*/bin")]
+    )
+    assert found == complete
 
 
 def test_find_bin_dir_raises_when_nothing_is_installed(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(embedded.EmbeddedPostgresError):
-        embedded.find_bin_dir([tmp_path])
+    with pytest.raises(embedded.EmbeddedPostgresError) as excinfo:
+        embedded.find_bin_dir([str(tmp_path / "nowhere/*/bin")])
+    assert "nowhere" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------

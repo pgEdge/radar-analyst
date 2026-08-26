@@ -617,7 +617,7 @@ which matches the convention established by `radar/run-ci-local.sh`.
 
 Items intentionally not implemented yet. The design accommodates
 them: adding any of these requires no structural change, just
-filling in code at the existing seams.
+filling in code where the interface already allows for it.
 
 ### Phase 2
 
@@ -628,7 +628,7 @@ filling in code at the existing seams.
 
 ### Phase 3+ (longer roadmap)
 
-| Deferred | Location of the seam | What needs to happen |
+| Deferred | Where it plugs in | What needs to happen |
 |---|---|---|
 | PG Config files | **Landed** | `parse/pg_conf.py` + `rules/pg_conf.py`. Parsers: `FileSetting`, `HbaRule`, `DbRoleSetting`. Raw conf files via `_strip_text`. Rules: `trust_method_present` (critical for network host/hostssl trust), `md5_method_present` (warning, deprecated), `hba_config_error` (warning on rule parse errors), `alter_system_drift` (warning when `postgresql.auto.conf` has active settings). Roles + tablespaces summary wired into `_build_pg_config_facts`. |
 | Replication completion | **Landed** | `parse/pg_wal.py` + `rules/pg_replication.py`. All replication parsers wired: streaming replicas (with LSN fields), `WalPosition` (recovery state + current LSN), `WalReceiver`, subscriptions, `ReplicationOrigin`. Rules: replica not streaming, time-based lag, byte-based lag, physical slot with no connected replica, subscription not running. |

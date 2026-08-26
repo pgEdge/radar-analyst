@@ -19,6 +19,7 @@ deliberate act; the database behind it never gains one.
 
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import re
@@ -40,10 +41,14 @@ DEFAULT_DATA_DIR = Path("data")
 SUPERUSER = "radar_analyst"
 DATABASE = "radar_analyst"
 
-# Where Debian and Red Hat packages put the server binaries.
-BIN_SEARCH_ROOTS: tuple[Path, ...] = (
-    Path("/usr/lib/postgresql"),
-    Path("/usr/pgsql"),
+# Where the distributions put the server binaries. Debian and Ubuntu
+# version the directory, the PGDG packages version their own prefix,
+# and Fedora and Red Hat's own packages install straight into
+# /usr/bin with no version anywhere in the path.
+BIN_SEARCH_GLOBS: tuple[str, ...] = (
+    "/usr/lib/postgresql/*/bin",
+    "/usr/pgsql-*/bin",
+    "/usr/bin",
 )
 
 _STARTUP_TIMEOUT = 30.0
@@ -51,6 +56,8 @@ _SHUTDOWN_TIMEOUT = 30.0
 _READY_POLL_INTERVAL = 0.2
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _VERSION_RE = re.compile(r"\(PostgreSQL\)\s+(\d+)")
+# Matches a bare "17" (Debian) or a "pgsql-17" suffix (PGDG).
+_PATH_MAJOR_RE = re.compile(r"^(?:.*-)?(\d+)$")
 
 
 class EmbeddedPostgresError(RuntimeError):
@@ -171,37 +178,42 @@ def check_major(pgdata: int | None, server: int) -> None:
 # ---------------------------------------------------------------
 
 
-def _installs_under(root: Path) -> list[tuple[int, Path]]:
-    """Every ``(major, bin directory)`` installed under *root*."""
-    try:
-        entries = sorted(Path(root).iterdir())
-    except OSError:
-        return []
-    found: list[tuple[int, Path]] = []
-    for entry in entries:
-        if not (entry / "bin" / "initdb").is_file():
-            continue
-        try:
-            major = int(entry.name)
-        except ValueError:
-            continue
-        found.append((major, entry / "bin"))
-    return found
+def major_from_path(bin_dir: Path) -> int | None:
+    """Major version named by a ``bin`` directory's path, if any.
+
+    ``/usr/lib/postgresql/17/bin`` and ``/usr/pgsql-17/bin`` both say
+    17. ``/usr/bin`` says nothing, and the server is asked directly.
+    """
+    match = _PATH_MAJOR_RE.search(Path(bin_dir).parent.name)
+    return int(match.group(1)) if match else None
 
 
-def find_bin_dir(roots: Iterable[Path]) -> Path:
-    """Return the newest installed server's ``bin`` directory."""
-    found: list[tuple[int, Path]] = []
+def find_bin_dir(patterns: Iterable[str]) -> Path:
+    """Return the installed server's ``bin`` directory.
+
+    Prefers the newest version the path names, so a host carrying
+    both a distribution package and a PGDG one uses the newer. A
+    directory whose path carries no version is used only when
+    nothing versioned was found.
+    """
     searched: list[str] = []
-    for root in roots:
-        searched.append(str(root))
-        found.extend(_installs_under(root))
+    found: list[tuple[int, str]] = []
+    for pattern in patterns:
+        searched.append(pattern)
+        for candidate in sorted(glob.glob(pattern)):
+            if not (Path(candidate) / "initdb").is_file():
+                continue
+            major = major_from_path(Path(candidate))
+            # An unversioned path sorts below every versioned one
+            # rather than out of the running.
+            found.append((major if major is not None else -1,
+                          candidate))
     if not found:
         raise EmbeddedPostgresError(
             "no PostgreSQL installation found under "
             + ", ".join(searched)
         )
-    return max(found)[1]
+    return Path(max(found)[1])
 
 
 def initdb_argv(*, bin_dir: Path, pgdata: Path) -> list[str]:
@@ -313,7 +325,7 @@ class EmbeddedPostgres:
         self._bin_dir = (
             Path(bin_dir)
             if bin_dir is not None
-            else find_bin_dir(BIN_SEARCH_ROOTS)
+            else find_bin_dir(BIN_SEARCH_GLOBS)
         )
         self._proc: subprocess.Popen[bytes] | None = None
 

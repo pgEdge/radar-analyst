@@ -44,3 +44,6 @@ Thumbs.db
 
 # Local provenance notes (must stay untracked)
 /PROVENANCE.md
+
+# Repo-standards audit output
+REPO_READY_AUDIT.md
