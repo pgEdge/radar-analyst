@@ -1,5 +1,7 @@
 # pgEdge Radar Analyst
 
+[![CI](https://github.com/pgEdge/radar-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/pgEdge/radar-analyst/actions/workflows/ci.yml)
+
 > Internal service that reads
 > [radar](https://github.com/pgEdge/radar) diagnostic archives,
 > checks them against deterministic rules, writes a brief per

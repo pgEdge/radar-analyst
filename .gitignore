@@ -33,8 +33,12 @@ data/
 # CI logs
 ci-*.log
 
-# Claude Code local configuration
-.claude/
+# Claude Code. The agent definitions are shared; settings carry
+# machine-specific absolute paths and stay local.
+.claude/*
+!.claude/agents/
+!.claude/specs/
+!.claude/plans/
 CLAUDE.local.md
 
 # IDE / OS
