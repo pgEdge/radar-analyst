@@ -1,7 +1,15 @@
-# docker-compose for local deployment. Run: docker compose up -d
+# Service deployment: the analyst alongside a separate PostgreSQL
+# service. Run: docker compose up -d
+#
+# Setting RADAR_ANALYST_STATE_DB_URL is what turns off the PostgreSQL
+# server bundled in the image, so this file also shows how to point
+# the analyst at an existing database. To run it as a single
+# self-contained container instead, see the docker run command in
+# docs/index.md.
 #
 # Reads AI provider credentials from .env or the host environment.
-# At least one provider must be set:
+# Without one the assessment still comes back, minus the briefs. Set
+# one of:
 #   ANTHROPIC_API_KEY, GOOGLE_API_KEY (or GEMINI_API_KEY),
 #   OPENAI_API_KEY (optionally with OPENAI_BASE_URL for an
 #   OpenAI-compatible server), or a local Ollama server reachable via
@@ -30,7 +38,6 @@ services:
     environment:
       RADAR_ANALYST_STATE_DB_URL: >-
         postgresql://radar_analyst:radar_analyst@db:5432/radar_analyst?sslmode=prefer
-      RADAR_ANALYST_BLOB_DIR: /data/blobs
       RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
       RADAR_ANALYST_AI_PROVIDER: ${RADAR_ANALYST_AI_PROVIDER:-claude}
       RADAR_ANALYST_ADMIN_TOKEN: ${RADAR_ANALYST_ADMIN_TOKEN:-}
@@ -50,9 +57,12 @@ services:
     # 127.0.0.1 prefix would expose it on every interface.
     ports:
       - "127.0.0.1:8080:8080"
+    # Uploaded archives land in /data/archives. The database lives in
+    # its own service here, so this volume carries the archives and
+    # the generated admin token.
     volumes:
-      - blobs:/data/blobs
+      - data:/data
 
 volumes:
   db:
-  blobs:
+  data:

@@ -4,6 +4,10 @@ Builds the FastAPI app wired to real Postgres + blob store + LLM
 provider based on environment variables. Used by ``python -m
 radar_analyst`` (via ``__main__.py``) and by ``uvicorn
 radar_analyst.main:build_production_app --factory``.
+
+In the bundled deployment this is also what starts and stops the
+PostgreSQL server that ships inside the image; see
+:mod:`radar_analyst.embedded`.
 """
 
 from __future__ import annotations
@@ -12,7 +16,6 @@ import ipaddress
 import logging
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI
@@ -20,6 +23,15 @@ from fastapi import FastAPI
 from radar_analyst.ai import DEFAULT_PROVIDER, make
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.blob.localfs import LocalFsStore
+from radar_analyst.embedded import (
+    EmbeddedPostgres,
+    admin_token_path,
+    data_dir_from_env,
+    ensure_admin_token,
+    is_bundled,
+    resolve_archive_dir,
+    use_embedded_db,
+)
 from radar_analyst.server.app import create_app
 from radar_analyst.store.db import apply_migrations, create_pool
 
@@ -92,6 +104,31 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _resolve_admin_token() -> str | None:
+    """The token that authorises deletes, or None to refuse them.
+
+    The bundled deployment owns its data directory, so it generates
+    a token there on first start rather than shipping a fixed one or
+    leaving the delete button permanently broken. Anywhere else an
+    unset token keeps its original meaning: deletes are refused.
+    """
+    configured = os.environ.get("RADAR_ANALYST_ADMIN_TOKEN") or None
+    if configured:
+        return configured
+    if is_bundled(os.environ):
+        path = admin_token_path(data_dir_from_env(os.environ))
+        token = ensure_admin_token(path)
+        _logger.info(
+            "deletes are authorised by the token in %s", path
+        )
+        return token
+    _logger.warning(
+        "RADAR_ANALYST_ADMIN_TOKEN is unset; DELETE /api/uploads "
+        "will refuse with 503 until it is configured"
+    )
+    return None
+
+
 def build_production_app() -> FastAPI:
     """Build the app wired from RADAR_ANALYST_* environment."""
     dsn = os.environ.get("RADAR_ANALYST_STATE_DB_URL")
@@ -99,9 +136,7 @@ def build_production_app() -> FastAPI:
         raise RuntimeError(
             "RADAR_ANALYST_STATE_DB_URL is required"
         )
-    blob_dir = Path(
-        os.environ.get("RADAR_ANALYST_BLOB_DIR", "./data/blobs")
-    )
+    blob_dir = resolve_archive_dir(os.environ)
     blob_dir.mkdir(parents=True, exist_ok=True)
     # 500 MiB default: a radar zip heavy with per-database
     # time-series lands around 100–150 MiB compressed. Bump via
@@ -113,12 +148,7 @@ def build_production_app() -> FastAPI:
     provider_name = os.environ.get(
         "RADAR_ANALYST_AI_PROVIDER", DEFAULT_PROVIDER
     )
-    admin_token = os.environ.get("RADAR_ANALYST_ADMIN_TOKEN") or None
-    if not admin_token:
-        _logger.warning(
-            "RADAR_ANALYST_ADMIN_TOKEN is unset; DELETE /api/uploads "
-            "will refuse with 503 until it is configured"
-        )
+    admin_token = _resolve_admin_token()
 
     app = create_app(
         blob_store=LocalFsStore(data_dir=blob_dir),
@@ -155,6 +185,20 @@ def build_production_app() -> FastAPI:
     return app
 
 
+def _start_embedded_db() -> EmbeddedPostgres | None:
+    """Start the bundled PostgreSQL and point the service at it.
+
+    Returns None when an external database was named, which is how
+    the service deployment runs.
+    """
+    if not use_embedded_db(os.environ):
+        return None
+    server = EmbeddedPostgres(data_dir_from_env(os.environ))
+    server.start()
+    os.environ["RADAR_ANALYST_STATE_DB_URL"] = server.dsn
+    return server
+
+
 def main() -> None:
     """CLI entry: configure logging and serve the listen address."""
     import uvicorn
@@ -185,13 +229,18 @@ def main() -> None:
             DEFAULT_LISTEN,
         )
 
+    server = _start_embedded_db()
     _logger.info("console + API on http://%s:%d/", host, port)
-    uvicorn.run(
-        "radar_analyst.main:build_production_app",
-        factory=True,
-        host=host,
-        port=port,
-    )
+    try:
+        uvicorn.run(
+            "radar_analyst.main:build_production_app",
+            factory=True,
+            host=host,
+            port=port,
+        )
+    finally:
+        if server is not None:
+            server.stop()
 
 
 if __name__ == "__main__":
