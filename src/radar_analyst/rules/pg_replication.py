@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from radar_analyst.parse.pg_settings import PgSettings
 from radar_analyst.parse.pg_stat_replication_slots import (
     StatReplicationSlots,
 )
@@ -11,6 +12,8 @@ from radar_analyst.parse.pg_wal import (
     ReplicationReplica,
     ReplicationSlots,
     Subscription,
+    WalPosition,
+    lsn_to_int,
 )
 from radar_analyst.rules.base import Finding, register, top_n
 
@@ -22,6 +25,16 @@ _LAG_CRIT_S = 30 * 60.0   # 30 min
 # Byte-lag thresholds for streaming replicas.
 _LAG_BYTES_WARN = 100 * 1024 * 1024    # 100 MiB
 _LAG_BYTES_CRIT = 1024 * 1024 * 1024   # 1 GiB
+
+# WAL a slot is pinning. The warning tier is max_wal_size rather
+# than a fixed size: a slot holding one checkpoint cycle's worth of
+# WAL is doing its job, and a slot outrunning that cycle is the
+# condition that fills a disk. The floor keeps the rule quiet on
+# hosts with a small max_wal_size, where one cycle is not yet
+# worth reporting.
+_RETAINED_WARN_FLOOR = 1024 * 1024 * 1024        # 1 GiB
+_RETAINED_CRIT = 10 * 1024 * 1024 * 1024         # 10 GiB
+_MAX_WAL_SIZE_DEFAULT_MB = 1024                  # PG default
 
 # States that are transient and expected during normal operation.
 _OK_STATES = frozenset({"streaming", "catchup", "backup"})
@@ -243,6 +256,94 @@ def lag_bytes_high(
                     "replica is paused. Check "
                     "pg_stat_replication on the primary "
                     "and pg_stat_activity on the standby."
+                ),
+            )
+        )
+    return out
+
+
+def _max_wal_size_bytes(settings: PgSettings | None) -> int:
+    """``max_wal_size`` in bytes, defaulting to PostgreSQL's 1 GiB.
+
+    pg_settings reports it in megabytes.
+    """
+    mb = _MAX_WAL_SIZE_DEFAULT_MB
+    if settings is not None:
+        s = settings.get("max_wal_size")
+        if s is not None and s.setting:
+            try:
+                mb = int(s.setting)
+            except ValueError:
+                mb = _MAX_WAL_SIZE_DEFAULT_MB
+    return mb * 1024 * 1024
+
+
+@register("Replication")
+def slot_retaining_wal(parsed: dict[str, Any]) -> list[Finding]:
+    """Warn when a replication slot is pinning a lot of WAL.
+
+    The other slot rules ask whether a consumer exists.
+    ``slot_inactive`` and ``replica_disconnected`` fire when one is
+    missing, and ``lag_bytes`` measures replicas that are connected.
+    None of them covers an active slot whose consumer is merely
+    slow: it retains WAL without limit while every other rule stays
+    quiet, and the first symptom is a full pg_wal.
+
+    Retained bytes is ``current_wal_lsn − restart_lsn``. Both are in
+    the archive, so this needs no data radar does not already
+    collect.
+    """
+    slots: ReplicationSlots | None = parsed.get(
+        "pg.replication_slots"
+    )
+    wp: WalPosition | None = parsed.get("pg.wal_position")
+    if slots is None or not slots.all or wp is None:
+        return []
+    # pg_current_wal_lsn() is primary-side: on a standby the value
+    # is not comparable with a slot's restart_lsn.
+    if wp.is_in_recovery:
+        return []
+    current = lsn_to_int(wp.current_wal_lsn)
+    if current is None:
+        return []
+    warn_at = max(
+        _RETAINED_WARN_FLOOR,
+        _max_wal_size_bytes(parsed.get("pg.settings")),
+    )
+    out: list[Finding] = []
+    for s in slots.all:
+        start = lsn_to_int(s.restart_lsn)
+        if start is None or current <= start:
+            continue
+        retained = current - start
+        if retained < warn_at:
+            continue
+        sev = (
+            "critical" if retained >= _RETAINED_CRIT else "warning"
+        )
+        gib = retained / (1024 ** 3)
+        out.append(
+            Finding(
+                rule_id="pg.repl.slot_retaining_wal",
+                severity=sev,
+                title=(
+                    f"Slot {s.slot_name!r} is retaining "
+                    f"{gib:.1f} GiB of WAL"
+                ),
+                detail=(
+                    f"{s.slot_type.capitalize()} slot "
+                    f"'{s.slot_name}' has restart_lsn "
+                    f"{s.restart_lsn} against a current WAL "
+                    f"position of {wp.current_wal_lsn}, so it is "
+                    f"holding {gib:.1f} GiB that cannot be "
+                    "recycled. The slot is "
+                    f"{'active' if s.active else 'inactive'}: an "
+                    "active slot retaining this much means its "
+                    "consumer is falling behind rather than "
+                    "absent. Check the consumer, and consider "
+                    "max_slot_wal_keep_size so a stalled "
+                    "consumer costs the slot instead of the "
+                    "filesystem."
                 ),
             )
         )

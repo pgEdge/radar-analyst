@@ -126,7 +126,7 @@ def parse_replication_slots(
 # ---------------------------------------------------------------------------
 
 
-def _lsn_to_int(lsn: str) -> int | None:
+def lsn_to_int(lsn: str) -> int | None:
     """Convert a PostgreSQL LSN string (``X/YYYYYYYY``) to an int.
 
     Returns ``None`` for empty or unparseable input.
@@ -168,8 +168,8 @@ class ReplicationReplica:
         Returns ``None`` when either LSN is absent or the
         difference is negative (should never happen in practice).
         """
-        hi = _lsn_to_int(self.sent_lsn)
-        lo = _lsn_to_int(self.replay_lsn)
+        hi = lsn_to_int(self.sent_lsn)
+        lo = lsn_to_int(self.replay_lsn)
         if hi is None or lo is None:
             return None
         diff = hi - lo

@@ -11,7 +11,7 @@ from radar_analyst.parse.pg_wal import (
     Subscription,
     WalPosition,
     WalReceiver,
-    _lsn_to_int,
+    lsn_to_int,
     parse_replication,
     parse_replication_origins,
     parse_subscriptions,
@@ -193,28 +193,28 @@ def test_parse_subscriptions_totally_empty_returns_none() -> None:
 
 
 # ---------------------------------------------------------------
-# _lsn_to_int helper
+# lsn_to_int helper
 # ---------------------------------------------------------------
 
 def test_lsn_to_int_parses_segment_and_offset() -> None:
     # 1/4E58EBC8 → (0x1 << 32) | 0x4E58EBC8
-    assert _lsn_to_int("1/4E58EBC8") == (1 << 32) | 0x4E58EBC8
+    assert lsn_to_int("1/4E58EBC8") == (1 << 32) | 0x4E58EBC8
 
 
 def test_lsn_to_int_zero() -> None:
-    assert _lsn_to_int("0/00000000") == 0
+    assert lsn_to_int("0/00000000") == 0
 
 
 def test_lsn_to_int_empty_returns_none() -> None:
-    assert _lsn_to_int("") is None
+    assert lsn_to_int("") is None
 
 
 def test_lsn_to_int_invalid_returns_none() -> None:
-    assert _lsn_to_int("not/valid") is None
+    assert lsn_to_int("not/valid") is None
 
 
 def test_lsn_to_int_single_part_returns_none() -> None:
-    assert _lsn_to_int("0") is None
+    assert lsn_to_int("0") is None
 
 
 # ---------------------------------------------------------------
