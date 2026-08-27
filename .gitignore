@@ -50,8 +50,9 @@ CLAUDE.local.md
 .DS_Store
 Thumbs.db
 
-# Local provenance notes (must stay untracked)
+# Local provenance notes and harvest output (must stay untracked)
 /PROVENANCE.md
+/FEAT_*.md
 
 # Repo-standards audit output
 REPO_READY_AUDIT.md
