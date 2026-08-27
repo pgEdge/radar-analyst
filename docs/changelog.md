@@ -15,6 +15,22 @@ Only user-facing changes are listed.
   startup instead of failing when the two start together.
 - Startup refuses a state database using the SQL_ASCII encoding,
   under which PostgreSQL returns text as raw bytes.
+- A finding when a database approaches multixact wraparound, a
+  counter that exhausts separately from transaction IDs and can be
+  the one in trouble while transaction IDs look healthy.
+- A finding for tables overdue for autoanalyze, so planner
+  statistics stale enough to cause bad row estimates are reported as
+  the maintenance problem they are.
+- A finding when a replication slot is retaining a large amount of
+  WAL, which catches a slot whose consumer is connected but falling
+  behind. Existing slot findings only covered a missing consumer.
+- Unlogged tables are noted on hosts that replicate, since they are
+  truncated on crash recovery and never reach a standby.
+- Archives from newer radar releases are read without reporting
+  their new files as unrecognised: Spock replication state, control
+  file contents, subscription statistics, the server log directory
+  listing, PgBouncer configuration, and pg_statviz blocking-lock
+  history.
 
 ### Changed
 - Uploaded radar archives are kept under `archives/` in the data
