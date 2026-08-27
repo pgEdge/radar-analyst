@@ -93,6 +93,10 @@ _FIXED: dict[str, str] = {
     "postgresql/checkpointer.tsv": "pg.checkpointer",
     "postgresql/configuration.tsv": "pg.settings",
     "postgresql/connection_summary.tsv": "pg.connection_summary",
+    "postgresql/control_checkpoint.tsv": "pg.control_checkpoint",
+    "postgresql/control_init.tsv": "pg.control_init",
+    "postgresql/control_recovery.tsv": "pg.control_recovery",
+    "postgresql/control_system.tsv": "pg.control_system",
     "postgresql/database_conflicts.tsv": "pg.database_conflicts",
     "postgresql/database_sizes.tsv": "pg.database_sizes",
     "postgresql/databases.tsv": "pg.databases",
@@ -102,6 +106,7 @@ _FIXED: dict[str, str] = {
     "postgresql/databases_xact.tsv": "pg.databases_xact",
     "postgresql/db_role_setting.tsv": "pg.db_role_setting",
     "postgresql/file_settings.tsv": "pg.file_settings",
+    "postgresql/log_directory.tsv": "pg.log_directory",
     "postgresql/pg_hba.conf": "pg.conf.pg_hba",
     "postgresql/pg_hba_file_rules.tsv": "pg.hba_file_rules",
     "postgresql/pg_ident.conf": "pg.conf.pg_ident",
@@ -143,6 +148,8 @@ _FIXED: dict[str, str] = {
         "pg.stat_statements.max_time",
     "postgresql/stat_statements_total_time.tsv":
         "pg.stat_statements.total_time",
+    "postgresql/stat_subscription_stats.tsv":
+        "pg.stat_subscription_stats",
     "postgresql/stat_wal.tsv": "pg.stat_wal",
     "postgresql/subscriptions.tsv": "pg.subscriptions",
     "postgresql/tablespace_sizes.tsv": "pg.tablespace_sizes",
@@ -151,6 +158,11 @@ _FIXED: dict[str, str] = {
     "postgresql/waits_sample.tsv": "pg.waits_sample",
     "postgresql/wal_position.tsv": "pg.wal_position",
     "postgresql/wal_receiver.tsv": "pg.wal_receiver",
+
+    # PgBouncer, collected from its configuration directory and
+    # so present even when the instance is unreachable.
+    "pgbouncer/pgbouncer.ini": "pgbouncer.ini",
+    "pgbouncer/files.tsv": "pgbouncer.files",
 
     # System: cross-platform and Linux/macOS mixed. All are
     # classified even when no parser exists for the kind.
@@ -307,12 +319,15 @@ for _pkg_name in (
 ):
     _FIXED[f"system/{_pkg_name}.out"] = f"sys.{_pkg_name}"
 
-# Per-database and pg_statviz files are classified by pattern.
+# Per-database, pg_statviz and Spock files are classified by pattern.
 _DB_RE = re.compile(
     r"^databases/(?P<db>[^/]+)/(?P<stem>[^/]+)\.(?P<ext>tsv)$"
 )
 _STATVIZ_RE = re.compile(
     r"^pg_statviz/(?P<db>[^/]+)/(?P<stem>[^/]+)\.(?P<ext>tsv)$"
+)
+_SPOCK_RE = re.compile(
+    r"^spock/(?P<db>[^/]+)/(?P<stem>[^/]+)\.(?P<ext>tsv)$"
 )
 # Per-db stems we know about (from DATA.md). Unknown stems inside a known
 # per-db parent still fall through to "unknown" so the canary catches them.
@@ -342,6 +357,7 @@ _DB_STEMS: frozenset[str] = frozenset(
 )
 _STATVIZ_STEMS: frozenset[str] = frozenset(
     {
+        "blocking",
         "buf",
         "conf",
         "conn",
@@ -353,6 +369,26 @@ _STATVIZ_STEMS: frozenset[str] = frozenset(
         "snapshots",
         "wait",
         "wal",
+    }
+)
+# Spock's catalogue, collected per database when the extension is
+# installed. ``exception_log`` and ``resolutions`` arrive with the
+# conflicting row images already removed by radar.
+_SPOCK_STEMS: frozenset[str] = frozenset(
+    {
+        "channel_summary_stats",
+        "exception_log",
+        "lag_tracker",
+        "local_node",
+        "local_sync_status",
+        "node",
+        "pii",
+        "progress",
+        "replication_set",
+        "replication_set_table",
+        "resolutions",
+        "subscription",
+        "tables",
     }
 )
 
@@ -383,6 +419,15 @@ def classify(path: str, size: int = 0) -> ClassifiedEntry | None:
             path=path,
             size=size,
             kind=f"pg_statviz.{m.group('stem')}",
+            dbname=m.group("db"),
+        )
+
+    m = _SPOCK_RE.match(path)
+    if m is not None and m.group("stem") in _SPOCK_STEMS:
+        return ClassifiedEntry(
+            path=path,
+            size=size,
+            kind=f"spock.{m.group('stem')}",
             dbname=m.group("db"),
         )
 

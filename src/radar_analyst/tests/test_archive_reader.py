@@ -251,3 +251,74 @@ def test_open_entry_iterates_in_chunks(
         for chunk in fh:
             chunks.append(chunk)
     assert b"".join(chunks) == payload
+
+
+# ---------------------------------------------------------------
+# Paths introduced by later radar releases
+#
+# The reader trails radar by construction: a path radar adds is
+# unknown here until it is listed, and the only symptom is a valid
+# archive reporting unrecognised files.
+# ---------------------------------------------------------------
+
+
+def test_classify_pg_statviz_blocking() -> None:
+    """pg_statviz gained a blocking-lock snapshot table."""
+    ce = classify("pg_statviz/mydb/blocking.tsv")
+    assert ce is not None
+    assert ce.kind == "pg_statviz.blocking"
+    assert ce.dbname == "mydb"
+
+
+@pytest.mark.parametrize(
+    "stem",
+    [
+        "channel_summary_stats",
+        "exception_log",
+        "lag_tracker",
+        "local_node",
+        "local_sync_status",
+        "node",
+        "pii",
+        "progress",
+        "replication_set",
+        "replication_set_table",
+        "resolutions",
+        "subscription",
+        "tables",
+    ],
+)
+def test_classify_spock_paths(stem: str) -> None:
+    """Spock's catalogue is per-database, like pg_statviz's."""
+    ce = classify(f"spock/mydb/{stem}.tsv")
+    assert ce is not None, stem
+    assert ce.kind == f"spock.{stem}"
+    assert ce.dbname == "mydb"
+
+
+def test_classify_unknown_spock_stem_is_unknown() -> None:
+    """An unlisted stem must reach the canary, not be waved through."""
+    assert classify("spock/mydb/invented.tsv") is None
+
+
+@pytest.mark.parametrize(
+    ("path", "kind"),
+    [
+        ("postgresql/control_checkpoint.tsv", "pg.control_checkpoint"),
+        ("postgresql/control_init.tsv", "pg.control_init"),
+        ("postgresql/control_recovery.tsv", "pg.control_recovery"),
+        ("postgresql/control_system.tsv", "pg.control_system"),
+        ("postgresql/log_directory.tsv", "pg.log_directory"),
+        (
+            "postgresql/stat_subscription_stats.tsv",
+            "pg.stat_subscription_stats",
+        ),
+        ("pgbouncer/pgbouncer.ini", "pgbouncer.ini"),
+        ("pgbouncer/files.tsv", "pgbouncer.files"),
+    ],
+)
+def test_classify_paths_added_by_radar(path: str, kind: str) -> None:
+    ce = classify(path)
+    assert ce is not None, path
+    assert ce.kind == kind
+    assert ce.dbname is None
