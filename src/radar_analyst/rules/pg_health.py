@@ -19,8 +19,8 @@ from radar_analyst.parse.pg_db_indexes import IndexesPerDb, IndexRow
 from radar_analyst.parse.pg_db_sequences import SequencesPerDb
 from radar_analyst.parse.pg_db_tables import TablesPerDb
 from radar_analyst.parse.pg_settings import PgSettings
-from radar_analyst.parse.pg_wal import PgArchiver
-from radar_analyst.rules.base import Finding, register
+from radar_analyst.parse.pg_wal import PgArchiver, ReplicationSlots
+from radar_analyst.rules.base import Finding, register, top_n
 
 
 # Wraparound is a critical event at age >= 2 billion (autovacuum's
@@ -30,6 +30,14 @@ from radar_analyst.rules.base import Finding, register
 # by now and hasn't); critical at 1.5B is well into "must act now".
 _WRAPAROUND_WARN_AGE = 500_000_000
 _WRAPAROUND_CRIT_AGE = 1_500_000_000
+
+# Multixact IDs exhaust independently of transaction IDs but share
+# their ceiling: both cap near 2.1B and both failsafes engage at
+# 1.6B by default. The wider autovacuum_multixact_freeze_max_age
+# (400M against 200M) buys a longer comfort band, not more space,
+# so the warning tier is the same 500M. Critical is the point at
+# which the emergency vacuum has engaged, read from the host.
+_MXID_FAILSAFE_DEFAULT = 1_600_000_000
 
 # Dead-row floor: tables with very few rows can show high dead
 # ratios harmlessly during normal churn.
@@ -58,6 +66,11 @@ _AV_VACUUM_THRESHOLD_DEFAULT = 50
 _AV_VACUUM_SCALE_DEFAULT = 0.2
 _AV_INSERT_THRESHOLD_DEFAULT = 1000
 _AV_INSERT_SCALE_DEFAULT = 0.2
+# The analyze arm has a scale factor of its own: 0.1, not the
+# vacuum arm's 0.2. Reusing the vacuum constants would miss half
+# the tables that are actually overdue.
+_AV_ANALYZE_THRESHOLD_DEFAULT = 50
+_AV_ANALYZE_SCALE_DEFAULT = 0.1
 # Anything older than 1 hour while the table is over the
 # autovacuum eligibility threshold is "autovacuum is blocked or
 # unable to keep up": distinct from `tables_high_dead_rows`,
@@ -112,6 +125,207 @@ def txid_wraparound_high(parsed: dict[str, Any]) -> list[Finding]:
                 "transactions are blocking xmin advance, and "
                 "consider a manual VACUUM (FREEZE) on the "
                 "oldest tables."
+            ),
+        )
+    ]
+
+
+@register("Internals & I/O Health")
+def mxid_wraparound_high(parsed: dict[str, Any]) -> list[Finding]:
+    """Critical as a database approaches multixact wraparound.
+
+    A separate counter from the transaction-id one, and a cluster
+    can be comfortable on one while in trouble on the other:
+    workloads heavy in ``SELECT FOR SHARE`` or foreign-key checks
+    age multixacts far faster than transaction IDs.
+
+    Threshold tiers:
+    - age >= the failsafe (default 1.6B) → critical (the emergency
+      vacuum has engaged).
+    - age >= 500M → warning (operator runway).
+    """
+    dbs: list[DatabaseInfo] | None = parsed.get("pg.databases")
+    if not dbs:
+        return []
+    worst: DatabaseInfo | None = None
+    worst_age = 0
+    for d in dbs:
+        if d.minmxid_age is None:
+            continue
+        if d.minmxid_age > worst_age:
+            worst_age = d.minmxid_age
+            worst = d
+    if worst is None or worst_age < _WRAPAROUND_WARN_AGE:
+        return []
+    failsafe = _av_int_setting(
+        parsed.get("pg.settings"),
+        "vacuum_multixact_failsafe_age",
+        _MXID_FAILSAFE_DEFAULT,
+    )
+    severity = "critical" if worst_age >= failsafe else "warning"
+    return [
+        Finding(
+            rule_id="pg.health.mxid_wraparound_high",
+            severity=severity,
+            title=(
+                f"Multixact age on {worst.datname} is "
+                f"{worst_age:,}"
+            ),
+            detail=(
+                f"Database {worst.datname} has datminmxid age "
+                f"{worst_age:,} (out of a hard ceiling near "
+                "2.1 billion, with the emergency vacuum engaging "
+                f"at {failsafe:,}). Multixact wraparound stops "
+                "the cluster accepting new transactions just as "
+                "transaction-id wraparound does. Check that "
+                "autovacuum is running and that no long-running "
+                "transaction is holding the horizon back. This "
+                "measures multixact ID age only: the members "
+                "space under pg_multixact/members can exhaust "
+                "separately and is not in the archive."
+            ),
+        )
+    ]
+
+
+def _autoanalyze_overdue(
+    tpd_by_db: dict[str, TablesPerDb],
+    settings: PgSettings | None,
+) -> list[tuple[str, str, int, int]]:
+    """Tables past the analyze threshold with a stale last run.
+
+    One arm rather than the vacuum rule's two: PG has no
+    insert-only analyze trigger.
+    """
+    ana_t = _av_int_setting(
+        settings,
+        "autovacuum_analyze_threshold",
+        _AV_ANALYZE_THRESHOLD_DEFAULT,
+    )
+    ana_s = _av_float_setting(
+        settings,
+        "autovacuum_analyze_scale_factor",
+        _AV_ANALYZE_SCALE_DEFAULT,
+    )
+    offenders: list[tuple[str, str, int, int]] = []
+    for db, tpd in tpd_by_db.items():
+        for row in tpd.rows:
+            age = row.last_autoanalyze_age_seconds
+            if age is None or age <= _AV_LAGGING_AGE_S:
+                continue
+            if row.n_mod_since_analyze > ana_t + ana_s * row.reltuples:
+                offenders.append(
+                    (db, row.fqname, row.n_mod_since_analyze, age)
+                )
+    return offenders
+
+
+@register("Internals & I/O Health")
+def autoanalyze_lagging(parsed: dict[str, Any]) -> list[Finding]:
+    """Warn when a table is eligible for autoanalyze but it didn't run.
+
+    Eligibility: ``n_mod_since_analyze`` over
+    ``analyze_threshold + analyze_scale * reltuples``, AND
+    ``last_autoanalyze_age_seconds > 3600``.
+
+    The consequence is a planner working from row counts and
+    distributions that no longer describe the table, which reads
+    as a query problem rather than a maintenance one.
+    """
+    tpd_by_db: dict[str, TablesPerDb] = (
+        parsed.get("pg.db.tables") or {}
+    )
+    if not tpd_by_db:
+        return []
+    offenders = _autoanalyze_overdue(
+        tpd_by_db, parsed.get("pg.settings")
+    )
+    if not offenders:
+        return []
+    offenders.sort(key=lambda t: -t[3])
+    top = offenders[:5]
+    examples = "; ".join(
+        f"{db}/{name} "
+        f"({mods:,} mods, last autoanalyze "
+        f"{age // 3600}h{(age % 3600) // 60:02d}m ago)"
+        for db, name, mods, age in top
+    )
+    suffix = (
+        f" (+{len(offenders) - 5} more)"
+        if len(offenders) > 5
+        else ""
+    )
+    return [
+        Finding(
+            rule_id="pg.health.autoanalyze_lagging",
+            severity="warning",
+            title=(
+                f"{len(offenders)} table(s) overdue for "
+                "autoanalyze"
+            ),
+            detail=(
+                "These tables are past the autoanalyze "
+                "eligibility threshold AND haven't been "
+                f"autoanalyzed in over an hour: {examples}"
+                f"{suffix}. Planner statistics that stale "
+                "produce bad row estimates and the sequential "
+                "scans that follow from them. Common causes "
+                "match autovacuum lagging: saturated workers, "
+                "a long transaction, or per-table settings "
+                "turning it off."
+            ),
+        )
+    ]
+
+
+@register("Internals & I/O Health")
+def unlogged_tables_present(parsed: dict[str, Any]) -> list[Finding]:
+    """Note unlogged tables on a host that replicates.
+
+    An unlogged table is a deliberate choice and usually the right
+    one, so this is context rather than a defect. What makes it
+    worth stating is the interaction: unlogged tables are
+    truncated on crash recovery and never reach a replica, so on a
+    replicated host they are a gap in what the standby holds. On a
+    single node there is nothing to say, and the rule stays quiet.
+    """
+    tpd_by_db: dict[str, TablesPerDb] = (
+        parsed.get("pg.db.tables") or {}
+    )
+    if not tpd_by_db:
+        return []
+    slots: ReplicationSlots | None = parsed.get(
+        "pg.replication_slots"
+    )
+    replicas = parsed.get("pg.replication")
+    replicating = bool(
+        (slots is not None and slots.all) or replicas
+    )
+    if not replicating:
+        return []
+    found = [
+        (db, row.fqname)
+        for db, tpd in tpd_by_db.items()
+        for row in tpd.rows
+        if row.is_unlogged
+    ]
+    if not found:
+        return []
+    examples, suffix = top_n(
+        found, lambda t: f"{t[0]}/{t[1]}"
+    )
+    return [
+        Finding(
+            rule_id="pg.health.unlogged_tables",
+            severity="info",
+            title=f"{len(found)} unlogged table(s)",
+            detail=(
+                f"Unlogged table(s): {examples}{suffix}. This "
+                "host replicates, and unlogged tables are "
+                "neither WAL-logged nor sent to a standby: they "
+                "are truncated on crash recovery and absent "
+                "from every replica. Confirm that is intended "
+                "for each one."
             ),
         )
     ]

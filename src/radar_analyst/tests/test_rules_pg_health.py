@@ -7,18 +7,22 @@ from radar_analyst.parse.pg_db_sequences import (
     SequencesPerDb,
 )
 from radar_analyst.parse.pg_db_tables import TableRow, TablesPerDb
+from radar_analyst.parse.pg_settings import PgSetting, PgSettings
 from radar_analyst.parse.pg_wal import PgArchiver
 from radar_analyst.rules.pg_health import (
     archiver_failing,
+    autoanalyze_lagging,
     autovacuum_disabled_per_table,
     autovacuum_lagging,
     duplicate_indexes,
     invalid_databases,
     invalid_indexes,
+    mxid_wraparound_high,
     sequence_exhaustion,
     tables_high_dead_rows,
     toast_dominates_heap,
     txid_wraparound_high,
+    unlogged_tables_present,
     unused_indexes,
 )
 
@@ -79,6 +83,9 @@ def _table(
     reloptions: list[str] | None = None,
     heap_size: int = 0,
     toast_size: int | None = None,
+    reltuples: float = 0.0,
+    mod_since_analyze: int = 0,
+    autoanalyze_age: int | None = None,
 ) -> TableRow:
     return TableRow(
         schemaname=schema,
@@ -89,6 +96,24 @@ def _table(
         n_dead_tup=dead,
         heap_size=heap_size,
         toast_size=toast_size,
+        reltuples=reltuples,
+        n_mod_since_analyze=mod_since_analyze,
+        last_autoanalyze_age_seconds=autoanalyze_age,
+    )
+
+
+def _settings(values: dict[str, str]) -> PgSettings:
+    return PgSettings(
+        all={
+            name: PgSetting(
+                name=name,
+                setting=setting,
+                unit="",
+                category="",
+                short_desc="",
+            )
+            for name, setting in values.items()
+        }
     )
 
 
@@ -96,6 +121,7 @@ def _db(
     name: str,
     *,
     age: int | None = None,
+    mxid_age: int | None = None,
     connlimit: int = -1,
     is_template: bool = False,
 ) -> DatabaseInfo:
@@ -107,7 +133,7 @@ def _db(
         datfrozenxid=None,
         frozenxid_age=age,
         datminmxid=None,
-        minmxid_age=None,
+        minmxid_age=mxid_age,
     )
 
 
@@ -1176,3 +1202,248 @@ def test_autovacuum_lagging_uses_pg_settings_when_present() -> None:
     }
     findings = autovacuum_lagging(parsed)
     assert len(findings) == 1
+
+
+# ----------------------------------------------------------------------
+# mxid_wraparound_high
+# ----------------------------------------------------------------------
+
+
+def test_mxid_wraparound_silent_below_warn() -> None:
+    parsed = {"pg.databases": [_db("mydb", mxid_age=499_999_999)]}
+    assert mxid_wraparound_high(parsed) == []
+
+
+def test_mxid_wraparound_warns_at_500m() -> None:
+    """The same tiers as the TXID rule: the ceilings are identical."""
+    parsed = {"pg.databases": [_db("mydb", mxid_age=500_000_000)]}
+    out = mxid_wraparound_high(parsed)
+    assert len(out) == 1
+    assert out[0].severity == "warning"
+    assert out[0].rule_id == "pg.health.mxid_wraparound_high"
+
+
+def test_mxid_wraparound_critical_at_failsafe() -> None:
+    parsed = {"pg.databases": [_db("mydb", mxid_age=1_600_000_000)]}
+    out = mxid_wraparound_high(parsed)
+    assert out[0].severity == "critical"
+
+
+def test_mxid_wraparound_honours_a_tuned_failsafe() -> None:
+    """A host that raised the failsafe has not reached it yet."""
+    parsed = {
+        "pg.databases": [_db("mydb", mxid_age=1_600_000_000)],
+        "pg.settings": _settings(
+            {"vacuum_multixact_failsafe_age": "2000000000"}
+        ),
+    }
+    assert mxid_wraparound_high(parsed)[0].severity == "warning"
+
+
+def test_mxid_wraparound_reports_the_worst_database() -> None:
+    parsed = {
+        "pg.databases": [
+            _db("quiet", mxid_age=1_000),
+            _db("busy", mxid_age=900_000_000),
+        ]
+    }
+    out = mxid_wraparound_high(parsed)
+    assert "busy" in out[0].title
+
+
+def test_mxid_wraparound_ignores_databases_without_the_column() -> None:
+    """Older radars ship a narrower column set; None is not zero."""
+    parsed = {"pg.databases": [_db("mydb", mxid_age=None)]}
+    assert mxid_wraparound_high(parsed) == []
+
+
+def test_mxid_wraparound_says_it_cannot_see_members_space() -> None:
+    """Two counters exhaust independently; we only carry one."""
+    parsed = {"pg.databases": [_db("mydb", mxid_age=600_000_000)]}
+    assert "member" in mxid_wraparound_high(parsed)[0].detail
+
+
+def test_mxid_wraparound_is_independent_of_txid() -> None:
+    """A cluster can be fine on one counter and in trouble on the other."""
+    parsed = {"pg.databases": [_db("mydb", age=1_000, mxid_age=900_000_000)]}
+    assert txid_wraparound_high(parsed) == []
+    assert len(mxid_wraparound_high(parsed)) == 1
+
+
+# ----------------------------------------------------------------------
+# autoanalyze_lagging
+# ----------------------------------------------------------------------
+
+
+def _tpd(rows: list[TableRow]) -> dict[str, TablesPerDb]:
+    return {"mydb": TablesPerDb(rows=rows)}
+
+
+def test_autoanalyze_silent_when_not_eligible() -> None:
+    """Below the analyze threshold there is nothing to say."""
+    parsed = {
+        "pg.db.tables": _tpd(
+            [
+                _table(
+                    name="t",
+                    reltuples=1000.0,
+                    mod_since_analyze=10,
+                    autoanalyze_age=99_999,
+                )
+            ]
+        )
+    }
+    assert autoanalyze_lagging(parsed) == []
+
+
+def test_autoanalyze_fires_when_eligible_and_stale() -> None:
+    """50 + 0.1 x 1000 = 150 modifications makes it eligible."""
+    parsed = {
+        "pg.db.tables": _tpd(
+            [
+                _table(
+                    name="t",
+                    reltuples=1000.0,
+                    mod_since_analyze=500,
+                    autoanalyze_age=7200,
+                )
+            ]
+        )
+    }
+    out = autoanalyze_lagging(parsed)
+    assert len(out) == 1
+    assert out[0].severity == "warning"
+    assert out[0].rule_id == "pg.health.autoanalyze_lagging"
+    assert "mydb/public.t" in out[0].detail
+
+
+def test_autoanalyze_uses_its_own_scale_factor() -> None:
+    """0.1, not the vacuum arm's 0.2: 150 fires where 250 would not."""
+    row = _table(
+        name="t",
+        reltuples=1000.0,
+        mod_since_analyze=200,
+        autoanalyze_age=7200,
+    )
+    assert len(autoanalyze_lagging({"pg.db.tables": _tpd([row])})) == 1
+
+
+def test_autoanalyze_respects_configured_settings() -> None:
+    """A host that raised the scale factor is not overdue at 200."""
+    settings = _settings({"autovacuum_analyze_scale_factor": "0.5"})
+    row = _table(
+        name="t",
+        reltuples=1000.0,
+        mod_since_analyze=200,
+        autoanalyze_age=7200,
+    )
+    parsed = {"pg.db.tables": _tpd([row]), "pg.settings": settings}
+    assert autoanalyze_lagging(parsed) == []
+
+
+def test_autoanalyze_silent_when_recently_analysed() -> None:
+    """Eligible but analysed ten minutes ago is autovacuum working."""
+    row = _table(
+        name="t",
+        reltuples=1000.0,
+        mod_since_analyze=5000,
+        autoanalyze_age=600,
+    )
+    assert autoanalyze_lagging({"pg.db.tables": _tpd([row])}) == []
+
+
+def test_autoanalyze_skips_tables_without_an_age() -> None:
+    """Pre-0.5.0 zips carry no age; missing data must not over-fire."""
+    row = _table(
+        name="t",
+        reltuples=1000.0,
+        mod_since_analyze=5000,
+        autoanalyze_age=None,
+    )
+    assert autoanalyze_lagging({"pg.db.tables": _tpd([row])}) == []
+
+
+def test_autoanalyze_counts_every_offender() -> None:
+    rows = [
+        _table(
+            name=f"t{i}",
+            reltuples=1000.0,
+            mod_since_analyze=5000,
+            autoanalyze_age=7200,
+        )
+        for i in range(7)
+    ]
+    out = autoanalyze_lagging({"pg.db.tables": _tpd(rows)})
+    assert "7 table(s)" in out[0].title
+    assert "+2 more" in out[0].detail
+
+
+def test_autoanalyze_silent_without_tables() -> None:
+    assert autoanalyze_lagging({}) == []
+
+
+# ----------------------------------------------------------------------
+# unlogged_tables_present
+# ----------------------------------------------------------------------
+
+
+def test_unlogged_silent_without_replication() -> None:
+    """On a single node an unlogged table means nothing worth saying."""
+    parsed = {
+        "pg.db.tables": _tpd([_table(name="cache", persistence="u")])
+    }
+    assert unlogged_tables_present(parsed) == []
+
+
+def test_unlogged_reported_when_replication_is_configured() -> None:
+    from radar_analyst.parse.pg_wal import (
+        ReplicationSlot,
+        ReplicationSlots,
+    )
+
+    slots = ReplicationSlots(
+        all=[
+            ReplicationSlot(
+                slot_name="s1",
+                slot_type="physical",
+                database="",
+                active=True,
+                restart_lsn="0/1000000",
+                wal_status="reserved",
+            )
+        ]
+    )
+    parsed = {
+        "pg.db.tables": _tpd([_table(name="cache", persistence="u")]),
+        "pg.replication_slots": slots,
+    }
+    out = unlogged_tables_present(parsed)
+    assert len(out) == 1
+    assert out[0].severity == "info"
+    assert out[0].rule_id == "pg.health.unlogged_tables"
+    assert "cache" in out[0].detail
+
+
+def test_unlogged_silent_when_every_table_is_permanent() -> None:
+    from radar_analyst.parse.pg_wal import (
+        ReplicationSlot,
+        ReplicationSlots,
+    )
+
+    slots = ReplicationSlots(
+        all=[
+            ReplicationSlot(
+                slot_name="s1",
+                slot_type="physical",
+                database="",
+                active=True,
+                restart_lsn="0/1000000",
+                wal_status="reserved",
+            )
+        ]
+    )
+    parsed = {
+        "pg.db.tables": _tpd([_table(name="t", persistence="p")]),
+        "pg.replication_slots": slots,
+    }
+    assert unlogged_tables_present(parsed) == []
