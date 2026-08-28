@@ -3,7 +3,7 @@
 ############################
 # Stage 1: build the Astro console
 ############################
-FROM node:24-alpine AS web-build
+FROM node:24-slim AS web-build
 WORKDIR /w
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
