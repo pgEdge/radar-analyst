@@ -3,7 +3,14 @@
 ############################
 # Stage 1: build the Astro console
 ############################
-FROM node:24-slim AS web-build
+# lts-slim always resolves to Node's current LTS. Odd-numbered
+# majors are never LTS and reach end of life six months after
+# release, so tracking the tag rather than a major keeps the
+# builder on a supported runtime without a bump at each
+# transition. The stage is discarded, and its output is identical
+# across base images, so the floating major carries no risk to
+# what ships.
+FROM node:lts-slim AS web-build
 WORKDIR /w
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
