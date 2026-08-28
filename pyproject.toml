@@ -14,10 +14,10 @@ dependencies = [
     "sse-starlette>=2.1",
     "psycopg[binary,pool]>=3.2",
     "python-multipart>=0.0.19",
-    # Capped below 1.0: that major moved the SDK's HTTP stack from
-    # httpx to httpx2, which respx does not patch, so the adapter
-    # tests would reach the live API instead of their mocks.
-    "anthropic>=0.39,<1",
+    # 1.x moved the SDK's HTTP stack from httpx to httpx2. The
+    # adapter tests mock at the transport rather than with respx,
+    # which patches httpx only, so the floor stays on 1.0.
+    "anthropic>=1,<2",
     "google-genai>=0.3",
     "ollama>=0.4",
     "openai>=3.0",

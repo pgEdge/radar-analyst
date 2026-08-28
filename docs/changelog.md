@@ -33,6 +33,8 @@ Only user-facing changes are listed.
   history.
 
 ### Changed
+- The Anthropic SDK requirement is now 1.x. Installing from source
+  needs `anthropic>=1,<2`; the container image already carries it.
 - Uploaded radar archives are kept under `archives/` in the data
   directory, alongside the admin token.
 - The analyst reaches PostgreSQL over a unix socket shared only with
