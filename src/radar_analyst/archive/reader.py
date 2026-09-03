@@ -172,6 +172,7 @@ _FIXED: dict[str, str] = {
     "system/fstab.out": "sys.fstab",
     "system/free.out": "sys.free",
     "system/hostname.out": "sys.hostname",
+    "system/hostname_fqdn.out": "sys.hostname_fqdn",
     "system/hosts.out": "sys.hosts",
     "system/hypervisor.out": "sys.hypervisor",
     "system/ifconfig.out": "sys.ifconfig",
@@ -209,10 +210,41 @@ _FIXED: dict[str, str] = {
     "system/ss_summary.out": "sys.ss_summary",
     "system/sysctl.out": "sys.sysctl",
     "system/sysctl.conf": "sys.sysctl_conf",
+    "system/system_release.out": "sys.system_release",
     "system/timedatectl.out": "sys.timedatectl",
     "system/top.out": "sys.top",
     "system/uname.out": "sys.uname",
     "system/vmstat-command.out": "sys.vmstat_command",
+
+    # macOS. radar collects from Darwin hosts too, and these have no
+    # Linux counterpart.
+    "system/diskutil_info_all.out": "sys.diskutil_info_all",
+    "system/diskutil_list.out": "sys.diskutil_list",
+    "system/kextstat.out": "sys.kextstat",
+    "system/launchctl_list.out": "sys.launchctl_list",
+    "system/memory_pressure.out": "sys.memory_pressure",
+    "system/netstat_interfaces.out": "sys.netstat_interfaces",
+    "system/netstat_routing.out": "sys.netstat_routing",
+    "system/pmset_assertions.out": "sys.pmset_assertions",
+    "system/pmset_settings.out": "sys.pmset_settings",
+    "system/sysctl_cpu.out": "sys.sysctl_cpu",
+    "system/sysctl_hw.out": "sys.sysctl_hw",
+    "system/sysctl_kern.out": "sys.sysctl_kern",
+    "system/sysctl_vm.out": "sys.sysctl_vm",
+    "system/system_log_boot.out": "sys.system_log_boot",
+    "system/system_profiler_hardware.out":
+        "sys.system_profiler_hardware",
+    "system/system_profiler_network.out":
+        "sys.system_profiler_network",
+    "system/system_profiler_pci.out": "sys.system_profiler_pci",
+    "system/system_profiler_software.out":
+        "sys.system_profiler_software",
+    "system/system_profiler_storage.out":
+        "sys.system_profiler_storage",
+    "system/system_version.plist": "sys.system_version_plist",
+    "system/ulimit.out": "sys.ulimit",
+    "system/vm_stat.out": "sys.vm_stat",
+    "system/vm_stat_interval.out": "sys.vm_stat_interval",
 
     # /proc/*
     "system/proc/cpuinfo.out": "sys.proc.cpuinfo",
@@ -350,6 +382,7 @@ _DB_STEMS: frozenset[str] = frozenset(
         "stat_database",
         "statistics",
         "subscription_tables",
+        "table_freeze_age",
         "tables",
         "triggers",
         "types",

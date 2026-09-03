@@ -322,3 +322,76 @@ def test_classify_paths_added_by_radar(path: str, kind: str) -> None:
     assert ce is not None, path
     assert ce.kind == kind
     assert ce.dbname is None
+
+
+# ---------------------------------------------------------------
+# macOS collection, and per-table freeze age
+# ---------------------------------------------------------------
+
+
+def test_classify_table_freeze_age() -> None:
+    """Freeze age is its own file, not columns on tables.tsv.
+
+    It covers pg_catalog and TOAST relations that tables.tsv
+    excludes, which are common wraparound culprits.
+    """
+    ce = classify("databases/mydb/table_freeze_age.tsv")
+    assert ce is not None
+    assert ce.kind == "pg.db.table_freeze_age"
+    assert ce.dbname == "mydb"
+
+
+@pytest.mark.parametrize(
+    "stem",
+    [
+        "diskutil_info_all",
+        "diskutil_list",
+        "kextstat",
+        "launchctl_list",
+        "memory_pressure",
+        "netstat_interfaces",
+        "netstat_routing",
+        "pmset_assertions",
+        "pmset_settings",
+        "sysctl_cpu",
+        "sysctl_hw",
+        "sysctl_kern",
+        "sysctl_vm",
+        "system_log_boot",
+        "system_profiler_hardware",
+        "system_profiler_network",
+        "system_profiler_pci",
+        "system_profiler_software",
+        "system_profiler_storage",
+        "ulimit",
+        "vm_stat",
+        "vm_stat_interval",
+    ],
+)
+def test_classify_macos_system_paths(stem: str) -> None:
+    """An archive taken on macOS is a valid archive."""
+    ce = classify(f"system/{stem}.out")
+    assert ce is not None, stem
+    assert ce.kind == f"sys.{stem}"
+
+
+def test_classify_macos_version_plist() -> None:
+    """The only system entry that is not a .out file."""
+    ce = classify("system/system_version.plist")
+    assert ce is not None
+    assert ce.kind == "sys.system_version_plist"
+
+
+@pytest.mark.parametrize(
+    ("path", "kind"),
+    [
+        ("system/hostname_fqdn.out", "sys.hostname_fqdn"),
+        ("system/system_release.out", "sys.system_release"),
+    ],
+)
+def test_classify_later_linux_system_paths(
+    path: str, kind: str
+) -> None:
+    ce = classify(path)
+    assert ce is not None, path
+    assert ce.kind == kind
