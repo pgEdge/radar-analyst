@@ -16,8 +16,6 @@ published on loopback. `RADAR_ANALYST_STATE_DB_URL` points the
 analyst at any other PostgreSQL, which is how a package install will
 use the system server.
 
-Written by Jimmy Angelakos.
-
 For the engineering design (module layering, pipeline stages, adapter
 architecture, deferred work) see [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -330,6 +328,10 @@ type-checked by both mypy and pyright in strict mode,
 tests live in `src/radar_analyst/tests/`, all
 DB tables live in the `radar` schema, and commits are short and
 imperative with no AI attribution.
+
+## Author
+
+Written by Jimmy Angelakos.
 
 ## Licence
 
