@@ -59,6 +59,9 @@ ci:
 
 # What CI iterates over. Locally this is opt-in: a single version
 # is enough while writing code, and all three before a PR.
+archive-coverage:
+	./check-archive-coverage.py $(RADAR)
+
 matrix: $(VENV)
 	@for v in 16 17 18; do \
 		echo "=== PostgreSQL $$v ==="; \

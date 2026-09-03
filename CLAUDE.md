@@ -110,8 +110,17 @@ Change the value in the file that owns it. Do not restate it here.
 | Deployment topology and exposure | `docker-compose.yml` |
 | Pre-commit hooks | `.pre-commit-config.yaml` |
 | Common commands | `Makefile` |
+| Archive paths the classifier must know | `check-archive-coverage.py` |
 
 `./run-ci-local.sh` must exit 0 before a commit.
+
+`archive/reader.py` mirrors radar's collection tasks by hand, and
+radar is upstream: a path it adds is unknown here until somebody
+lists it, and the only symptom is a valid archive reporting
+unrecognised files. `./check-archive-coverage.py [path-to-radar]`
+compares the two and is the first step of a harvest. It needs a
+radar checkout, so it cannot run in CI. Run it after pulling radar,
+and before adding parser or rule support for an archive entry.
 
 ## Git and review
 
