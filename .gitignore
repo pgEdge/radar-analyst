@@ -22,6 +22,9 @@ web/dist/
 web/.astro/
 src/radar_analyst/webdist/
 
+# MkDocs (make docs)
+site/
+
 # Local data
 data/
 *.zip
