@@ -25,15 +25,19 @@ jobs:
     env:
       RADAR_ANALYST_PG_MAJOR: ${{ matrix.pg }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          # Matches the Dockerfile's base image, so CI exercises the
+          # interpreter the service ships on.
+          python-version: "3.14"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          # lts/* resolves to the current LTS, matching the
+          # node:lts-slim tag the console is built with in the image.
+          node-version: "lts/*"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
