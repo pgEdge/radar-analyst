@@ -109,21 +109,71 @@ export const api = {
     return getJson('/api/config');
   },
 
-  async postUpload(
+  postUpload(
     file: File,
-  ): Promise<{ upload_id: string; job_id: string }> {
-    const fd = new FormData();
-    fd.append('file', file);
-    const resp = await fetch('/api/uploads', {
-      method: 'POST',
-      body: fd,
+    onProgress?: (fraction: number) => void,
+  ): Promise<UploadReceipt> {
+    // XMLHttpRequest rather than fetch: only it reports how much of
+    // the body has been sent, and a real archive can run to 100 MB.
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/uploads');
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e: ProgressEvent) => {
+          if (e.lengthComputable && e.total > 0) {
+            onProgress(e.loaded / e.total);
+          }
+        });
+      }
+      xhr.addEventListener('load', () => {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          const reason = refusalReason(xhr.responseText);
+          reject(
+            new Error(
+              `POST /api/uploads returned ${xhr.status}` +
+                (reason ? `: ${reason}` : ''),
+            ),
+          );
+          return;
+        }
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadReceipt);
+        } catch {
+          reject(
+            new Error('POST /api/uploads returned an unreadable reply'),
+          );
+        }
+      });
+      xhr.addEventListener('error', () => {
+        reject(
+          new Error(
+            'The upload did not reach the analyst. Check that it is ' +
+              'still running, then try again.',
+          ),
+        );
+      });
+      const fd = new FormData();
+      fd.append('file', file);
+      xhr.send(fd);
     });
-    if (!resp.ok) {
-      throw new Error(`POST /api/uploads returned ${resp.status}`);
-    }
-    return (await resp.json()) as {
-      upload_id: string;
-      job_id: string;
-    };
   },
 };
+
+export interface UploadReceipt {
+  upload_id: string;
+  job_id: string;
+}
+
+// A refusal carries its reason as {"detail": "..."}; anything else is
+// shown as it came, trimmed to one line.
+function refusalReason(text: string): string {
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    if (typeof parsed.detail === 'string') {
+      return parsed.detail;
+    }
+  } catch {
+    // Not JSON; fall through to the raw text.
+  }
+  return text.split('\n')[0].slice(0, 200);
+}

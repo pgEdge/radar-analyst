@@ -99,45 +99,126 @@ describe('failure reporting', () => {
       /\/api\/uploads\/missing returned 404 Not Found/,
     );
   });
-
-  it('reports the status when an upload is refused', async () => {
-    stubFetch({ ok: false, status: 415, statusText: 'x' });
-    const file = new File(['not a zip'], 'x.txt');
-
-    await expect(api.postUpload(file)).rejects.toThrow(
-      /POST \/api\/uploads returned 415/,
-    );
-  });
 });
+
+class FakeXhr {
+  static instances: FakeXhr[] = [];
+  method = '';
+  url = '';
+  headers: Record<string, string> = {};
+  body: unknown = undefined;
+  status = 0;
+  responseText = '';
+  upload = new EventTarget();
+  private target = new EventTarget();
+
+  constructor() {
+    FakeXhr.instances.push(this);
+  }
+  open(method: string, url: string): void {
+    this.method = method;
+    this.url = url;
+  }
+  setRequestHeader(name: string, value: string): void {
+    this.headers[name.toLowerCase()] = value;
+  }
+  addEventListener(type: string, fn: EventListener): void {
+    this.target.addEventListener(type, fn);
+  }
+  send(body: unknown): void {
+    this.body = body;
+  }
+  // Test hooks: the network, played by hand.
+  progress(loaded: number, total: number): void {
+    // Node has no ProgressEvent; a plain Event carrying the same
+    // fields is what the listener reads.
+    const event = Object.assign(new Event('progress'), {
+      lengthComputable: true,
+      loaded,
+      total,
+    });
+    this.upload.dispatchEvent(event);
+  }
+  respond(status: number, text: string): void {
+    this.status = status;
+    this.responseText = text;
+    this.target.dispatchEvent(new Event('load'));
+  }
+  fail(): void {
+    this.target.dispatchEvent(new Event('error'));
+  }
+}
+
+function stubXhr(): typeof FakeXhr {
+  FakeXhr.instances = [];
+  vi.stubGlobal('XMLHttpRequest', FakeXhr);
+  return FakeXhr;
+}
 
 describe('uploading', () => {
   it('posts the file as multipart under "file"', async () => {
-    const calls = stubFetch({
-      json: () => Promise.resolve({ upload_id: 'u', job_id: 'j' }),
-    });
+    const Xhr = stubXhr();
     const file = new File(['zip bytes'], 'radar-host.zip');
 
-    const result = await api.postUpload(file);
+    const pending = api.postUpload(file);
+    const xhr = Xhr.instances[0];
+    xhr.respond(201, '{"upload_id":"u","job_id":"j"}');
 
-    expect(calls[0].url).toBe('/api/uploads');
-    expect(calls[0].init?.method).toBe('POST');
-    const body = calls[0].init?.body as FormData;
-    expect(body.get('file')).toBe(file);
-    expect(result).toEqual({ upload_id: 'u', job_id: 'j' });
+    expect(xhr.method).toBe('POST');
+    expect(xhr.url).toBe('/api/uploads');
+    expect((xhr.body as FormData).get('file')).toBe(file);
+    await expect(pending).resolves.toEqual({
+      upload_id: 'u',
+      job_id: 'j',
+    });
   });
 
   it('sets no Content-Type, so the boundary is generated', async () => {
     // Setting it by hand is the classic multipart mistake: the
     // browser can no longer append the boundary and the server
     // cannot parse the body.
-    const calls = stubFetch({
-      json: () => Promise.resolve({ upload_id: 'u', job_id: 'j' }),
+    const Xhr = stubXhr();
+
+    const pending = api.postUpload(new File(['x'], 'a.zip'));
+    Xhr.instances[0].respond(201, '{"upload_id":"u","job_id":"j"}');
+    await pending;
+
+    expect(Xhr.instances[0].headers['content-type']).toBeUndefined();
+  });
+
+  it('reports upload progress as a fraction of the body', async () => {
+    const Xhr = stubXhr();
+    const seen: number[] = [];
+
+    const pending = api.postUpload(new File(['x'], 'a.zip'), (f) => {
+      seen.push(f);
     });
+    const xhr = Xhr.instances[0];
+    xhr.progress(50, 200);
+    xhr.progress(200, 200);
+    xhr.respond(201, '{"upload_id":"u","job_id":"j"}');
+    await pending;
 
-    await api.postUpload(new File(['x'], 'a.zip'));
+    expect(seen).toEqual([0.25, 1]);
+  });
 
-    const headers = calls[0].init?.headers as
-      Record<string, string> | undefined;
-    expect(headers).toBeUndefined();
+  it('reports the status and the reason when an upload is refused', async () => {
+    const Xhr = stubXhr();
+
+    const pending = api.postUpload(new File(['not a zip'], 'x.txt'));
+    Xhr.instances[0].respond(415, '{"detail":"not a zip archive"}');
+
+    await expect(pending).rejects.toThrow(
+      /POST \/api\/uploads returned 415.*not a zip archive/,
+    );
+  });
+
+  it('says so when the upload never reaches the analyst', async () => {
+    const Xhr = stubXhr();
+
+    const pending = api.postUpload(new File(['x'], 'a.zip'));
+    Xhr.instances[0].fail();
+
+    await expect(pending).rejects.toThrow(/did not reach the analyst/);
   });
 });

@@ -456,7 +456,7 @@ Key files:
 | `src/pages/index.astro` | Upload form + list. |
 | `src/pages/upload.astro` | Snapshot + the assessment's briefs by category (reads `?id=`). |
 | `src/pages/live.astro` | SSE subscription → redirect to upload page on `done`. |
-| `src/lib/api.ts` | Typed `fetch` wrappers (currently unused by the pages: kept for future work that wants typed calls). |
+| `src/lib/api.ts` | Typed wrappers around the JSON API. `postUpload` sends the archive with `XMLHttpRequest` so the form can show how much has been sent; the reads are `fetch` wrappers. The upload form imports it; the other components still hand-write their calls. |
 
 ## 9. Testing strategy
 
@@ -662,7 +662,7 @@ filling in code where the interface already allows for it.
 | Cross-category synthesis pass | `analyze/orchestrator.py` final step | One more LLM call receiving only the per-category status tags + markdowns (no raw data) for cross-cutting flags like "`dirty_background_bytes` + iostat `%util` + bgwriter `buffers_backend` = flush storm". |
 | OpenAI provider | **Landed** | `ai/openai_compat.py`: `openai.AsyncOpenAI` chat completions, covering OpenAI itself and any compatible endpoint via `OPENAI_BASE_URL` / `OPENAI_MODEL`. |
 | S3 / seaweedfs blob store | `blob/s3.py` (placeholder) | Implement the `BlobStore` Protocol using `aioboto3`. PostgreSQL stores only the URL: no schema change needed. |
-| Typed `lib/api.ts` usage in the console | `web/src/components/*.astro` | Components currently hand-write their `fetch(...)` calls; switch to the typed wrapper in `src/lib/api.ts`. |
+| Typed `lib/api.ts` usage in the console | `web/src/components/*.astro` | The upload form imports the typed wrapper; the remaining components still hand-write their `fetch(...)` calls in inline scripts and could move the same way. |
 
 ### Extensions not present by default
 

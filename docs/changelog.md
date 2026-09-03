@@ -39,6 +39,10 @@ Only user-facing changes are listed.
   is the same tour by hand.
 
 ### Changed
+- The console shows the upload as it happens: a progress bar with
+  the percentage sent, and an Uploading state on the button, so a
+  large archive no longer looks like nothing is happening. A refused
+  upload now shows the analyst's reason beside the button.
 - The Anthropic SDK requirement is now 1.x. Installing from source
   needs `anthropic>=1,<2`; the container image already carries it.
 - Uploaded radar archives are kept under `archives/` in the data
