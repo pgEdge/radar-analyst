@@ -128,6 +128,11 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml \
     up -d --build
 ```
 
+New here? `make walkthrough` runs a guided tour from this checkout:
+it starts the analyst, opens the console in the browser, and walks
+through taking a radar collection and assessing it.
+[docs/walkthrough.md](docs/walkthrough.md) is the same tour by hand.
+
 ## Deployment
 
 `docker-compose.yml` is the deployment: the analyst plus

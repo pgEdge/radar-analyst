@@ -56,6 +56,7 @@ repo_url: https://github.com/pgEdge/radar-analyst
 
 nav:
   - Introduction: index.md
+  - Walkthrough: walkthrough.md
   - API: api.md
   - Changelog: changelog.md
   - Licence: LICENCE.md

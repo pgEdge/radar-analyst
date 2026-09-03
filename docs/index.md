@@ -37,6 +37,12 @@ The compose file publishes the console on `127.0.0.1:8080`, so it is
 reachable only from your own machine, and gives the database no
 published port at all.
 
+New here? The [guided walkthrough](walkthrough.md) goes from nothing
+to an assessment of one of your hosts, taking the radar collection
+included, and from a checkout of the repository
+`bash examples/walkthrough/guide.sh` starts the analyst and opens
+the console for you.
+
 To stop it, `docker compose stop`. To bring it back,
 `docker compose start`. Your uploads and their assessments are still
 there.

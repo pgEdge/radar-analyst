@@ -33,6 +33,10 @@ Only user-facing changes are listed.
   history.
 - Archives taken on macOS are read without reporting their system
   files as unrecognised, alongside per-table freeze ages.
+- A guided walkthrough. `bash examples/walkthrough/guide.sh` starts
+  the analyst, opens the console in the browser, and walks through
+  taking a radar collection and assessing it; `docs/walkthrough.md`
+  is the same tour by hand.
 
 ### Changed
 - The Anthropic SDK requirement is now 1.x. Installing from source
