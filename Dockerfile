@@ -20,7 +20,7 @@ RUN npm run build
 ############################
 # Stage 2: build + install the Python wheel
 ############################
-FROM python:3.13-slim AS py-build
+FROM python:3.14-slim AS py-build
 ENV PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY pyproject.toml hatch_build.py README.md LICENCE ./
@@ -32,7 +32,7 @@ RUN pip install --upgrade pip build && \
 ############################
 # Stage 3: minimal runtime
 ############################
-FROM python:3.13-slim
+FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
 LABEL org.opencontainers.image.title="pgEdge Radar Analyst" \
