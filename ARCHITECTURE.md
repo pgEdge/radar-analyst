@@ -424,7 +424,7 @@ var instead of rendering a bare disabled chip.
 
 ## 8. Console (Astro)
 
-`web/` is a self-contained Astro 5 project: no React, no MUI, no
+`web/` is a self-contained Astro 7 project: no React, no MUI, no
 framework islands. Justification:
 
 - The pgEdge visual-identity markdown (`pgedge-visual-identity.md`
@@ -533,8 +533,8 @@ web/package.json ── npm run build ──▶ web/dist/
 
 The Dockerfile is three stages to keep the runtime image tight:
 Astro build in a Node image, wheel build in a full Python image,
-final stage installs only the wheel on python:3.13-slim. The
-result is 216 MB with the console bundled in; PostgreSQL is a
+final stage installs only the wheel on python:3.14-slim. The
+result is 232 MB with the console bundled in; PostgreSQL is a
 separate service, not part of this image.
 
 ### Deployment
@@ -619,7 +619,7 @@ depend on the system only for a `python3.11`-or-later interpreter.
 ### CI (`.github/workflows/ci.yml`)
 
 ```
-[checkout] → [python 3.13] → [node 22] → [create .venv + install -e '.[dev]']
+[checkout] → [python 3.14] → [node LTS] → [create .venv + install -e '.[dev]']
                                                                 │
                                                                 ▼
                                                     run-ci-local.sh
