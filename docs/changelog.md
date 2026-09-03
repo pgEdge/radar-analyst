@@ -31,6 +31,8 @@ Only user-facing changes are listed.
   file contents, subscription statistics, the server log directory
   listing, PgBouncer configuration, and pg_statviz blocking-lock
   history.
+- Archives taken on macOS are read without reporting their system
+  files as unrecognised, alongside per-table freeze ages.
 
 ### Changed
 - The Anthropic SDK requirement is now 1.x. Installing from source
