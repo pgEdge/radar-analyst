@@ -74,7 +74,7 @@ briefing categories.
 | Migrations | Plain `.sql` files in `store/migrations/`, applied in lexical order at startup | KISS: no alembic. Bookkeeping in `radar.schema_migrations`, so a newer build can open an older data directory and apply only what is missing. While pre-release there is one file: a schema change edits `0001_init.sql` rather than adding a second, because nothing deployed has data to preserve. |
 | Blob storage | `BlobStore` Protocol + `LocalFsStore` v0.1; S3-compatible impl deferred | Storage URL is opaque to the DB schema, so swapping later requires no migration. |
 | AI providers | Anthropic, Google Gemini, OpenAI (and any OpenAI-compatible endpoint), Ollama + Mock | One adapter covers OpenAI and every compatible server via `OPENAI_BASE_URL`, since the chat-completions request shape is identical; Mock provider gated on `RADAR_ANALYST_TEST=1` for e2e. |
-| Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real PostgreSQL via Docker containers per test suite, running the same pgEdge image the deployment does rather than upstream `postgres`: the two differ in ways that reach this code, and testing against the wrong one hid the SQL_ASCII bug from nine hundred tests. `RADAR_ANALYST_PG_MAJOR` selects the version, and CI runs the whole script across 16, 17, and 18; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
+| Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real PostgreSQL via Docker containers per test suite, running the same pgEdge image the deployment does rather than upstream `postgres`, because the two differ in ways that reach this code. `RADAR_ANALYST_PG_MAJOR` selects the version, and CI runs the whole script across 16, 17, and 18; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
 | Console | Astro (static) | The `web/` tree is a pure JSON-API consumer: anything that speaks the same endpoints can replace it. |
 | Visual identity | pgEdge visual-identity "Drop-in CSS tokens" (non-React path) | The pack prefers MUI, but the same markdown publishes the CSS tokens for non-React surfaces. radar-analyst uses the latter; pgEdge logos and Inter/JetBrains Mono fonts are the only other imports. |
 | Packaging | Hatchling with a custom build hook | The hook copies `web/dist/` into `src/radar_analyst/webdist/` so `pip install` ships a self-contained GUI; server falls back to API-only if the build is absent. |
@@ -568,8 +568,7 @@ holding the unix socket and nothing else mounts it. Not publishing
 the port would not have been enough: a container's bridge address
 is routable from the host it runs on, so a server on
 `listen_addresses=*` answers any local process, published port or
-not. That was measured, not assumed, and `test-radar-analyst.sh`
-now asserts the refusal.
+not. `test-radar-analyst.sh` asserts the refusal.
 
 One property of the pgEdge image differs from upstream `postgres`
 and the stack does not work without accounting for it:
@@ -603,8 +602,7 @@ Four properties `test-radar-analyst.sh` pins:
   but `log_rotation_size` is 0, so a single heavy day would grow one
   file until the volume filled. On stdout instead, both services'
   logs go through a json-file driver capped at three files of 10 MB,
-  and `docker compose logs db` shows something useful for the first
-  time.
+  and `docker compose logs db` shows the server log.
 - **The database has no network presence.** No published port, and
   it is reachable only over the compose network.
 - **PID 1 is unprivileged.** Root exists only inside the entrypoint,

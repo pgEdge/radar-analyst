@@ -8,7 +8,7 @@
 > diagnostic category, and serves the assessment over a JSON API
 > with a replaceable Astro console.
 
-Not for public distribution.
+Not for public distribution yet.
 
 The deployment an end user gets is `docker compose up -d`: the
 analyst alongside a pgEdge PostgreSQL service, with the console
@@ -133,41 +133,19 @@ through taking a radar collection and assessing it.
 
 ## Deployment
 
-`docker-compose.yml` is the deployment: the analyst plus
-`ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal`. The analyst image
-carries no database of its own, and the database service publishes no
-port, so it is reachable only over the compose network.
+`docker-compose.yml` runs two services: the analyst image and
+`ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal` holding its state.
+The database publishes no port; the analyst reaches it over a unix
+socket in a volume the two containers share.
 
-The analyst reaches PostgreSQL over a unix socket in a volume the
-two containers share, and the server keeps the image's default of
-listening on its own loopback only. Not publishing the port is not
-containment on its own: a container's bridge address is routable
-from the host, so a server listening on all interfaces answers any
-local process whether or not compose maps a port.
+Everything the analyst writes lives under `RADAR_ANALYST_DATA_DIR`
+(`/data` in the image, `./data` in a checkout): uploaded archives in
+`archives/`, and the admin token generated on first start beside
+them.
 
-One more thing about the pgEdge image, because it is not a drop-in
-for upstream `postgres`:
-
-- Its `initdb` defaults to the SQL_ASCII encoding, under which
-  psycopg returns every text column as raw `bytes`. The compose file
-  passes `POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C.UTF-8"`,
-  and `store.db.check_server_encoding` refuses to start against a
-  SQL_ASCII database rather than misreading its own rows.
-
-Everything the analyst itself writes lives under
-`RADAR_ANALYST_DATA_DIR` (`/data` in the image, `./data` in a
-checkout): uploaded archives in `archives/`, and the admin token
-generated on first start beside them.
-
-`docker-entrypoint.sh` runs as root only long enough to make a
-freshly mounted volume writable, then execs the service under uid
-10001 via `setpriv`. PID 1 in a running container is the analyst
-itself, unprivileged.
-
-Startup tolerates a database that is still coming up: `create_pool`
-probes at a steady half-second interval for up to a minute rather
-than leaving it to psycopg-pool, whose own backoff doubles after
-each failure and can leave sixteen seconds with no attempt at all.
+How the containers are put together (the socket volume, the
+unprivileged service user, waiting for the database at startup) is
+in [ARCHITECTURE.md](ARCHITECTURE.md#deployment).
 
 ## Environment variables
 
