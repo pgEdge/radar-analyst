@@ -14,6 +14,11 @@
 # and archive, after asking.
 #
 # Environment:
+#   WALKTHROUGH_BUILD=1           build the analyst from this checkout
+#                                 (docker-compose.build.yml) instead of
+#                                 pulling the published image, so the
+#                                 tour shows the code you have, not the
+#                                 last release
 #   WALKTHROUGH_NO_BROWSER=1      print the console's address instead
 #                                 of opening it
 #   WALKTHROUGH_NONINTERACTIVE=1  no prompts: every question takes
@@ -26,6 +31,13 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE=(docker compose -f "$ROOT/docker-compose.yml")
+UP_FLAGS=()
+UP_SHOWN="docker compose up -d --wait"
+if [ "${WALKTHROUGH_BUILD:-0}" = 1 ]; then
+    COMPOSE+=(-f "$ROOT/docker-compose.build.yml")
+    UP_FLAGS=(--build)
+    UP_SHOWN="docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build --wait"
+fi
 NONINTERACTIVE="${WALKTHROUGH_NONINTERACTIVE:-0}"
 NO_BROWSER="${WALKTHROUGH_NO_BROWSER:-0}"
 RELEASES="https://github.com/pgEdge/radar/releases"
@@ -138,14 +150,17 @@ explain "The analyst is two containers: the analyst itself, and a PostgreSQL it"
 explain "keeps its results in. The console is reachable only from this machine,"
 explain "and the database only from the analyst."
 [ -f "$ROOT/.env" ] && explain "\n  ${DIM}Using the settings in $ROOT/.env${RESET}"
+if [ "${WALKTHROUGH_BUILD:-0}" = 1 ]; then
+    explain "  ${DIM}Building the analyst from this checkout rather than pulling the published image${RESET}"
+fi
 
 if [ -n "$("${COMPOSE[@]}" ps -q --status running app 2>/dev/null)" ]; then
     echo ""
     info "The analyst is already running, so there is nothing to start."
 else
     pause "Press Enter to start it..."
-    show_cmd "docker compose up -d --wait"
-    if ! out="$("${COMPOSE[@]}" up -d --wait 2>&1)"; then
+    show_cmd "$UP_SHOWN"
+    if ! out="$("${COMPOSE[@]}" up -d "${UP_FLAGS[@]}" --wait 2>&1)"; then
         printf '%s\n' "$out" | tail -15
         if printf '%s' "$out" | grep -qiE 'denied|unauthorized|authentication required'; then
             echo ""

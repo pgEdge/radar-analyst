@@ -20,7 +20,9 @@ repository root, opens the console in the browser, and walks through
 taking a radar collection and assessing it. It never stops an
 analyst it finds already running; `guide.sh --down` is the one way it
 removes anything, and that takes the volumes too, after asking. It
-needs only Docker. The
+needs only Docker. It pulls the published image; set
+`WALKTHROUGH_BUILD=1` to build the analyst from the checkout instead,
+which is how to see uncommitted or unreleased changes. The
 user-facing page is `docs/walkthrough.md`;
 `tests/test_walkthrough_guide.py` runs the script against a stub
 `docker`.

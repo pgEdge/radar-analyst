@@ -40,7 +40,7 @@ case "$*" in
   "compose version"*) echo "Docker Compose version v2.40.0" ;;
   *"ps -q --status running app")
     if [ -n "${STUB_RUNNING:-}" ]; then echo c0ffee; fi ;;
-  *"up -d --wait")
+  *"up -d"*"--wait")
     if [ -n "${STUB_UP_ERROR:-}" ]; then echo "$STUB_UP_ERROR"; exit 1; fi ;;
   *"port app 8080") echo "127.0.0.1:${STUB_PORT:-8080}" ;;
   *make_sample_zip*) ;;
@@ -290,3 +290,29 @@ def test_an_unknown_argument_is_refused(sandbox: Sandbox) -> None:
     assert proc.returncode != 0
     assert "--down" in proc.stdout + proc.stderr
     assert sandbox.docker_calls() == []
+
+
+def test_build_mode_builds_the_analyst_from_the_checkout(
+    sandbox: Sandbox,
+) -> None:
+    """WALKTHROUGH_BUILD=1 adds the build overlay and builds on start."""
+    proc = sandbox.run(WALKTHROUGH_BUILD="1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    build = _REPO_ROOT / "docker-compose.build.yml"
+    calls = sandbox.docker_calls()
+    assert (
+        f"compose -f {_COMPOSE} -f {build} up -d --build --wait" in calls
+    ), calls
+    assert "docker compose" in proc.stdout and "--build" in proc.stdout
+
+
+def test_without_build_mode_the_published_image_is_used(
+    sandbox: Sandbox,
+) -> None:
+    """The default is what a user does: pull the published image."""
+    proc = sandbox.run()
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not any(
+        "--build" in c or "docker-compose.build.yml" in c
+        for c in sandbox.docker_calls()
+    )

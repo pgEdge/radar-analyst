@@ -13,8 +13,10 @@ bash examples/walkthrough/guide.sh
 
 It needs only Docker with the Compose plugin. Set
 `WALKTHROUGH_NO_BROWSER=1` to have it print the console's address
-instead of opening it. The rest of this page is the same tour by
-hand, in a directory holding `docker-compose.yml` from the
+instead of opening it. It runs the published image; from a checkout
+with changes of your own, `WALKTHROUGH_BUILD=1` builds the analyst
+from that checkout instead. The rest of this page is the same tour
+by hand, in a directory holding `docker-compose.yml` from the
 repository.
 
 ## 1. Start the analyst
