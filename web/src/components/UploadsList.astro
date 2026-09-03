@@ -1,18 +1,26 @@
 ---
-// Prior uploads table. Hydrated client-side from GET /api/uploads.
+// Every assessment so far, newest first: the host, when the archive
+// was collected, where the assessment stands, and a way to remove it.
+// Rows are built with DOM calls so nothing from the archive is ever
+// treated as markup.
 ---
 
-<section class="pg-card pg-uploads-list">
-  <h2 class="pg-uploads-list__title">Prior uploads</h2>
-  <div class="pg-uploads-list__scroller">
-    <table class="pg-uploads-list__table" id="pg-uploads-table">
+<section class="pg-card pg-list">
+  <div class="pg-list__scroller">
+    <table
+      class="pg-table"
+      id="pg-uploads-table"
+      aria-label="Assessments"
+    >
       <thead>
         <tr>
-          <th>Uploaded</th>
-          <th class="pg-col-hostname">Hostname</th>
-          <th>Filename</th>
-          <th class="pg-col-size">Size</th>
-          <th aria-label="Actions"></th>
+          <th scope="col">Host</th>
+          <th scope="col" class="pg-col-collected">Collected</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="pg-col-uploaded">Uploaded</th>
+          <th scope="col"
+            ><span class="pg-visually-hidden">Actions</span></th
+          >
         </tr>
       </thead>
       <tbody id="pg-uploads-tbody">
@@ -20,225 +28,227 @@
       </tbody>
     </table>
   </div>
+  <p id="pg-list-error" class="pg-list__error" role="alert"></p>
 </section>
 
-<script is:inline>
-  (function () {
-    var tbody = document.getElementById('pg-uploads-tbody');
+<script>
+  import { api, type UploadSummary } from '../lib/api';
+  import { formatSize, formatWhen, statusChip } from '../lib/format';
+
+  const TOKEN_KEY = 'radar_analyst_admin_token';
+  const DELETE_ICON =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 ' +
+    '1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5' +
+    'l-1 1H5v2h14V4z"></path></svg>';
+
+  const tbody = document.getElementById(
+    'pg-uploads-tbody',
+  ) as HTMLTableSectionElement | null;
+  const errorEl = document.getElementById('pg-list-error');
+
+  const cell = (
+    row: HTMLTableRowElement,
+    className?: string,
+  ): HTMLTableCellElement => {
+    const td = document.createElement('td');
+    if (className) td.className = className;
+    row.appendChild(td);
+    return td;
+  };
+
+  const message = (text: string): void => {
     if (!tbody) return;
+    tbody.replaceChildren();
+    const row = tbody.insertRow();
+    const td = cell(row, 'pg-text-muted pg-list__empty');
+    td.colSpan = 5;
+    td.textContent = text;
+  };
 
-    function kb(n) {
-      if (n < 1024) return n + ' B';
-      if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
-      return (n / (1024 * 1024)).toFixed(1) + ' MB';
-    }
+  const askToken = (again: boolean): string | null => {
+    const kept = again ? null : sessionStorage.getItem(TOKEN_KEY);
+    if (kept) return kept;
+    const entered = window.prompt(
+      'Admin token. It is in the archives volume as admin-token, or ' +
+        'set as RADAR_ANALYST_ADMIN_TOKEN.',
+    );
+    if (entered) sessionStorage.setItem(TOKEN_KEY, entered);
+    return entered;
+  };
 
-    function fmt(iso) {
-      try {
-        return new Date(iso).toLocaleString();
-      } catch (_) {
-        return iso;
+  const remove = async (
+    item: UploadSummary,
+    row: HTMLTableRowElement,
+    button: HTMLButtonElement,
+  ): Promise<void> => {
+    const host = item.hostname ?? item.filename;
+    if (!window.confirm(`Delete the assessment for ${host}?`)) return;
+    const token = askToken(false);
+    if (!token) return;
+    if (errorEl) errorEl.textContent = '';
+    button.disabled = true;
+    try {
+      await api.deleteUpload(item.id, token);
+      row.remove();
+      if (tbody && tbody.rows.length === 0) {
+        message(
+          'No assessments yet. Upload a radar archive to see the first.',
+        );
       }
+    } catch (err) {
+      const text = err instanceof Error ? err.message : String(err);
+      if (/not accepted/.test(text))
+        sessionStorage.removeItem(TOKEN_KEY);
+      if (errorEl) errorEl.textContent = text;
+      button.disabled = false;
     }
+  };
 
-    fetch('/api/uploads?limit=50', {
-      headers: { Accept: 'application/json' },
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (body) {
-        var items = body.items || [];
-        if (!items.length) {
-          tbody.innerHTML =
-            '<tr><td colspan="5" class="pg-text-muted">' +
-            'No uploads yet.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = items
-          .map(function (u) {
-            var host = u.hostname || '-';
-            return (
-              '<tr>' +
-              '<td>' +
-              fmt(u.created_at) +
-              '</td>' +
-              '<td class="pg-mono pg-col-hostname">' +
-              host +
-              '</td>' +
-              '<td class="pg-uploads-list__filename">' +
-              u.filename +
-              '</td>' +
-              '<td class="pg-col-size">' +
-              kb(u.size_bytes) +
-              '</td>' +
-              '<td>' +
-              '<a href="/upload?id=' +
-              u.id +
-              '">' +
-              'Open➡️</a> ' +
-              '<button class="pg-btn-delete" ' +
-              'data-upload-id="' +
-              u.id +
-              '" ' +
-              'title="Delete upload" ' +
-              'aria-label="Delete upload">❌</button>' +
-              '</td>' +
-              '</tr>'
-            );
-          })
-          .join('');
-      })
-      .then(function () {
-        // Wire up delete buttons after rows are rendered.
-        // DELETE requires Authorization: Bearer <admin-token>.
-        // Token lives in sessionStorage (per-tab); user is
-        // prompted on first delete and re-prompted on 401.
-        var TOKEN_KEY = 'radar_analyst_admin_token';
+  const render = (items: UploadSummary[]): void => {
+    if (!tbody) return;
+    tbody.replaceChildren();
+    if (items.length === 0) {
+      message(
+        'No assessments yet. Upload a radar archive to see the first.',
+      );
+      return;
+    }
+    for (const item of items) {
+      const row = tbody.insertRow();
 
-        function getToken(force) {
-          var t = !force && sessionStorage.getItem(TOKEN_KEY);
-          if (t) return t;
-          var entered = window.prompt(
-            'Admin token (RADAR_ANALYST_ADMIN_TOKEN):',
-          );
-          if (entered) sessionStorage.setItem(TOKEN_KEY, entered);
-          return entered;
-        }
+      const hostCell = cell(row);
+      const link = document.createElement('a');
+      link.className = 'pg-list__host';
+      link.href = `/upload?id=${encodeURIComponent(item.id)}`;
+      link.textContent = item.hostname ?? 'Unknown host';
+      hostCell.appendChild(link);
+      const file = document.createElement('div');
+      file.className = 'pg-list__file pg-text-muted';
+      file.textContent = `${item.filename} · ${formatSize(item.size_bytes)}`;
+      hostCell.appendChild(file);
 
-        tbody.addEventListener('click', function (ev) {
-          var btn = ev.target.closest('.pg-btn-delete');
-          if (!btn) return;
-          var uid = btn.getAttribute('data-upload-id');
-          if (!uid) return;
-          if (!confirm('Delete this upload?')) return;
-          var token = getToken(false);
-          if (!token) return;
-          btn.disabled = true;
-          btn.textContent = '...';
-          fetch('/api/uploads/' + uid, {
-            method: 'DELETE',
-            headers: { Authorization: 'Bearer ' + token },
-          })
-            .then(function (r) {
-              if (r.ok) {
-                var row = btn.closest('tr');
-                if (row) row.remove();
-                return;
-              }
-              if (r.status === 401) {
-                sessionStorage.removeItem(TOKEN_KEY);
-                alert('Auth failed - token cleared, try again.');
-              } else if (r.status === 503) {
-                alert(
-                  'Server admin auth not configured ' +
-                    '(RADAR_ANALYST_ADMIN_TOKEN unset).',
-                );
-              } else {
-                alert('Delete failed: HTTP ' + r.status);
-              }
-              btn.disabled = false;
-              btn.textContent = '\u274C';
-            })
-            .catch(function () {
-              alert('Delete failed');
-              btn.disabled = false;
-              btn.textContent = '\u274C';
-            });
-        });
-      })
-      .catch(function (e) {
-        tbody.innerHTML =
-          '<tr><td colspan="5" class="pg-text-muted">' +
-          'Failed to load: ' +
-          String(e.message || e) +
-          '</td></tr>';
+      // The collection time is the host's own clock, read from the
+      // archive name with no zone, so it is shown as written rather
+      // than shifted into the browser's zone.
+      cell(row, 'pg-col-collected pg-list__when').textContent =
+        formatWhen(item.archive_timestamp, undefined, 'UTC') || '–';
+
+      const chip = statusChip(item.state, item.verdict);
+      const chipEl = document.createElement('span');
+      chipEl.className = `pg-chip pg-chip--${chip.tone}`;
+      chipEl.textContent = chip.label;
+      cell(row).appendChild(chipEl);
+
+      cell(row, 'pg-col-uploaded pg-list__when').textContent =
+        formatWhen(item.created_at);
+
+      const actions = cell(row, 'pg-list__actions');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pg-icon-button pg-icon-button--danger';
+      button.setAttribute(
+        'aria-label',
+        `Delete the assessment for ${item.hostname ?? item.filename}`,
+      );
+      button.title = 'Delete';
+      button.innerHTML = DELETE_ICON;
+      button.addEventListener('click', () => {
+        void remove(item, row, button);
       });
-  })();
+      actions.appendChild(button);
+    }
+  };
+
+  api
+    .listUploads(50)
+    .then((body) => render(body.items))
+    .catch((err: unknown) => {
+      message(
+        `Could not load the assessments: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    });
 </script>
 
-<style>
-  .pg-uploads-list {
-    padding: 1.5rem;
+<style is:global>
+  .pg-list {
+    padding: 0;
+    overflow: hidden;
   }
-  .pg-uploads-list__title {
-    margin-top: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-  /* Belt-and-braces: if a row ever exceeds the card width despite
-   * the wrap rules below, scroll inside the card instead of pushing
-   * the whole page off-viewport. */
-  .pg-uploads-list__scroller {
+  .pg-list__scroller {
     overflow-x: auto;
   }
-  .pg-uploads-list__table {
+  .pg-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 1rem;
   }
-  .pg-uploads-list__table th,
-  .pg-uploads-list__table td {
+  .pg-table th,
+  .pg-table td {
     text-align: left;
-    padding: 0.625rem 0.5rem;
+    padding: 0.875rem 1rem;
     border-bottom: 1px solid var(--pg-divider);
+    vertical-align: middle;
   }
-  .pg-uploads-list__table th {
-    font-weight: 600;
-    color: var(--pg-text-muted);
+  .pg-table th {
     font-size: 0.875rem;
-    letter-spacing: 0.02em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: var(--pg-text-muted);
     white-space: nowrap;
   }
-  .pg-uploads-list__table td:last-child {
-    text-align: right;
-    white-space: nowrap;
+  .pg-table tbody tr:last-child td {
+    border-bottom: 0;
   }
-  /* Rules below target JS-injected <td>s, which never get
-   * Astro's scope hash. Use :global() so they actually match. */
-  :global(.pg-uploads-list__filename) {
+  .pg-table tbody tr:hover td {
+    background: rgba(21, 170, 191, 0.06);
+  }
+  .pg-list__host {
+    font-weight: 500;
+  }
+  .pg-list__file {
+    font-size: 0.875rem;
+    margin-top: 0.125rem;
     word-break: break-all;
   }
-  /* On narrow viewports, drop the rarely-meaningful Hostname and
-   * Size columns so the timestamp + filename + actions fit
-   * without horizontal scroll. */
-  @media (max-width: 600px) {
-    .pg-uploads-list {
-      padding: 1rem;
-    }
-    .pg-uploads-list__table {
-      font-size: 0.9rem;
-    }
-    .pg-uploads-list__table th,
-    .pg-uploads-list__table td {
-      padding: 0.5rem 0.375rem;
-    }
-    :global(.pg-col-hostname),
-    :global(.pg-col-size) {
+  .pg-list__when {
+    white-space: nowrap;
+  }
+  .pg-list__actions {
+    text-align: right;
+    width: 3.25rem;
+  }
+  .pg-list__empty {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  .pg-list__error {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-list__error:empty {
+    display: none;
+  }
+  .pg-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  @media (max-width: 720px) {
+    .pg-col-uploaded {
       display: none;
     }
   }
-  /* Delete button: a bare ❌ emoji. The colour comes from the
-   * emoji glyph itself; no border / background: just a click
-   * target. :global() so the dynamically-rendered button matches. */
-  :global(.pg-btn-delete) {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    padding: 0.2rem 0.4rem;
-    margin-left: 0.25rem;
-    vertical-align: middle;
-  }
-  :global(.pg-btn-delete:hover) {
-    filter: brightness(1.1);
-  }
-  :global(.pg-btn-delete:disabled) {
-    opacity: 0.5;
-    cursor: progress;
+  @media (max-width: 520px) {
+    .pg-col-collected {
+      display: none;
+    }
   }
 </style>

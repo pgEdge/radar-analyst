@@ -6,43 +6,35 @@ import UploadsList from '../components/UploadsList.astro';
 
 <Base title="pgEdge Radar Analyst">
   <div class="pg-home">
-    <section class="pg-home__hero">
-      <h1>PostgreSQL health assessments from radar archives</h1>
-      <p class="pg-text-muted">
-        Upload a <code class="pg-mono">radar-*.zip</code> collected from a
-        PostgreSQL host. The analyst reads the archive, checks it against
-        deterministic rules, and returns an assessment: a verdict and a brief
-        for every category.
+    <div class="pg-home__head">
+      <h1 class="pg-home__title">Assessments</h1>
+      <p class="pg-text-muted pg-home__lede">
+        Upload a radar archive from a PostgreSQL host to get a verdict
+        and a brief for each of five categories.
       </p>
-    </section>
-
-    <div class="pg-home__grid">
-      <UploadForm />
-      <UploadsList />
     </div>
+    <UploadForm />
+    <UploadsList />
   </div>
 </Base>
 
 <style>
-  .pg-home__hero {
-    margin-bottom: 2rem;
-  }
-  .pg-home__hero h1 {
-    margin-bottom: 0.5rem;
-  }
-  .pg-home__hero p {
-    margin: 0;
-    max-width: 60ch;
-  }
-
-  .pg-home__grid {
+  .pg-home {
     display: grid;
     gap: 1.5rem;
-    grid-template-columns: 1fr;
   }
-  @media (min-width: 900px) {
-    .pg-home__grid {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
+  .pg-home__head {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .pg-home__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .pg-home__lede {
+    margin: 0;
+    max-width: 64ch;
   }
 </style>

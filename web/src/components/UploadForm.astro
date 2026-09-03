@@ -1,18 +1,14 @@
 ---
-// Drag-drop or click-to-pick upload form. Shows how much of the
-// archive has been sent while the upload runs, then redirects to
-// /live for the progress of the assessment itself.
+// One row: drop zone, then the Upload button. While the archive is
+// sent the row shows how much has gone, then the page moves to the
+// progress of the assessment itself.
 ---
 
-<section class="pg-card pg-upload">
-  <h2 class="pg-upload__title">Upload a radar archive</h2>
-  <p class="pg-text-muted pg-upload__hint">
-    Drag a <code class="pg-mono">radar-*.zip</code> here, or click to pick
-    one. The analyst reads the archive, checks it against deterministic rules,
-    and returns a verdict and a brief for every category.
-  </p>
-
-  <form id="pg-upload-form" class="pg-upload__form">
+<section class="pg-card pg-upload" aria-labelledby="pg-upload-title">
+  <h2 id="pg-upload-title" class="pg-upload__title">
+    Upload a radar archive
+  </h2>
+  <form id="pg-upload-form" class="pg-upload__row">
     <label class="pg-upload__drop" id="pg-upload-drop">
       <input
         id="pg-upload-file"
@@ -22,28 +18,29 @@
         required
         hidden
       />
-      <span id="pg-upload-label">Choose a file or drop it here</span>
-    </label>
-    <div class="pg-upload__progress" id="pg-upload-progress-row" hidden>
-      <progress id="pg-upload-progress" max="100" value="0"></progress>
-      <span id="pg-upload-status" class="pg-text-muted"></span>
-    </div>
-    <div class="pg-upload__actions">
-      <button
-        id="pg-upload-submit"
-        type="submit"
-        class="pg-button"
-        disabled
+      <span id="pg-upload-label"
+        >Drop a radar archive here, or choose one</span
       >
-        Upload
-      </button>
-      <span id="pg-upload-error" class="pg-upload__error"></span>
-    </div>
+    </label>
+    <button
+      id="pg-upload-submit"
+      type="submit"
+      class="pg-button"
+      disabled
+    >
+      Upload
+    </button>
   </form>
+  <div class="pg-upload__progress" id="pg-upload-progress-row" hidden>
+    <progress id="pg-upload-progress" max="100" value="0"></progress>
+    <span id="pg-upload-status" class="pg-text-muted"></span>
+  </div>
+  <p id="pg-upload-error" class="pg-upload__error" role="alert"></p>
 </section>
 
 <script>
   import { api } from '../lib/api';
+  import { formatSize } from '../lib/format';
 
   const form = document.getElementById(
     'pg-upload-form',
@@ -74,13 +71,15 @@
     bar &&
     status
   ) {
+    const idle = 'Drop a radar archive here, or choose one';
+
     const setFile = (file: File | undefined): void => {
       if (!file) {
-        label.textContent = 'Choose a file or drop it here';
+        label.textContent = idle;
         submit.disabled = true;
         return;
       }
-      label.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+      label.textContent = `${file.name} (${formatSize(file.size)})`;
       submit.disabled = false;
     };
 
@@ -139,70 +138,73 @@
 
 <style>
   .pg-upload {
-    padding: 1.5rem;
+    display: grid;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
   }
   .pg-upload__title {
-    margin-top: 0;
-    font-size: 1.375rem;
+    margin: 0;
+    font-size: 1rem;
     font-weight: 600;
+    letter-spacing: 0;
   }
-  .pg-upload__hint {
-    margin: 0 0 1.25rem 0;
-  }
-  .pg-upload__form {
-    display: grid;
+  .pg-upload__row {
+    display: flex;
+    align-items: stretch;
     gap: 1rem;
+    flex-wrap: wrap;
   }
-
   .pg-upload__drop {
-    display: block;
-    padding: 2rem 1rem;
-    border: 2px dashed var(--pg-divider);
-    border-radius: var(--pg-radius-card);
+    flex: 1 1 20rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.5rem;
+    padding: 0.75rem 1rem;
+    border: 2px dashed var(--pg-border-strong);
+    border-radius: var(--pg-radius-button);
     text-align: center;
     cursor: pointer;
     color: var(--pg-text-muted);
-    background: transparent;
     transition:
       border-color 150ms ease,
       background-color 150ms ease;
     word-break: break-word;
   }
-  @media (max-width: 600px) {
-    .pg-upload {
-      padding: 1rem;
-    }
-    .pg-upload__drop {
-      padding: 1.5rem 0.75rem;
-    }
-  }
   .pg-upload__drop:hover,
   .pg-upload__drop.is-dragover {
     border-color: var(--pg-primary);
-    background: rgba(21, 170, 191, 0.06);
+    background: rgba(21, 170, 191, 0.08);
     color: var(--pg-text);
   }
-
+  .pg-upload__row .pg-button {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 0.75rem 1.75rem;
+    font-size: 1.125rem;
+  }
   .pg-upload__progress {
     display: grid;
     gap: 0.375rem;
+  }
+  /* The class's display would otherwise outrank the hidden attribute. */
+  .pg-upload__progress[hidden] {
+    display: none;
   }
   .pg-upload__progress progress {
     width: 100%;
     height: 0.5rem;
     accent-color: var(--pg-primary);
   }
-  .pg-upload__progress span {
+  .pg-upload__progress span,
+  .pg-upload__error {
     font-size: 0.95rem;
-  }
-
-  .pg-upload__actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
   }
   .pg-upload__error {
+    margin: 0;
     color: var(--pg-status-critical-fg);
-    font-size: 0.95rem;
+  }
+  .pg-upload__error:empty {
+    display: none;
   }
 </style>

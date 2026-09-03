@@ -158,6 +158,7 @@ radar-analyst/
 │   │   ├── base.py                BlobStore Protocol + PutResult
 │   │   └── localfs.py             file:// implementation
 │   ├── archive/
+│   │   ├── naming.py              host and collection time from radar's archive name
 │   │   └── reader.py              zip walker + path→kind classifier + safety caps
 │   ├── parse/
 │   │   ├── tsv.py                 radar-style TSV (inverse of rowsToTSV)
@@ -448,15 +449,15 @@ Key files:
 |---|---|
 | `src/styles/global.css` | CSS variables from the pgEdge pack + utility classes (`pg-card`, `pg-button`, `pg-chip--healthy|warning|critical`). |
 | `src/layouts/Base.astro` | `<html>`/`<body>`, pre-paint theme restore, content slot. |
-| `src/components/Header.astro` | pgEdge logo (light/dark) + theme toggle. |
-| `src/components/UploadForm.astro` | Drag-drop upload → POST /api/uploads → redirect to live page. |
-| `src/components/UploadsList.astro` | GET /api/uploads table, hydrated on load. |
+| `src/components/Header.astro` | App bar: pgEdge logo (light/dark), divider, product name, and an icon-button theme toggle cycling system, light, dark. |
+| `src/components/UploadForm.astro` | One-row upload bar: drop zone, Upload button, then a progress bar fed by `api.postUpload`; redirects to the progress page. |
+| `src/components/UploadsList.astro` | Every assessment in one table: host (linking to the assessment), collection time, a status chip from `lib/format.ts` (assessing, failed, or the verdict), upload time, and a delete icon button that uses `api.deleteUpload`. Rows are built with DOM calls, never markup strings. |
 | `src/components/SnapshotHeader.astro` | GET /api/uploads/{id} + /snapshot. |
 | `src/components/CategoryCard.astro` | GET /api/uploads/{id}/assessment + minimal markdown render; per-card "Sources" expander linking to /api/uploads/{id}/files/{path}. |
 | `src/pages/index.astro` | Upload form + list. |
 | `src/pages/upload.astro` | Snapshot + the assessment's briefs by category (reads `?id=`). |
 | `src/pages/live.astro` | SSE subscription → redirect to upload page on `done`. |
-| `src/lib/api.ts` | Typed wrappers around the JSON API. `postUpload` sends the archive with `XMLHttpRequest` so the form can show how much has been sent; the reads are `fetch` wrappers. The upload form imports it, and so does the progress page through `src/lib/follow.ts`, which pairs the event stream with a poll of the job record so the outcome is reported once even if the stream drops. The other components still hand-write their calls. |
+| `src/lib/api.ts` | Typed wrappers around the JSON API. `postUpload` sends the archive with `XMLHttpRequest` so the form can show how much has been sent; the reads are `fetch` wrappers. The upload form and the assessments table import it, and so does the progress page through `src/lib/follow.ts`, which pairs the event stream with a poll of the job record so the outcome is reported once even if the stream drops. `src/lib/format.ts` holds the size, time, and status-chip formatting the table uses. The assessment page's components still hand-write their calls. |
 
 ## 9. Testing strategy
 
@@ -662,7 +663,7 @@ filling in code where the interface already allows for it.
 | Cross-category synthesis pass | `analyze/orchestrator.py` final step | One more LLM call receiving only the per-category status tags + markdowns (no raw data) for cross-cutting flags like "`dirty_background_bytes` + iostat `%util` + bgwriter `buffers_backend` = flush storm". |
 | OpenAI provider | **Landed** | `ai/openai_compat.py`: `openai.AsyncOpenAI` chat completions, covering OpenAI itself and any compatible endpoint via `OPENAI_BASE_URL` / `OPENAI_MODEL`. |
 | S3 / seaweedfs blob store | `blob/s3.py` (placeholder) | Implement the `BlobStore` Protocol using `aioboto3`. PostgreSQL stores only the URL: no schema change needed. |
-| Typed `lib/api.ts` usage in the console | `web/src/components/*.astro` | The upload form and the progress page import the typed wrappers; the remaining components still hand-write their `fetch(...)` calls in inline scripts and could move the same way. |
+| Typed `lib/api.ts` usage in the console | `web/src/components/*.astro` | The front page and the progress page import the typed wrappers; the assessment page's components (`SnapshotHeader`, `CategoryCard`, `Databases`) still hand-write their `fetch(...)` calls in inline scripts and could move the same way. |
 
 ### Extensions not present by default
 

@@ -13,6 +13,8 @@ export interface UploadSummary {
   hostname: string | null;
   archive_timestamp: string | null;
   created_at: string;
+  state: JobState['state'] | null;
+  verdict: Verdict | null;
 }
 
 export interface Snapshot {
@@ -107,6 +109,23 @@ export const api = {
 
   getConfig(): Promise<ConfigResponse> {
     return getJson('/api/config');
+  },
+
+  async deleteUpload(id: string, token: string): Promise<void> {
+    const resp = await fetch(`/api/uploads/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (resp.ok) return;
+    if (resp.status === 401) {
+      throw new Error('The admin token was not accepted.');
+    }
+    if (resp.status === 503) {
+      throw new Error('Deleting is not configured on this analyst.');
+    }
+    throw new Error(
+      `DELETE /api/uploads/${id} returned ${resp.status}`,
+    );
   },
 
   postUpload(

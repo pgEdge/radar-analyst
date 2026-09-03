@@ -222,3 +222,40 @@ describe('uploading', () => {
     await expect(pending).rejects.toThrow(/did not reach the analyst/);
   });
 });
+
+describe('deleting', () => {
+  it('sends the admin token as a bearer credential', async () => {
+    const calls = stubFetch({ ok: true, status: 204 });
+
+    await api.deleteUpload('abc', 'secret');
+
+    expect(calls[0].url).toBe('/api/uploads/abc');
+    expect(calls[0].init?.method).toBe('DELETE');
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer secret');
+  });
+
+  it('says when the token is refused', async () => {
+    stubFetch({ ok: false, status: 401, statusText: 'Unauthorized' });
+
+    await expect(api.deleteUpload('abc', 'wrong')).rejects.toThrow(
+      /token was not accepted/,
+    );
+  });
+
+  it('says when deleting is not configured', async () => {
+    stubFetch({ ok: false, status: 503, statusText: 'x' });
+
+    await expect(api.deleteUpload('abc', 't')).rejects.toThrow(
+      /not configured/,
+    );
+  });
+
+  it('reports any other refusal by status', async () => {
+    stubFetch({ ok: false, status: 500, statusText: 'x' });
+
+    await expect(api.deleteUpload('abc', 't')).rejects.toThrow(
+      /DELETE \/api\/uploads\/abc returned 500/,
+    );
+  });
+});

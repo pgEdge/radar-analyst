@@ -39,6 +39,12 @@ Only user-facing changes are listed.
   is the same tour by hand.
 
 ### Changed
+- The console's front page is laid out for the job: a compact upload
+  bar, then every assessment in one table showing the host, when its
+  archive was collected, and its verdict, or that it is still being
+  assessed. The host and the collection time are read from radar's
+  archive name at upload, and the host is confirmed from the archive
+  itself once it has been read.
 - The progress page no longer gives up when its connection to the
   analyst drops. It says it is reconnecting and, alongside, checks
   the job's record, so a finished assessment opens even if the
