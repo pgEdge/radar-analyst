@@ -13,3 +13,14 @@ values.
 Every setting is optional except `RADAR_ANALYST_STATE_DB_URL`, which
 `docker-compose.yml` sets for you. Without a provider credential the
 findings and verdicts still come back and the briefs are omitted.
+
+`walkthrough/guide.sh` is different: a guided tour for a first
+look. It starts the analyst with the `docker-compose.yml` at the
+repository root, opens the console in the browser, and walks through
+taking a radar collection and assessing it. It never stops an
+analyst it finds already running; `guide.sh --down` is the one way it
+removes anything, and that takes the volumes too, after asking. It
+needs only Docker. The
+user-facing page is `docs/walkthrough.md`;
+`tests/test_walkthrough_guide.py` runs the script against a stub
+`docker`.

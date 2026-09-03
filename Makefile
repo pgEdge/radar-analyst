@@ -7,21 +7,22 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice clean
+.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice walkthrough clean
 
 help:
-	@echo "make venv       create .venv and install dev dependencies"
-	@echo "make build      build the Astro console and the wheel"
-	@echo "make test       unit and integration tests"
-	@echo "make e2e        end-to-end suite against the compose stack"
-	@echo "make lint       flake8 and ruff"
-	@echo "make typecheck  mypy and pyright, both strict"
-	@echo "make ci         everything, the way CI runs it"
-	@echo "make matrix     the database tests on PostgreSQL 16, 17, and 18"
-	@echo "make docs       build the documentation site"
-	@echo "make openapi    regenerate docs/openapi.json from the routes"
-	@echo "make notice     regenerate NOTICE.txt from the dependencies"
-	@echo "make clean      remove build output and caches"
+	@echo "make venv        create .venv and install dev dependencies"
+	@echo "make build       build the Astro console and the wheel"
+	@echo "make test        unit and integration tests"
+	@echo "make e2e         end-to-end suite against the compose stack"
+	@echo "make lint        flake8 and ruff"
+	@echo "make typecheck   mypy and pyright, both strict"
+	@echo "make ci          everything, the way CI runs it"
+	@echo "make matrix      the database tests on PostgreSQL 16, 17, and 18"
+	@echo "make docs        build the documentation site"
+	@echo "make openapi     regenerate docs/openapi.json from the routes"
+	@echo "make notice      regenerate NOTICE.txt from the dependencies"
+	@echo "make walkthrough guided tour: start the stack, open the console, assess an archive"
+	@echo "make clean       remove build output and caches"
 
 $(VENV):
 	python3 -m venv $(VENV)
@@ -84,6 +85,10 @@ pathlib.Path('docs/openapi.json').write_text( \
 json.dumps(create_app(serve_static=False).openapi(), indent=2, \
 sort_keys=True) + chr(10))"
 	@echo "wrote docs/openapi.json"
+
+# The tour needs only docker, curl, and python3, so no venv.
+walkthrough:
+	bash examples/walkthrough/guide.sh
 
 # NOTICE.txt lists the licences of everything the wheel pulls in.
 # The container image and any future deb or rpm vendor the whole
