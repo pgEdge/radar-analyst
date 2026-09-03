@@ -39,6 +39,10 @@ Only user-facing changes are listed.
   is the same tour by hand.
 
 ### Changed
+- The progress page no longer gives up when its connection to the
+  analyst drops. It says it is reconnecting and, alongside, checks
+  the job's record, so a finished assessment opens even if the
+  stream never recovers.
 - The console shows the upload as it happens: a progress bar with
   the percentage sent, and an Uploading state on the button, so a
   large archive no longer looks like nothing is happening. A refused
