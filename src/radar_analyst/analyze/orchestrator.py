@@ -58,7 +58,10 @@ from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.briefs import insert_brief
 from radar_analyst.store.jobs import update_job_state
 from radar_analyst.store.snapshots import upsert_snapshot
-from radar_analyst.store.uploads import set_archive_files
+from radar_analyst.store.uploads import (
+    set_archive_files,
+    set_upload_context,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -590,6 +593,13 @@ async def orchestrate(
         await set_archive_files(pool, upload_id, inventory)
 
         ctx = build_system_context(parsed, present)
+        # The archive's own hostname replaces the one guessed from
+        # its file name, so the console lists the host as the host
+        # knows itself.
+        if ctx.hostname:
+            await set_upload_context(
+                pool, upload_id, hostname=ctx.hostname
+            )
         snapshot = _build_snapshot(
             parsed, ctx, parsed_kinds, unknown
         )

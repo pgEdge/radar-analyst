@@ -17,7 +17,7 @@ from radar_analyst.store.briefs import list_briefs
 from radar_analyst.store.db import apply_migrations
 from radar_analyst.store.jobs import get_job, insert_job
 from radar_analyst.store.snapshots import get_snapshot
-from radar_analyst.store.uploads import insert_upload
+from radar_analyst.store.uploads import get_upload, insert_upload
 
 
 _PG_VERSION = (
@@ -475,3 +475,26 @@ async def test_orchestrate_per_db_severity_floor_applied(
     # checksum_failures finding is critical; severity floor must
     # upgrade the mock's HEALTHY to CRITICAL.
     assert active.get("brief_verdict") == "CRITICAL"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_writes_the_parsed_hostname_to_the_upload(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """The upload row learns the host once the archive is read."""
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    with zipfile.ZipFile(z, "a") as zf:
+        zf.writestr("system/hostname.out", "db1\n")
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    row = await get_upload(fresh_pool, upload_id)
+    assert row is not None
+    assert row.hostname == "db1"

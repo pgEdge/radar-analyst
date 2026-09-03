@@ -8,7 +8,7 @@ from uuid import UUID
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
 
-from radar_analyst.model import Upload
+from radar_analyst.model import UploadListing
 from radar_analyst.store.db import (
     execute,
     fetch_all,
@@ -20,6 +20,21 @@ from radar_analyst.store.db import (
 _UPLOAD_COLUMNS = (
     "id, filename, storage_url, size_bytes, sha256, hostname, "
     "archive_timestamp, created_at"
+)
+
+# An upload as the console lists it: the row plus the state of its
+# most recent job and every verdict its briefs carry, gathered in
+# the one query so a page of fifty costs one round trip.
+_LISTING_SELECT = (
+    "SELECT u.id, u.filename, u.storage_url, u.size_bytes, u.sha256, "
+    "       u.hostname, u.archive_timestamp, u.created_at, "
+    "       (SELECT j.state FROM radar.jobs j "
+    "         WHERE j.upload_id = u.id "
+    "         ORDER BY j.started_at DESC NULLS FIRST LIMIT 1) "
+    "         AS job_state, "
+    "       COALESCE((SELECT array_agg(b.verdict) FROM radar.briefs b "
+    "         WHERE b.upload_id = u.id), '{}') AS verdicts "
+    "FROM radar.uploads u "
 )
 
 
@@ -58,14 +73,37 @@ async def list_uploads(
     *,
     limit: int = 50,
     offset: int = 0,
-) -> list[Upload]:
-    """Return uploads ordered newest-first, paginated."""
+) -> list[UploadListing]:
+    """Return uploads newest-first, each with job state and verdicts."""
     return await fetch_all(
         pool,
-        f"SELECT {_UPLOAD_COLUMNS} FROM radar.uploads "
-        "ORDER BY created_at DESC LIMIT %s OFFSET %s",
+        _LISTING_SELECT
+        + "ORDER BY u.created_at DESC LIMIT %s OFFSET %s",
         (limit, offset),
-        row_factory=class_row(Upload),
+        row_factory=class_row(UploadListing),
+    )
+
+
+async def set_upload_context(
+    pool: AsyncConnectionPool,
+    upload_id: UUID,
+    *,
+    hostname: str | None = None,
+    archive_timestamp: datetime | None = None,
+) -> None:
+    """Record what is now known about the upload's origin.
+
+    Only the values given are written; a value not given keeps what
+    the row already holds, so the hostname read from the archive can
+    replace the one read from its name without touching the time.
+    """
+    await execute(
+        pool,
+        "UPDATE radar.uploads SET "
+        "  hostname = COALESCE(%s, hostname), "
+        "  archive_timestamp = COALESCE(%s, archive_timestamp) "
+        "WHERE id = %s",
+        (hostname, archive_timestamp, upload_id),
     )
 
 
@@ -123,12 +161,11 @@ async def get_archive_files(
 
 async def get_upload(
     pool: AsyncConnectionPool, upload_id: UUID
-) -> Upload | None:
+) -> UploadListing | None:
     """Fetch a single upload by id, or None if not found."""
     return await fetch_one(
         pool,
-        f"SELECT {_UPLOAD_COLUMNS} FROM radar.uploads "
-        "WHERE id = %s",
+        _LISTING_SELECT + "WHERE u.id = %s",
         (upload_id,),
-        row_factory=class_row(Upload),
+        row_factory=class_row(UploadListing),
     )

@@ -33,3 +33,9 @@ raw document at `/openapi.json`.
 Uploading returns `{upload_id, job_id}`. A body that is not a zip
 archive is refused with 415. Deleting requires the admin token as a
 bearer credential.
+
+Each upload in the list, and the single upload, carries `hostname`
+and `archive_timestamp`, read from radar's archive name at upload
+and confirmed from the archive once it has been read, plus the
+`state` of its most recent job and the roll-up `verdict` over its
+briefs, `null` until the first brief lands.

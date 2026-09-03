@@ -12,6 +12,7 @@ upload behind the admin token.
 import logging
 import zipfile
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -32,8 +33,9 @@ from psycopg_pool import AsyncConnectionPool
 from radar_analyst.analyze.assessment import rollup_verdict
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.analyze.sources import sources_for_category
+from radar_analyst.archive.naming import parse_archive_name
 from radar_analyst.blob.base import BlobStore, download_to_temp
-from radar_analyst.model import Upload
+from radar_analyst.model import UploadListing
 from radar_analyst.server.deps import (
     get_blob_store,
     get_job_runner,
@@ -126,6 +128,10 @@ async def post_upload(
     # to it, so it can never be cleaned up by a delete. Roll back
     # best-effort and re-raise so FastAPI returns the original
     # error to the client.
+    # Radar names the archive after the host and the moment of
+    # collection, so both are known before the archive is read. The
+    # name carries no zone, so the time is taken as UTC.
+    named = parse_archive_name(file.filename or "")
     try:
         await insert_upload(
             pool,
@@ -134,8 +140,10 @@ async def post_upload(
             storage_url=result.url,
             size_bytes=result.size,
             sha256=result.sha256,
-            hostname=None,
-            archive_timestamp=None,
+            hostname=named.hostname if named else None,
+            archive_timestamp=(
+                named.collected_at.replace(tzinfo=UTC) if named else None
+            ),
         )
         ai_provider = (
             runner.analyzer_name
@@ -170,7 +178,7 @@ async def post_upload(
     }
 
 
-def _upload_dict(upload: Upload) -> dict[str, object]:
+def _upload_dict(upload: UploadListing) -> dict[str, object]:
     return {
         "id": str(upload.id),
         "filename": upload.filename,
@@ -184,6 +192,8 @@ def _upload_dict(upload: Upload) -> dict[str, object]:
             else None
         ),
         "created_at": upload.created_at.isoformat(),
+        "state": upload.job_state,
+        "verdict": rollup_verdict(upload.verdicts),
     }
 
 
@@ -206,7 +216,7 @@ async def list_uploads_route(
 
 @router.get("/uploads/{upload_id}")
 async def get_upload_route(
-    upload: Upload = Depends(require_upload),
+    upload: UploadListing = Depends(require_upload),
 ) -> dict[str, object]:
     """One upload's metadata."""
     return _upload_dict(upload)
@@ -218,7 +228,7 @@ async def get_upload_route(
     dependencies=[Depends(require_admin_token)],
 )
 async def delete_upload_route(
-    upload: Upload = Depends(require_upload),
+    upload: UploadListing = Depends(require_upload),
     pool: AsyncConnectionPool = Depends(get_pool),
     store: BlobStore = Depends(get_blob_store),
 ) -> Response:
@@ -294,7 +304,7 @@ async def get_assessment_route(
 
 @router.get("/uploads/{upload_id}/files")
 async def list_files_route(
-    upload: Upload = Depends(require_upload),
+    upload: UploadListing = Depends(require_upload),
     pool: AsyncConnectionPool = Depends(get_pool),
 ) -> dict[str, object]:
     """Inventory of every entry in the upload's radar zip.
@@ -329,7 +339,7 @@ def _path_in_inventory(
 @router.get("/uploads/{upload_id}/files/{archive_path:path}")
 async def download_file_route(
     archive_path: str,
-    upload: Upload = Depends(require_upload),
+    upload: UploadListing = Depends(require_upload),
     pool: AsyncConnectionPool = Depends(get_pool),
     blob: BlobStore = Depends(get_blob_store),
 ) -> StreamingResponse:

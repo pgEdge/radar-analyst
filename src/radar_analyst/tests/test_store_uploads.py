@@ -1,16 +1,21 @@
 """Tests for upload row CRUD."""
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
 from psycopg_pool import AsyncConnectionPool
 
+from radar_analyst.store.briefs import insert_brief
 from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.jobs import insert_job, update_job_state
 from radar_analyst.store.uploads import (
     get_archive_files,
     get_upload,
     insert_upload,
+    list_uploads,
     set_archive_files,
+    set_upload_context,
 )
 
 
@@ -110,3 +115,123 @@ async def test_archive_files_returns_none_for_missing_upload(
     await apply_migrations(fresh_pool)
     out = await get_archive_files(fresh_pool, uuid4())
     assert out is None
+
+
+async def test_set_upload_context_fills_host_and_time(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname=None,
+        archive_timestamp=None,
+    )
+    when = datetime(2026, 9, 3, 16, 44, 50, tzinfo=UTC)
+    await set_upload_context(
+        fresh_pool, upload_id, hostname="db1", archive_timestamp=when
+    )
+    row = await get_upload(fresh_pool, upload_id)
+    assert row is not None
+    assert row.hostname == "db1"
+    assert row.archive_timestamp == when
+
+
+async def test_set_upload_context_keeps_what_it_is_not_given(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    when = datetime(2026, 9, 3, 16, 44, 50, tzinfo=UTC)
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname="from-the-name",
+        archive_timestamp=when,
+    )
+    await set_upload_context(fresh_pool, upload_id, hostname="db1")
+    row = await get_upload(fresh_pool, upload_id)
+    assert row is not None
+    assert row.hostname == "db1"
+    assert row.archive_timestamp == when
+
+
+async def test_list_uploads_carries_job_state_and_verdicts(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname="db1",
+        archive_timestamp=None,
+    )
+    job_id = uuid4()
+    await insert_job(
+        fresh_pool, job_id=job_id, upload_id=upload_id, ai_provider="mock"
+    )
+    await update_job_state(fresh_pool, job_id, state="done")
+    for category, verdict in (
+        ("Host & OS", "HEALTHY"),
+        ("PostgreSQL Configuration", "WARNING"),
+        ("Replication", None),
+    ):
+        await insert_brief(
+            fresh_pool,
+            brief_id=uuid4(),
+            upload_id=upload_id,
+            category=category,
+            provider="mock",
+            model="mock-v0",
+            verdict=verdict,
+            markdown="x",
+            prompt_tokens=None,
+            completion_tokens=None,
+        )
+
+    rows = await list_uploads(fresh_pool)
+
+    assert len(rows) == 1
+    assert rows[0].id == upload_id
+    assert rows[0].job_state == "done"
+    assert sorted(v or "" for v in rows[0].verdicts) == [
+        "",
+        "HEALTHY",
+        "WARNING",
+    ]
+
+
+async def test_list_uploads_without_a_job_or_briefs(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname=None,
+        archive_timestamp=None,
+    )
+
+    rows = await list_uploads(fresh_pool)
+
+    assert rows[0].job_state is None
+    assert rows[0].verdicts == []

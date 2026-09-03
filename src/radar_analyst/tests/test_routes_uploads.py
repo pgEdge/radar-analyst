@@ -16,8 +16,9 @@ from psycopg_pool import AsyncConnectionPool
 from radar_analyst.blob.base import BlobStore, PutResult
 from radar_analyst.blob.localfs import LocalFsStore
 from radar_analyst.server.app import create_app
+from radar_analyst.store.briefs import insert_brief
 from radar_analyst.store.db import apply_migrations
-from radar_analyst.store.jobs import get_job
+from radar_analyst.store.jobs import get_job, insert_job
 from radar_analyst.store.uploads import get_upload, insert_upload
 from radar_analyst.tests.helpers import build_app
 
@@ -366,3 +367,74 @@ async def test_delete_silent_on_blob_already_missing(
     assert resp.status_code == 204
     # No warning for the already-gone case: that's expected state.
     assert caplog.records == []
+
+
+async def test_post_upload_reads_host_and_time_from_the_filename(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/uploads",
+            files={
+                "file": (
+                    "radar-db1-20260903-164450.zip",
+                    io.BytesIO(_zip_bytes()),
+                )
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        shown = client.get(f"/api/uploads/{resp.json()['upload_id']}")
+    body = shown.json()
+    assert body["hostname"] == "db1"
+    assert body["archive_timestamp"].startswith("2026-09-03T16:44:50")
+
+
+async def test_post_upload_with_another_name_leaves_host_unknown(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/uploads",
+            files={"file": ("archive.zip", io.BytesIO(_zip_bytes()))},
+        )
+        shown = client.get(f"/api/uploads/{resp.json()['upload_id']}")
+    assert shown.json()["hostname"] is None
+    assert shown.json()["archive_timestamp"] is None
+
+
+async def test_list_carries_the_verdict_and_the_job_state(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, store = await build_app(fresh_pool, tmp_path)
+    assessed = await _seed_upload(fresh_pool, store)
+    await insert_job(
+        fresh_pool, job_id=uuid4(), upload_id=assessed, ai_provider="mock"
+    )
+    for category, verdict in (
+        ("Host & OS", "HEALTHY"),
+        ("PostgreSQL Configuration", "WARNING"),
+    ):
+        await insert_brief(
+            fresh_pool,
+            brief_id=uuid4(),
+            upload_id=assessed,
+            category=category,
+            provider="mock",
+            model="mock-v0",
+            verdict=verdict,
+            markdown="x",
+            prompt_tokens=None,
+            completion_tokens=None,
+        )
+    bare = await _seed_upload(fresh_pool, store)
+
+    with TestClient(app) as client:
+        items = client.get("/api/uploads").json()["items"]
+
+    by_id = {item["id"]: item for item in items}
+    assert by_id[str(assessed)]["verdict"] == "WARNING"
+    assert by_id[str(assessed)]["state"] == "queued"
+    assert by_id[str(bare)]["verdict"] is None
+    assert by_id[str(bare)]["state"] is None

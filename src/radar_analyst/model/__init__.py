@@ -19,6 +19,17 @@ class Upload:
 
 
 @dataclass(frozen=True)
+class UploadListing(Upload):
+    """An upload with its latest job state and its briefs' verdicts.
+
+    ``verdicts`` holds one entry per brief, ``None`` included, so the
+    roll-up is computed the same way as for the assessment itself.
+    """
+    job_state: str | None
+    verdicts: list[str | None]
+
+
+@dataclass(frozen=True)
 class Job:
     """One row of ``radar.jobs``."""
     id: UUID

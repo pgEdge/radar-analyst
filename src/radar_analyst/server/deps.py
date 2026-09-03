@@ -13,7 +13,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.blob.base import BlobStore
-from radar_analyst.model import Job, Upload
+from radar_analyst.model import Job, UploadListing
 from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.jobs import get_job
 from radar_analyst.store.uploads import get_upload
@@ -128,7 +128,7 @@ def get_job_runner(request: Request) -> JobRunner | None:
 async def require_upload(
     upload_id: UUID,
     pool: AsyncConnectionPool = Depends(get_pool),
-) -> Upload:
+) -> UploadListing:
     """Resolve the ``upload_id`` path parameter, or 404."""
     upload = await get_upload(pool, upload_id)
     if upload is None:
