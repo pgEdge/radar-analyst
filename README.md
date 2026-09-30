@@ -91,10 +91,7 @@ directory, and start the analyst from that directory:
 docker compose up -d --wait
 ```
 
-The command returns once both containers are ready. If the image
-pull is refused, sign in to the GitHub Container Registry with
-`docker login ghcr.io`, using a token that can read packages, and
-run the command again.
+The command returns once both containers are ready.
 
 Open [http://localhost:8080/](http://localhost:8080/), drag a radar
 archive onto the upload area or click the area to choose one, and

@@ -162,13 +162,6 @@ else
     show_cmd "$UP_SHOWN"
     if ! out="$("${COMPOSE[@]}" up -d "${UP_FLAGS[@]}" --wait 2>&1)"; then
         printf '%s\n' "$out" | tail -15
-        if printf '%s' "$out" | grep -qiE 'denied|unauthorized|authentication required'; then
-            echo ""
-            explain "The images are in the GitHub Container Registry. Sign in with a"
-            explain "token that can read packages, then run the tour again:"
-            explain ""
-            explain "    docker login ghcr.io"
-        fi
         die "docker compose up failed"
     fi
     info "  The analyst is running."

@@ -31,10 +31,6 @@ analyst, and a PostgreSQL it keeps its results in. The console is
 reachable only from your own machine, and the database only from the
 analyst.
 
-If the pull is refused, sign in to the GitHub Container Registry
-first with `docker login ghcr.io`, using a token that can read
-packages.
-
 ## 2. Open the console
 
 Open [http://localhost:8080/](http://localhost:8080/). The console

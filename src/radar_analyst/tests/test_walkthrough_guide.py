@@ -229,13 +229,15 @@ def test_prints_the_url_when_asked_not_to_open_a_browser(
     assert "http://localhost:8080/" in proc.stdout
 
 
-def test_a_refused_pull_points_at_the_registry_login(
+def test_a_failed_start_shows_the_compose_error(
     sandbox: Sandbox,
 ) -> None:
-    """The registry is private; a denied pull gets the login command."""
-    proc = sandbox.run(STUB_UP_ERROR="Error: denied: requested access")
+    """A failed start prints what compose said, and stops there."""
+    proc = sandbox.run(STUB_UP_ERROR="Error: pull access denied")
     assert proc.returncode != 0
-    assert "docker login ghcr.io" in proc.stdout + proc.stderr
+    out = proc.stdout + proc.stderr
+    assert "pull access denied" in out
+    assert "docker login" not in out
     assert sandbox.opened(expected=False) == []
 
 
