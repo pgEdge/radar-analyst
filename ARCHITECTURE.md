@@ -4,14 +4,16 @@ An engineering-oriented description of how the service is built: the
 layering, the conventions, the trade-offs that were made, and the
 rationale behind them. Update this document whenever a structural
 decision changes: if a new module joins the tree, a new adapter
-lands, or a previously-deferred piece (e.g. the seed rule pack) is
-filled in, reflect that here alongside the code change.
+lands, or a known limit (§11) is removed, reflect that here
+alongside the code change.
 
-- Companion docs: [README.md](README.md) is developer-facing usage,
-  [docs/index.md](docs/index.md) is operator-facing "run this", and
-  [CLAUDE.md](CLAUDE.md) is the hard rules that apply to every
-  change in the repo (TDD, `radar` schema, no AI-attribution in
-  commits, …).
+- Companion docs: [README.md](README.md) is the user guide followed
+  by the developer sections, [docs/index.md](docs/index.md) is the
+  same user guide on the documentation site,
+  [docs/api.md](docs/api.md) describes the API for anyone writing a
+  client, and [CLAUDE.md](CLAUDE.md) is the hard rules that apply
+  to every change in the repo (TDD, `radar` schema, no
+  AI-attribution in commits, …).
 
 ## 1. Intent
 
@@ -20,10 +22,10 @@ produces a zipfile of 150–250 files (1–10 MB) collecting PostgreSQL
 introspection + Linux system state. It does no analysis: it just
 collects.
 
-radar-analyst fills the gap: an internal service that takes a radar
-archive, reduces it to a category-shaped set of facts + rule-engine
-findings, asks an LLM for a DBA-level brief per category, and serves
-the resulting assessment to a replaceable JSON-API-driven console.
+radar-analyst does the analysis: it takes a radar archive, reduces
+it to a category-shaped set of facts + rule-engine findings, asks an
+LLM for a DBA-level brief per category, and serves the resulting
+assessment to a replaceable JSON-API-driven console.
 
 ## 2. Vocabulary and its contract
 
@@ -72,16 +74,15 @@ briefing categories.
 | Web framework | FastAPI | Async-native, SSE via sse-starlette, built-in OpenAPI, FastAPI `Depends()` for test injection. |
 | DB driver | psycopg v3 async + connection pool | Async throughout; `sslmode=prefer` matches radar's libpq behaviour. |
 | Migrations | Plain `.sql` files in `store/migrations/`, applied in lexical order at startup | KISS: no alembic. Bookkeeping in `radar.schema_migrations`, so a newer build can open an older data directory and apply only what is missing. While pre-release there is one file: a schema change edits `0001_init.sql` rather than adding a second, because nothing deployed has data to preserve. |
-| Blob storage | `BlobStore` Protocol + `LocalFsStore` v0.1; S3-compatible impl deferred | Storage URL is opaque to the DB schema, so swapping later requires no migration. |
+| Blob storage | `BlobStore` Protocol + `LocalFsStore` | The storage URL is opaque to the DB schema, so an S3-compatible store (§11) needs no migration. |
 | AI providers | Anthropic, Google Gemini, OpenAI (and any OpenAI-compatible endpoint), Ollama + Mock | One adapter covers OpenAI and every compatible server via `OPENAI_BASE_URL`, since the chat-completions request shape is identical; Mock provider gated on `RADAR_ANALYST_TEST=1` for e2e. |
 | Testing | pytest + pytest-asyncio + testcontainers-python + respx + monkeypatch | Real PostgreSQL via Docker containers per test suite, running the same pgEdge image the deployment does rather than upstream `postgres`, because the two differ in ways that reach this code. `RADAR_ANALYST_PG_MAJOR` selects the version, and CI runs the whole script across 16, 17, and 18; Anthropic adapter is tested with real HTTP mocks (respx); the OpenAI adapter with an `httpx2.MockTransport` under the real SDK client (the openai SDK builds on httpx2, which respx does not patch); Gemini/Ollama are tested with monkeypatched client factories. |
 | Console | Astro (static) | The `web/` tree is a pure JSON-API consumer: anything that speaks the same endpoints can replace it. |
-| Visual identity | pgEdge visual-identity "Drop-in CSS tokens" (non-React path) | The pack prefers MUI, but the same markdown publishes the CSS tokens for non-React surfaces. radar-analyst uses the latter; pgEdge logos and Inter/JetBrains Mono fonts are the only other imports. |
 | Packaging | Hatchling with a custom build hook | The hook copies `web/dist/` into `src/radar_analyst/webdist/` so `pip install` ships a self-contained GUI; server falls back to API-only if the build is absent. |
 | HTTP server | uvicorn, plain (not `[standard]`) | The analyst serves one local user over loopback, so uvloop and httptools buy nothing and `watchfiles` / `python-dotenv` / `PyYAML` are dead weight. Plain uvicorn runs asyncio + h11, which the e2e exercises including the SSE stream. |
 | Bind address | `127.0.0.1:8080` by default, `RADAR_ANALYST_LISTEN` to override | The analyst is a local tool. An omitted host means loopback, so only a deliberate `0.0.0.0:8080` opens it to the network, and that logs a warning. In the container it binds `0.0.0.0` out of necessity; compose publishes `127.0.0.1:8080:8080` to keep it local. |
-| Distribution | Container image on GHCR, brought up by docker-compose | Internal service; NOT published to PyPI or GitHub Releases. An end user runs `docker compose up -d` and installs nothing else. Per-env config via environment variables only. |
-| State storage | A PostgreSQL service the deployment supplies, named by `RADAR_ANALYST_STATE_DB_URL` | The analyst carries no database of its own, so compose, a package install against the system server, and a customer's existing instance are all the same code path. |
+| Distribution | Container image on GHCR, brought up by docker-compose | The image is the distribution: an end user runs `docker compose up -d`, installs nothing else, and configures the analyst through environment variables only. |
+| State storage | A PostgreSQL service the deployment supplies, named by `RADAR_ANALYST_STATE_DB_URL` | The analyst has no database of its own, so the compose stack and a PostgreSQL the user already runs are the same code path. |
 | PostgreSQL image | `ghcr.io/pgedge/pgedge-postgres:{16,17,18}-spock5-minimal` | The pgEdge standard image, in its minimal variant (583 MB against 1.35 GB for standard). Used by the test containers, the e2e stack, and the deployment alike. This database holds only the analyst's own state and does not use Spock. Two of its defaults differ from upstream `postgres` and both reach this code: `initdb` produces SQL_ASCII unless told otherwise, and `listen_addresses` stays at `localhost`. |
 
 ## 4. Request lifecycles
@@ -111,6 +112,13 @@ Client                              FastAPI                  Blob       Postgres
   │─── GET /api/uploads/{id}/assessment │── list_briefs ──────────────▶│                       │
   │◀── 200 {items: [...]} ─────────────│                         │            │                       │
 ```
+
+`POST /api/uploads/{id}/assess` re-enters the same path at
+`insert_job`, after deleting the upload's briefs and findings, and
+the runner reads the archive back from the blob store. Startup marks
+any job the previous process left unfinished as failed
+(`store.jobs.fail_interrupted_jobs`), because the task that ran it
+is gone; the console offers the same button for those.
 
 ### Static console serving
 
@@ -143,7 +151,7 @@ radar-analyst/
 │   │   ├── deps.py                dependency-injection providers
 │   │   ├── sse.py                 in-process pub/sub hub
 │   │   ├── static.py              Astro build locator + StaticFiles mount
-│   │   ├── routes_uploads.py      POST /api/uploads + GET read endpoints
+│   │   ├── routes_uploads.py      POST /api/uploads, GET reads, POST …/assess
 │   │   ├── routes_jobs.py         GET /api/jobs/{id} + SSE endpoint
 │   │   └── routes_config.py       GET /api/config (provider inventory)
 │   ├── store/
@@ -151,6 +159,7 @@ radar-analyst/
 │   │   ├── uploads.py             CRUD for radar.uploads
 │   │   ├── jobs.py                CRUD for radar.jobs
 │   │   ├── snapshots.py           upsert/get for radar.snapshots
+│   │   ├── findings.py            CRUD for radar.findings
 │   │   ├── briefs.py              CRUD for radar.briefs
 │   │   └── migrations/
 │   │       └── 0001_init.sql   the whole radar schema, one file
@@ -245,6 +254,8 @@ radar-analyst/
 ├── docker-compose.build.yml       overlay that builds the analyst from source
 ├── docker-compose.test.yml        e2e with mock provider, no API keys
 ├── run-ci-local.sh                flake8 → ruff → mypy → pyright → pytest → Astro → wheel → Docker → e2e
+├── capture-screenshots.sh         console screenshots in docs/img/, from a stack assessing real radar collections
+├── capture-screenshots.mjs        headless Chromium driver for it, over the DevTools protocol
 ├── test-radar-analyst.sh          compose e2e (compose up, POST fixture, assert, teardown)
 ├── pyproject.toml                 hatchling + deps + flake8/pytest/mypy config
 ├── .github/workflows/ci.yml       runs run-ci-local.sh
@@ -253,10 +264,9 @@ radar-analyst/
 
 ## 6. The data-reduction pipeline (the core design)
 
-The plan's central concern: "one of the key challenges is going to be
-boiling down the amount of data collected to be able to present as
-small a prompt to the LLM as possible." radar zips are too big to
-send wholesale; we rely on three reduction stages.
+The central concern is boiling the collected data down to as small
+a prompt as possible. radar zips are too big to send wholesale, so
+three reduction stages sit between the archive and the model.
 
 ### Stage 1: Structured extraction
 
@@ -279,13 +289,13 @@ parser; a streaming pg_statviz parser will use the default 500 MiB
 cap and consume chunks lazily.
 
 Parsers wired into `analyze/parsing.py`'s `_PARSERS` (and the per-db
-dispatch table) as of Phase 2:
+dispatch table):
 
 | Parser file | Kinds parsed | Output |
 |---|---|---|
 | `parse/tsv.py` | (helper) | radar's TSV format is quote-escaped exactly like Python's `csv.QUOTE_MINIMAL` with `doublequote=True`, matching radar's `rowsToTSV` at `radar.go:682-684`. Handles multi-line quoted fields, NULL-as-empty, and single quotes being passed through unescaped. |
 | `parse/pg_version.py` | `pg.version` | `PgVersionInfo` |
-| `parse/pg_settings.py` | `pg.settings` | `PgSettings` map. Non-default filtering deferred (radar's query doesn't select `boot_val`). |
+| `parse/pg_settings.py` | `pg.settings` | `PgSettings` map. No non-default filtering: radar's query doesn't select `boot_val` (§11). |
 | `parse/extensions.py` | `pg.available_extensions` | `AvailableExtensions` (per-extension installed vs. latest version, with `outdated()` accessor): feeds `pg.config.outdated_extensions`. |
 | `parse/sysctl.py` | `sys.sysctl` | ~30-key PG-relevant whitelist. `sysctl -a` dumps 1000+ keys; most are irrelevant: the whitelist is the single biggest prompt-budget win. |
 | `parse/meminfo.py` | `sys.proc.meminfo` | dict (kB→bytes), HugePages_* raw counts |
@@ -302,9 +312,8 @@ dispatch table) as of Phase 2:
 fetched / inserted / updated / deleted`). The deadlocks, temp_files
 and temp_bytes columns radar ships are in the per-db
 `pg.db.stat_database` file, NOT in the instance-level
-`databases_tup.tsv`. An earlier version of the parser tried to
-read them out of `databases_tup` and silently zeroed; Phase 1
-fixes that by routing them through `parse_db_stat_database`.
+`databases_tup.tsv`, so `parse_db_stat_database` is what reads
+them.
 
 ### Stage 2: Deterministic rule engine
 
@@ -312,9 +321,10 @@ Two dispatch styles coexist:
 
 1. **Category rules** registered with `@register("Category Name")`
    in `rules/base.py::REGISTRY` and run by
-   `run_for_category(category, parsed)`. The orchestrator passes
-   the resulting `Finding` list into the user prompt and floors the
-   final status tag at the maximum finding severity (Claude
+   `run_for_category(category, parsed)`. The orchestrator persists
+   the resulting `Finding` list to `radar.findings`, passes it into
+   the user prompt, and floors the final status tag at the maximum
+   finding severity (Claude
    demonstrably ignores calibration prompts at times; this is the
    deterministic guard rail).
 2. **Per-database inline rules** in `rules/pg_db.py`: NOT in the
@@ -333,10 +343,6 @@ Rule inventory:
 | Replication | `rules/pg_replication.py` | replication-slot inactivity / unhealthy `wal_status`; streaming replica not in streaming/catchup state; replica `replay_lag` > 5 min (warn) / 30 min (crit); replica byte lag (`sent_lsn − replay_lsn`) > 100 MiB (warn) / 1 GiB (crit); physical slot with no connected replica; logical subscription not running |
 | (per-database, inline) | `rules/pg_db.py` | cache-hit < 95% on a busy db, rollback ratio > 10% on a busy db, deadlocks > 0 (from per-db `stat_database`), temp_files heavy (> 100 files AND avg > 64 MiB), recovery conflicts (`confl_lock + confl_deadlock` > 0) |
 
-The historical "seed rule pack deferred" line is no longer
-accurate: Phase 1 closed it. Phase 2 added `pg_internals.py`
-for the bgwriter/checkpointer/WAL rules.
-
 ### Stage 3: briefing (cluster + per-database)
 
 **Cluster-level:** Five mandatory categories (`analyze/categories.py`):
@@ -347,24 +353,21 @@ for the bgwriter/checkpointer/WAL rules.
 4. Internals & I/O Health
 5. Replication
 
-The earlier v0.1 plan listed six; we collapsed
-"Sessions, Locks & Activity" + "Workload & Schema" → a single
-**Workload** category. Schema is per-database by definition, so it
-lives in the Databases tree. Historical Trends (pg_statviz) stays
-deferred until a real-world zip with the extension appears.
+Sessions, locks, and activity are one category, **Workload**. Schema
+is per-database by definition, so it lives in the Databases tree.
+There is no Historical Trends category: pg_statviz data is a known
+limit (§11).
 
 **Per-database (conditional):** after the cluster pass,
-`orchestrate()` fires one additional LLM call per *qualifying*
-user database in parallel via `asyncio.gather`. A database qualifies
-when:
+`orchestrate()` fires one additional LLM call per user database
+with at least one finding, in parallel via `asyncio.gather`.
+Template databases and databases that accept no connections
+(`datallowconn = false`) get no card at all: nothing can run in
+them, and radar cannot connect to collect their contents.
 
-- at least one rule finding fired (`findings > 0`), OR
-- `active_sessions > 0` (sessions observed at snapshot time), OR
-- `commits + rollbacks > 100` (non-trivial transaction history)
-
-Databases that meet none of these get a deterministic "no issues
+A database without findings gets a deterministic "no issues
 observed" card: no LLM call, no tokens burned. On a 100-tenant
-cluster with all tenants idle and clean, zero per-db LLM calls fire.
+cluster with all tenants clean, zero per-db LLM calls fire.
 
 Both the cluster and per-db paths share the same cached system
 prompt. The per-db user prompt is rendered by
@@ -384,8 +387,8 @@ Each call receives:
 
 The token budget is enforced indirectly: Stage 1 extraction is
 aggressive enough that realistic prompts stay in the 1–3 KB token
-range per category (the pg_statviz-category, when implemented, will
-need downsampling for its JSONB time-series to stay under 1.5 KB).
+range per category. A pg_statviz category would have to downsample
+its JSONB time-series to stay under 1.5 KB.
 
 ### Prompt-injection mitigation
 
@@ -425,13 +428,12 @@ var instead of rendering a bare disabled chip.
 
 ## 8. Console (Astro)
 
-`web/` is a self-contained Astro 7 project: no React, no MUI, no
-framework islands. Justification:
+`web/` is a self-contained Astro 7 project: no React, no component
+library, no framework islands. Justification:
 
-- The pgEdge visual-identity markdown (`pgedge-visual-identity.md`
-  §"Drop-in CSS tokens") publishes the same palette, typography, and
-  radius tokens for non-React surfaces. All the visual rules from
-  the pack apply: Inter 18 px body @ 1.6 line height, 4 px button
+- The palette, typography, and radius tokens are CSS variables in
+  `src/styles/global.css`, so no component library is needed to
+  render them: Inter 18 px body @ 1.6 line height, 4 px button
   radius, 8 px card radius, sentence-case buttons, cyan
   `#15AABF`/`#22B8CF` primary, `#0F172A`/`#1E293B` dark surfaces.
 - Static build, no SSR: the whole site deploys as files under
@@ -439,31 +441,30 @@ framework islands. Justification:
 - Dynamic upload IDs handled via query parameters, not Astro's
   dynamic routes: since static mode needs `getStaticPaths` and we
   can't enumerate upload IDs at build time.
-- All data comes from the JSON API. The console is a pure consumer;
-  replacing it means swapping `web/` for any other client of the
-  same endpoints.
+- All data comes from the JSON API, so any other client of the same
+  endpoints can replace `web/`.
 
 Key files:
 
 | File | Role |
 |---|---|
-| `src/styles/global.css` | CSS variables from the pgEdge pack + utility classes (`pg-card`, `pg-button`, `pg-chip--healthy|warning|critical`). |
+| `src/styles/global.css` | CSS variables for the palette, typography, and radii + utility classes (`pg-card`, `pg-button`, `pg-chip--healthy|warning|critical`). |
 | `src/layouts/Base.astro` | `<html>`/`<body>`, pre-paint theme restore, content slot. |
 | `src/components/Header.astro` | App bar: pgEdge logo (light/dark), divider, product name, and an icon-button theme toggle cycling system, light, dark. |
 | `src/components/UploadForm.astro` | One-row upload bar: drop zone, Upload button, then a progress bar fed by `api.postUpload`; redirects to the progress page. |
 | `src/components/UploadsList.astro` | Every assessment in one table: host (linking to the assessment), collection time, a status chip from `lib/format.ts` (assessing, failed, or the verdict), upload time, and a delete icon button that uses `api.deleteUpload`. Rows are built with DOM calls, never markup strings. |
 | `src/components/SnapshotHeader.astro` | GET /api/uploads/{id} + /snapshot. |
-| `src/components/CategoryCard.astro` | GET /api/uploads/{id}/assessment + minimal markdown render; per-card "Sources" expander linking to /api/uploads/{id}/files/{path}. |
+| `src/components/CategoryCard.astro` | GET /api/uploads/{id}/assessment + minimal markdown render; the findings behind the verdict listed under each brief; per-card "Sources" expander linking to /api/uploads/{id}/files/{path}. |
 | `src/pages/index.astro` | Upload form + list. |
-| `src/pages/upload.astro` | Snapshot + the assessment's briefs by category (reads `?id=`). |
+| `src/pages/upload.astro` | Snapshot + the assessment's briefs by category (reads `?id=`), and an Assess again button that posts to `/api/uploads/{id}/assess` through `lib/api.ts` and moves to the progress page. |
 | `src/pages/live.astro` | SSE subscription → redirect to upload page on `done`. |
 | `src/lib/api.ts` | Typed wrappers around the JSON API. `postUpload` sends the archive with `XMLHttpRequest` so the form can show how much has been sent; the reads are `fetch` wrappers. The upload form and the assessments table import it, and so does the progress page through `src/lib/follow.ts`, which pairs the event stream with a poll of the job record so the outcome is reported once even if the stream drops. `src/lib/format.ts` holds the size, time, and status-chip formatting the table uses. The assessment page's components still hand-write their calls. |
 
 ## 9. Testing strategy
 
-**TDD is enforced by CLAUDE.md line 1.** Every production file in
-`src/radar_analyst/` has a sibling test module; each test module was
-written before the code it tests. `run-ci-local.sh` fails if
+**TDD is a hard rule in CLAUDE.md.** Every production file in
+`src/radar_analyst/` has a sibling test module, written before the
+code it tests. `run-ci-local.sh` fails if
 `pytest` returns non-zero, so a regression drops the whole CI run.
 
 - **Unit tests** (`test_*.py`): fast, module-scoped, no I/O.
@@ -491,17 +492,23 @@ written before the code it tests. `run-ci-local.sh` fails if
   `TestClient`, because the default TestClient tears down its event
   loop when the request returns, killing the background task before
   it can complete.
-- **e2e** (not marked as `e2e` in pytest yet) is
-  `test-radar-analyst.sh`: docker compose up → POST a synthetic radar
-  zip built from `tests/make_sample_zip.py` → poll `/api/jobs/{id}`
-  → assert 5 briefs, valid verdicts, and zero `unknown_entries`. The
-  synthetic zip is built on the fly, which removes any binary
-  fixture from the repo. It then adds what only a real deployment can
-  fail: the progress stream over a real socket, PID 1 running
-  unprivileged, the archive written under `/data/archives`, and,
-  after stopping and starting the whole stack, the assessment and the
-  archive bytes still readable with the generated token still
-  authorising a delete.
+- **e2e** is
+  `test-radar-analyst.sh`: docker compose up → write the sample
+  archive with `tests/make_sample_zip.py` inside the analyst's
+  container and copy it out, the way the walkthrough does → POST it
+  → poll `/api/jobs/{id}` → assert 5 briefs, valid verdicts, and
+  zero `unknown_entries`. The synthetic zip is built on the fly,
+  which removes any binary fixture from the repo, and building it in
+  the container proves the image ships the generator the walkthrough
+  relies on. It then adds what only a real deployment can fail: the
+  progress stream over a real socket, PID 1 running unprivileged,
+  the archive written under `/data/archives`, and, after replacing
+  the containers, the assessment and the archive bytes still
+  readable with the generated token still authorising a delete.
+- **The walkthrough** (`examples/walkthrough/guide.sh`) is run by
+  `test_walkthrough_guide.py` against a stub `docker`, which pins
+  the commands it issues and every branch it takes; the e2e covers
+  what those commands do inside the real image.
 
 ## 10. Build + deploy pipeline
 
@@ -526,7 +533,7 @@ web/package.json ── npm run build ──▶ web/dist/
                      hatchling build ─── hatch_build.py ─── src/radar_analyst/webdist/
                                          │
                                          ▼
-                                   radar_analyst-0.1.0-py3-none-any.whl
+                                   radar_analyst-<version>-py3-none-any.whl
                                          │
                                          ▼
                       Dockerfile stage 3: pip install + `python -m radar_analyst`
@@ -570,6 +577,10 @@ is routable from the host it runs on, so a server on
 `listen_addresses=*` answers any local process, published port or
 not. `test-radar-analyst.sh` asserts the refusal.
 
+The `app` service maps `host.docker.internal` to the host gateway.
+Docker Desktop defines that name on its own and Docker Engine on
+Linux does not, and the default Ollama address depends on it.
+
 One property of the pgEdge image differs from upstream `postgres`
 and the stack does not work without accounting for it:
 
@@ -608,13 +619,6 @@ Four properties `test-radar-analyst.sh` pins:
 - **PID 1 is unprivileged.** Root exists only inside the entrypoint,
   long enough to make a freshly mounted volume writable.
 
-A package install (deb/rpm) is the same code path with
-`RADAR_ANALYST_STATE_DB_URL` pointed at the system PostgreSQL. The
-AI SDKs are packaged by no distribution, and Rocky/RHEL 9 ships
-neither a new enough `python3` nor eight of the nine runtime
-dependencies, so such a package has to vendor a virtualenv and
-depend on the system only for a `python3.11`-or-later interpreter.
-
 ### CI (`.github/workflows/ci.yml`)
 
 ```
@@ -636,66 +640,45 @@ Any step failing aborts. No separate jobs: the whole pipeline is
 one sequential script that mirrors what a developer runs locally,
 which matches the convention established by `radar/run-ci-local.sh`.
 
-## 11. Known limits and deferred work
+## 11. Known limits
 
-Items intentionally not implemented yet. The design accommodates
-them: adding any of these requires no structural change, just
-filling in code where the interface already allows for it.
+What the analyst does not do, and where each piece would plug in.
+None of them needs a structural change: the interface each one would
+fill already exists.
 
-### Phase 2
-
-| Item | Status | Notes |
+| Limit | Where it plugs in | What it needs |
 |---|---|---|
-| Per-database LLM analysis, conditional | **Landed** | `orchestrate()` fires per-db calls via `asyncio.gather` after the cluster pass. Gate: `findings > 0 OR backends > 0 OR commits+rollbacks > 100`. Idle/clean dbs get a static card. `render_db_user_prompt` in `ai/prompts.py`. `brief_markdown` + `brief_verdict` fields stored in the snapshot `databases` list. Rendered in `Databases.astro` above the Findings block. |
-| Internals & I/O Health enrichment | **Landed** | `parse/pg_internals.py` + `rules/pg_internals.py`. Parsers for `pg.bgwriter`, `pg.checkpointer`, `pg.stat_wal`, `pg.stat_io`, `pg.stat_slru`. Rules: WAL `buffers_full` > 0, checkpoint requested-ratio > 50%, bgwriter backend writes dominant (pre-PG17), bgwriter `buffers_backend_fsync` > 0 (pre-PG17). `_build_internals_facts` extended to include checkpointer, bgwriter, and WAL stats. |
-
-### Phase 3+ (longer roadmap)
-
-| Deferred | Where it plugs in | What needs to happen |
-|---|---|---|
-| PG Config files | **Landed** | `parse/pg_conf.py` + `rules/pg_conf.py`. Parsers: `FileSetting`, `HbaRule`, `DbRoleSetting`. Raw conf files via `_strip_text`. Rules: `trust_method_present` (critical for network host/hostssl trust), `md5_method_present` (warning, deprecated), `hba_config_error` (warning on rule parse errors), `alter_system_drift` (warning when `postgresql.auto.conf` has active settings). Roles + tablespaces summary wired into `_build_pg_config_facts`. |
-| Replication completion | **Landed** | `parse/pg_wal.py` + `rules/pg_replication.py`. All replication parsers wired: streaming replicas (with LSN fields), `WalPosition` (recovery state + current LSN), `WalReceiver`, subscriptions, `ReplicationOrigin`. Rules: replica not streaming, time-based lag, byte-based lag, physical slot with no connected replica, subscription not running. |
-| Host & OS enrichment | **Landed** | `parse/host_os.py` + 6 new rules in `rules/host_os.py`. Parsers: `PsiPressure`/`PsiLine` (PSI `/proc/pressure/*`), `IostatDevice` (`iostat`), `DmesgSummary` (OOM + I/O error pattern matching), `parse_cgroup_memory_bytes`. Rules: `scaling_governor_not_performance`, `cgroup_memory_near_limit`, `pressure_memory_high`, `pressure_io_high`, `dmesg_has_oom_kill` (critical), `dmesg_has_io_error`, `iostat_device_saturation` (warn ≥80% / critical ≥95%). All wired in `_build_host_os_facts`. |
-| Progress + diagnostics | **Landed** | `parse/pg_diagnostics.py` + `rules/pg_diagnostics.py`. Parsers: `Tablespace`, `TablespaceSize` (`pg_size_pretty` → bytes), `PgRole`, `ShmemAllocation`, `ProgressRow` (generic handler for all 6 `stat_progress_*` variants). Rules: `superuser_count_high` (warning when any superuser beyond `postgres` exists), `replication_role_present` (warning if non-system role has REPLICATION attribute). All registered under "Internals & I/O Health". Shmem top allocations + active progress ops wired into `_build_internals_facts`; roles + tablespaces into `_build_pg_config_facts`. |
-| Non-default filter on `pg_settings` | `parse/pg_settings.py` + `analyze/facts.py::_build_pg_config_facts` | Either (a) ship a compiled-in defaults table keyed by PG major, or (b) PR radar to include `boot_val` in its query. |
-| Cross-category synthesis pass | `analyze/orchestrator.py` final step | One more LLM call receiving only the per-category status tags + markdowns (no raw data) for cross-cutting flags like "`dirty_background_bytes` + iostat `%util` + bgwriter `buffers_backend` = flush storm". |
-| OpenAI provider | **Landed** | `ai/openai_compat.py`: `openai.AsyncOpenAI` chat completions, covering OpenAI itself and any compatible endpoint via `OPENAI_BASE_URL` / `OPENAI_MODEL`. |
-| S3 / seaweedfs blob store | `blob/s3.py` (placeholder) | Implement the `BlobStore` Protocol using `aioboto3`. PostgreSQL stores only the URL: no schema change needed. |
-| Typed `lib/api.ts` usage in the console | `web/src/components/*.astro` | The front page and the progress page import the typed wrappers; the assessment page's components (`SnapshotHeader`, `CategoryCard`, `Databases`) still hand-write their `fetch(...)` calls in inline scripts and could move the same way. |
+| `pg_settings` is reported in full, defaults included | `parse/pg_settings.py` + `analyze/facts.py::_build_pg_config_facts` | Either a compiled-in defaults table keyed by PG major, or radar selecting `boot_val` in its query. |
+| No cross-category synthesis | `analyze/orchestrator.py`, as a final step | One more LLM call receiving only the per-category verdicts and briefs, for cross-cutting flags like "`dirty_background_bytes` + iostat `%util` + bgwriter `buffers_backend` = flush storm". |
+| The local filesystem is the only blob store | `blob/`, as a second implementation of the `BlobStore` Protocol | An S3-compatible store using `aioboto3`. PostgreSQL stores only the URL, so no schema change. |
+| The assessment page's components hand-write their API calls | `web/src/components/SnapshotHeader.astro`, `CategoryCard.astro`, `Databases.astro` | The front page, the progress page, and the assessment page's button import the typed wrappers in `lib/api.ts`; these three components still call `fetch` from inline scripts. |
+| No package (deb or rpm) | A package would run against the system PostgreSQL through `RADAR_ANALYST_STATE_DB_URL` | It has to vendor a virtualenv: no distribution packages the AI SDKs, and Rocky/RHEL 9 ships neither a new enough `python3` nor eight of the nine runtime dependencies. |
+| No prompt-size budget test | `tests/test_ai_prompts.py` | An assertion that each rendered user prompt stays under its category's cap (Workload ≤ 1.5 KB, PG Config ≤ 3 KB, others ≤ 2 KB) on a realistic sample archive. |
 
 ### Extensions not present by default
 
 `pg_stat_statements` and `pg_statviz` are optional PostgreSQL
-extensions. In practice most hosts radar runs against don't have
-them installed. Their parsers and rules only matter when the
-extension is installed; not wired today, add on first encounter
-of a zip that has them.
+extensions, and most hosts radar runs against do not have them
+installed. The classifier recognises their files, so they never
+count as unrecognised, and nothing parses them.
 
-| Extension | What it would unlock | When to wire it |
+| Extension | What its data would add | Constraint |
 |---|---|---|
-| `pg_stat_statements` | Top-N query block per database: slowest mean-time, highest total-time, most-blocks-read | First zip in the wild that ships `pg_statements.tsv` populated |
-| `pg_statviz` | Historical Trends per-database LLM category. Files are 100+ MiB time-series, so this must use the streaming `open_entry` path with chunked reads, never a buffered slurp, and downsample before prompting. | Same: first real-world zip with `pg_statviz/` populated |
+| `pg_stat_statements` | A top-N query block per database: slowest mean time, highest total time, most blocks read. | Needs an archive with `pg_statements.tsv` populated to develop against. |
+| `pg_statviz` | A Historical Trends category per database. | Its files are 100+ MiB time-series, so the parser must use the streaming `open_entry` path with chunked reads, never a buffered slurp, and downsample before prompting. |
 
-### Informational "noise" kinds: not planned
+### Recognised but not parsed
 
-These collectors are recognised by the classifier (so
-`unknown_entries` stays at 0) but have no DBA signal to extract.
-Parsing cost without benefit; deliberately skipped. Revisit only
-if one ever turns out to matter.
+These collectors are recognised by the classifier, so
+`unknown_entries` stays at 0, and have no DBA signal worth a parser:
 
-- **Packages** (`sys.packages-*`)
-- **OpenSSL** (`sys.openssl.*`)
-- **Systemd / tuned listings** (`sys.systemd.*`, `sys.tuned.*`)
-- **Locale / hosts / machine_id / timedatectl / sysctl_conf**
-- **macOS-specific collectors** (`sys.diskutil_*`, `sys.pmset_*`,
+- Packages (`sys.packages-*`).
+- OpenSSL (`sys.openssl.*`).
+- Systemd and tuned listings (`sys.systemd.*`, `sys.tuned.*`).
+- Locale, hosts, machine_id, timedatectl, sysctl_conf.
+- macOS-specific collectors (`sys.diskutil_*`, `sys.pmset_*`,
   `sys.system_profiler_*`, `sys.sysctl_cpu/hw/kern/vm`,
-  `sys.memory_pressure`, `sys.vm_stat*`, etc.)
-
-### Test surfaces still owed
-
-| Deferred | Location |
-|---|---|
-| Prompt-size budget test | `tests/test_ai_prompts.py`: assert each rendered user prompt stays under its category-specific token cap (Workload ≤ 1.5 KB, PG Config ≤ 3 KB, others ≤ 2 KB) on a realistic sample zip. |
+  `sys.memory_pressure`, `sys.vm_stat*`).
 
 ## 12. Memory profile
 
@@ -707,13 +690,13 @@ Where zipped bytes live at peak through the pipeline:
 | Blob → tempfile | ~64 KiB (one chunk) | `analyze/runner.py::_run` streaming from `blob_store.get()` | (same ingest cap applies at upload) |
 | Central directory walk | ~20–30 MB for 100k entries | `archive/reader.py::list_entries` → `zipfile.infolist()` | `MAX_ENTRIES` = 100_000, `MAX_TOTAL_UNCOMPRESSED_BYTES` = 2 GiB, `MAX_ENTRY_SIZE_BYTES` = 500 MiB: all enforced here before any decompression |
 | Per-entry read (small files via orchestrator) | up to `_SMALL_ENTRY_BYTES` (1 MiB) | `analyze/parsing.py::read_and_parse` → `open_entry(...)` | entry skipped with warning if it exceeds 1 MiB |
-| Per-entry read (streaming, e.g. future pg_statviz) | 64 KiB chunk | `open_entry(...)` iterator | `max_bytes` tracked continuously by `_CappedReader.read()` |
+| Per-entry read (streaming) | 64 KiB chunk | `open_entry(...)` iterator | `max_bytes` tracked continuously by `_CappedReader.read()` |
 
 A 186 MiB pg_statviz entry is the stress case; the real-radar test
 `test_open_entry_streams_large_pg_statviz_without_buffer` iterates
-it to confirm only one 64 KiB chunk is live at a time. No code path
-today (or, by convention, ever) calls a non-streaming read on a
-pg_statviz kind.
+it to confirm only one 64 KiB chunk is live at a time. By
+convention, no code path calls a non-streaming read on a pg_statviz
+kind.
 
 ## 13. How to evolve this document
 
@@ -722,8 +705,8 @@ When a PR changes:
 - **Module structure** (new dir under `src/radar_analyst/`, new route
   file) → update §5.
 - **A reduction-pipeline stage** (new rule, new parser, new
-  summarizer, new category) → update §6 + §11 if it removes a
-  deferred item.
+  summarizer, new category) → update §6, and §11 if it removes a
+  known limit.
 - **An AI adapter** (a new provider, or a change to an existing
   one's transport or config) → update §7.
 - **Build or CI** (new step in `run-ci-local.sh`, docker-compose
@@ -732,7 +715,7 @@ When a PR changes:
   the console) → update §2, and say there which code path keeps any
   guarantee the term implies.
 - **A significant decision reversal** (e.g. switching to SSR, moving
-  off testcontainers, bringing in MUI after all) → update §3 and
+  off testcontainers, bringing in a component library) → update §3 and
   record the *why* in a short paragraph at the end of the relevant
   section.
 

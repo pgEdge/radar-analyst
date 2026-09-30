@@ -1,7 +1,7 @@
 [project]
 name = "radar-analyst"
-version = "0.1.0"
-description = "Internal service that analyzes radar diagnostic zipfiles with deterministic rules plus per-category LLM synthesis."
+version = "0.2.0"
+description = "Assesses the health of a PostgreSQL host from a pgEdge Radar diagnostic archive: deterministic findings, a verdict per diagnostic category, and a written brief for each."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENCE" }

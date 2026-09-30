@@ -43,11 +43,8 @@ CREATE TABLE IF NOT EXISTS radar.findings (
     category TEXT NOT NULL,
     severity TEXT NOT NULL,
     title TEXT NOT NULL,
-    detail TEXT,
-    evidence JSONB
+    detail TEXT
 );
-CREATE INDEX IF NOT EXISTS findings_upload_severity
-    ON radar.findings (upload_id, severity);
 CREATE INDEX IF NOT EXISTS findings_upload_category
     ON radar.findings (upload_id, category);
 
@@ -160,9 +157,6 @@ COMMENT ON COLUMN radar.findings.title IS
     'One-line statement of what was found.';
 COMMENT ON COLUMN radar.findings.detail IS
     'Longer explanation, including what to do about it.';
-COMMENT ON COLUMN radar.findings.evidence IS
-    'The values the rule fired on, so the finding can be checked '
-    'against the archive.';
 
 -- briefs ------------------------------------------------------------
 COMMENT ON TABLE radar.briefs IS
@@ -206,9 +200,7 @@ COMMENT ON COLUMN radar.schema_migrations.applied_at IS
     'When the migration ran.';
 
 -- indexes -----------------------------------------------------------
-COMMENT ON INDEX radar.findings_upload_severity IS
-    'Serves the roll-up, which needs the worst severity per upload.';
 COMMENT ON INDEX radar.findings_upload_category IS
-    'Serves reading one category''s findings for its brief.';
+    'Serves reading an upload''s findings, grouped by category.';
 COMMENT ON INDEX radar.briefs_upload_category IS
     'Serves assembling an assessment from its briefs.';

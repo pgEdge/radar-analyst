@@ -14,7 +14,9 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg_pool import AsyncConnectionPool
 
+from radar_analyst.rules.base import Finding
 from radar_analyst.store.briefs import insert_brief
+from radar_analyst.store.findings import insert_findings
 from radar_analyst.store.jobs import insert_job, update_job_state
 from radar_analyst.store.snapshots import upsert_snapshot
 from radar_analyst.store.uploads import insert_upload, set_archive_files
@@ -312,3 +314,50 @@ async def test_get_config_marks_openai_available_with_key(
     )
     assert openai_entry["available"] is True
     assert "reason" not in openai_entry
+
+
+@pytest.mark.asyncio
+async def test_assessment_lists_the_findings_behind_each_brief(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = await _seed_upload_with_briefs(fresh_pool)
+    await insert_brief(
+        fresh_pool,
+        brief_id=uuid4(),
+        upload_id=upload_id,
+        category="Replication",
+        provider="mock",
+        model="mock-v0",
+        verdict="WARNING",
+        markdown="**[WARNING]** a slot is inactive",
+        prompt_tokens=None,
+        completion_tokens=None,
+    )
+    await insert_findings(
+        fresh_pool,
+        upload_id=upload_id,
+        category="Replication",
+        findings=[
+            Finding(
+                rule_id="pg.replication.slot_inactive",
+                severity="warning",
+                title="A replication slot is inactive",
+                detail="Drop it or reconnect its consumer.",
+            )
+        ],
+    )
+    with TestClient(app) as client:
+        resp = client.get(
+            f"/api/uploads/{upload_id}/assessment"
+        )
+    briefs = {b["category"]: b for b in resp.json()["briefs"]}
+    assert briefs["Host & OS"]["findings"] == []
+    assert briefs["Replication"]["findings"] == [
+        {
+            "rule_id": "pg.replication.slot_inactive",
+            "severity": "warning",
+            "title": "A replication slot is inactive",
+            "detail": "Drop it or reconnect its consumer.",
+        }
+    ]

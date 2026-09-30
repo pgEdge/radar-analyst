@@ -19,8 +19,9 @@ instructions.
 ## Pull Request Guidelines
 
 - One logical change per PR
-- Follow conventional commit style for your PR title
-  (`feat:`, `fix:`, `docs:`, `chore:`, etc.)
+- Prefix your PR title the way commits are prefixed: `fix:`,
+  `feat:`, `build:`, `deps:`, `refactor:`, `test:`, `docs:`, or a
+  plain verb. Never `chore:`
 - Include tests for new functionality
 - Ensure all CI checks pass before requesting review
 - Update documentation if behavior changes

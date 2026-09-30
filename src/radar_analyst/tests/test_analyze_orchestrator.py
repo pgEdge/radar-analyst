@@ -10,11 +10,16 @@ from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.ai.mock import MockAdapter
 from radar_analyst.analyze.categories import CATEGORIES
-from radar_analyst.analyze.orchestrator import orchestrate
+from radar_analyst.analyze.orchestrator import (
+    _build_database_summaries,
+    orchestrate,
+)
 from radar_analyst.analyze.parsing import read_and_parse
+from radar_analyst.parse.databases import DatabaseInfo
 from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.briefs import list_briefs
 from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.findings import list_findings
 from radar_analyst.store.jobs import get_job, insert_job
 from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import get_upload, insert_upload
@@ -498,3 +503,48 @@ async def test_orchestrate_writes_the_parsed_hostname_to_the_upload(
     row = await get_upload(fresh_pool, upload_id)
     assert row is not None
     assert row.hostname == "db1"
+
+
+def test_database_summaries_skip_templates_and_no_connect() -> None:
+    parsed = {
+        "pg.databases": [
+            DatabaseInfo(datname="app", datistemplate=False),
+            DatabaseInfo(datname="template1", datistemplate=True),
+            DatabaseInfo(
+                datname="locked",
+                datistemplate=False,
+                datallowconn=False,
+            ),
+        ]
+    }
+    names = [
+        d["datname"] for d in _build_database_summaries(parsed)
+    ]
+    assert names == ["app"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_persists_the_findings_behind_each_verdict(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    rows = await list_findings(fresh_pool, upload_id)
+    by_cat: dict[str, list[str]] = {}
+    for r in rows:
+        by_cat.setdefault(r.category, []).append(r.rule_id)
+    # The fixture's shared_buffers is 128 MiB on 16 GiB of RAM.
+    assert "pg.config.shared_buffers_low" in by_cat[
+        "PostgreSQL Configuration"
+    ]
+    # No rule fires on the fixture's host facts.
+    assert "Host & OS" not in by_cat

@@ -1,8 +1,7 @@
 /*
- * Global styles built on the pgEdge visual identity "Drop-in CSS
- * tokens" block (see pgedge-visual-identity.md). Values must not
- * drift from that source: this is the non-React path for the same
- * palette used by the MUI theme in pgedgeTheme.ts.
+ * Global styles for the console: the palette, typography, and
+ * radius tokens as CSS variables, and the utility classes built on
+ * them.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
@@ -191,8 +190,7 @@ samp {
   }
 }
 
-/* Utility surfaces: match MUI Card / Paper elevation for parity
- * with the MUI theme applied elsewhere in pgEdge products. */
+/* Utility surfaces: cards raised by a shadow and a hairline border. */
 .pg-card {
   background: var(--pg-bg-surface);
   border-radius: var(--pg-radius-card);
@@ -302,4 +300,21 @@ samp {
 }
 .pg-mono {
   font-family: var(--pg-font-mono);
+}
+
+/* Findings: the deterministic issues behind a verdict, listed under
+ * a category's brief and under a database's card. */
+.pg-findings {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--pg-status-warning-fg);
+  background: var(--pg-status-warning-bg);
+  border-radius: 3px;
+}
+.pg-findings ul {
+  margin: 0.4rem 0 0 0;
+  padding-left: 1.25rem;
+}
+.pg-findings li {
+  margin: 0.25rem 0;
 }

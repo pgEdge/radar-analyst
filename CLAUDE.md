@@ -14,8 +14,8 @@ pgEdge Radar Analyst reads a radar diagnostic archive, checks it
 against deterministic rules, writes a brief per diagnostic category,
 and serves the assessment over a JSON API with an Astro console.
 
-Internal service, deployed with docker-compose. Not published to
-PyPI or GitHub Releases.
+Deployed with docker-compose: the analyst's container image next to
+a pgEdge PostgreSQL image. The image is the distribution.
 
 The AI SDKs (`anthropic`, `google-genai`, `openai`, `ollama`) are
 required runtime dependencies, not optional extras: the briefing
@@ -56,6 +56,15 @@ invariants a change must not break.
   a change gets its own file, because a newer build has to open an
   older data directory and apply only what is missing.
 - **Comments describe the current code**, never its history.
+- **Screenshots follow the console.** A change that alters what the
+  user sees in the console, whether in `web/` or in what an
+  assessment returns (a finding's wording, a category, a field on a
+  page), comes with new screenshots in the same PR. `make
+  screenshots` regenerates `docs/img/console-*.png`, which the README
+  and the docs show; review the pictures before committing them. The
+  showcase they open is an anonymized real radar collection in
+  `data/showcase/`, outside git: every name in it is fake, and
+  nothing from it but the screenshots is ever committed.
 - KISS, DRY, stdlib-first, explicit error handling at system
   boundaries.
 
@@ -86,8 +95,8 @@ share.
 
 | File | Audience |
 |---|---|
-| `README.md` | developers: building, contributing, running locally |
-| `docs/index.md` | users only: deploy, point at a PostgreSQL, upload an archive |
+| `README.md` | users first: what an assessment is, deploying, configuring, using; then developers: building, testing, contributing |
+| `docs/index.md` | users only: the README's user sections, identical apart from link targets |
 | `ARCHITECTURE.md` | engineering design, layering, trade-offs |
 | `docs/changelog.md` | user-facing changes only |
 
@@ -111,6 +120,7 @@ Change the value in the file that owns it. Do not restate it here.
 | Pre-commit hooks | `.pre-commit-config.yaml` |
 | Common commands | `Makefile` |
 | Archive paths the classifier must know | `check-archive-coverage.py` |
+| Console screenshots, and what taking them needs | `capture-screenshots.sh` (`make screenshots`) |
 
 `./run-ci-local.sh` must exit 0 before a commit.
 
@@ -130,7 +140,6 @@ and before adding parser or rule support for an archive entry.
 - No `Co-Authored-By`, and no Claude or AI attribution anywhere in a
   commit.
 - Tags carry the version alone: `v0.1.0`, never "Release v0.1.0".
-  They are internal version tracking, not a public distribution.
 - Changes go through PRs with at least one peer review, and CI green
   on every PostgreSQL version, before merge.
 - Never commit real hostnames, database names, schema or role names,

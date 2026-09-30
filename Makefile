@@ -7,7 +7,7 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice walkthrough clean
+.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice walkthrough screenshots clean
 
 help:
 	@echo "make venv        create .venv and install dev dependencies"
@@ -22,6 +22,7 @@ help:
 	@echo "make openapi     regenerate docs/openapi.json from the routes"
 	@echo "make notice      regenerate NOTICE.txt from the dependencies"
 	@echo "make walkthrough guided tour: start the stack, open the console, assess an archive"
+	@echo "make screenshots regenerate the console screenshots in docs/img/"
 	@echo "make clean       remove build output and caches"
 
 $(VENV):
@@ -89,6 +90,12 @@ sort_keys=True) + chr(10))"
 # The tour needs only docker, curl, and python3, so no venv.
 walkthrough:
 	bash examples/walkthrough/guide.sh
+
+# The console screenshots the README and the docs show. The script
+# says what it needs; a run spends one assessment's worth of provider
+# calls on the credential in .env.
+screenshots: $(VENV)
+	./capture-screenshots.sh
 
 # NOTICE.txt lists the licences of everything the wheel pulls in.
 # The container image and any future deb or rpm vendor the whole

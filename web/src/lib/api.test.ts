@@ -259,3 +259,33 @@ describe('deleting', () => {
     );
   });
 });
+
+describe('assessing again', () => {
+  it('posts to the assess path and returns the receipt', async () => {
+    const calls = stubFetch({
+      json: () => Promise.resolve({ upload_id: 'abc', job_id: 'j1' }),
+    });
+
+    const receipt = await api.assessAgain('abc');
+
+    expect(calls[0].url).toBe('/api/uploads/abc/assess');
+    expect(calls[0].init?.method).toBe('POST');
+    expect(receipt).toEqual({ upload_id: 'abc', job_id: 'j1' });
+  });
+
+  it('says when the upload is still being assessed', async () => {
+    stubFetch({ ok: false, status: 409, statusText: 'Conflict' });
+
+    await expect(api.assessAgain('abc')).rejects.toThrow(
+      /still being assessed/,
+    );
+  });
+
+  it('reports any other refusal by status', async () => {
+    stubFetch({ ok: false, status: 500, statusText: 'x' });
+
+    await expect(api.assessAgain('abc')).rejects.toThrow(
+      /POST \/api\/uploads\/abc\/assess returned 500/,
+    );
+  });
+});

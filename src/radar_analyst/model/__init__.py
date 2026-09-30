@@ -55,3 +55,15 @@ class Brief:
     prompt_tokens: int | None
     completion_tokens: int | None
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class FindingRow:
+    """One row of ``radar.findings``."""
+    id: UUID
+    upload_id: UUID
+    rule_id: str
+    category: str
+    severity: str
+    title: str
+    detail: str | None

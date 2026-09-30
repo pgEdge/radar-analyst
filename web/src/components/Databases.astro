@@ -198,7 +198,7 @@
               })
               .join('');
             var findingsBlock = findings
-              ? '<div class="pg-db__findings">' +
+              ? '<div class="pg-findings">' +
                 '<div class="pg-kv__label">Findings</div>' +
                 '<ul>' +
                 findings +
@@ -290,20 +290,6 @@
       margin-left: 0;
       padding-left: calc(18px + 0.75rem);
     }
-  }
-  .pg-db__findings {
-    margin-top: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border-left: 3px solid var(--pg-status-warning-fg);
-    background: var(--pg-status-warning-bg);
-    border-radius: 3px;
-  }
-  .pg-db__findings ul {
-    margin: 0.4rem 0 0 0;
-    padding-left: 1.25rem;
-  }
-  .pg-db__findings li {
-    margin: 0.25rem 0;
   }
   .pg-section__title {
     margin: 2rem 0 0.25rem;

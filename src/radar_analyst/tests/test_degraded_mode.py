@@ -18,6 +18,7 @@ from radar_analyst.analyze.orchestrator import orchestrate
 from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.briefs import list_briefs
 from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.findings import list_findings
 from radar_analyst.store.jobs import insert_job
 from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import insert_upload
@@ -169,3 +170,23 @@ async def test_per_db_verdict_survives_the_llm_being_down(
     assert snap is not None
     dbs = {d["datname"]: d for d in snap["databases"]}
     assert dbs["activedb"]["brief_verdict"] == "CRITICAL"
+
+
+@pytest.mark.asyncio
+async def test_findings_are_stored_when_the_llm_is_down(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """The deterministic half of the assessment needs no provider."""
+    await apply_migrations(fresh_pool)
+    z = _make_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=DeadAdapter(),
+        hub=SSEHub(),
+    )
+    rows = await list_findings(fresh_pool, upload_id)
+    assert "pg.config.shared_buffers_low" in {r.rule_id for r in rows}

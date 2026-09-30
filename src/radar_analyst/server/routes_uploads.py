@@ -5,8 +5,9 @@ blob store (no full in-memory buffer), inserts a row into
 ``radar.uploads``, enqueues a ``queued`` job in ``radar.jobs``,
 and returns ``{upload_id, job_id}``. The remaining routes list
 uploads, read one upload's metadata / snapshot / assessment /
-file inventory, stream single archive entries, and delete an
-upload behind the admin token.
+file inventory, stream single archive entries, delete an upload
+behind the admin token, and assess an upload again from its stored
+archive.
 """
 
 import logging
@@ -44,7 +45,8 @@ from radar_analyst.server.deps import (
     require_admin_token,
     require_upload,
 )
-from radar_analyst.store.briefs import list_briefs
+from radar_analyst.store.briefs import delete_briefs, list_briefs
+from radar_analyst.store.findings import delete_findings, list_findings
 from radar_analyst.store.jobs import insert_job
 from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import (
@@ -250,6 +252,53 @@ async def delete_upload_route(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post(
+    "/uploads/{upload_id}/assess",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def assess_again_route(
+    upload: UploadListing = Depends(require_upload),
+    pool: AsyncConnectionPool = Depends(get_pool),
+    runner: JobRunner | None = Depends(get_job_runner),
+) -> dict[str, str]:
+    """Assess the upload again from its stored archive.
+
+    The previous briefs and findings are removed first, so the
+    assessment page never shows two results side by side; the new
+    run replaces the snapshot when it writes one. Refused with 409
+    while an assessment of the upload is still running.
+    """
+    running = upload.job_state is not None and (
+        upload.job_state not in ("done", "failed")
+    )
+    if running:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="this upload is still being assessed",
+        )
+    await delete_briefs(pool, upload.id)
+    await delete_findings(pool, upload.id)
+    job_id = uuid4()
+    await insert_job(
+        pool,
+        job_id=job_id,
+        upload_id=upload.id,
+        ai_provider=(
+            runner.analyzer_name if runner is not None else None
+        ),
+    )
+    if runner is not None:
+        runner.start(
+            upload_id=upload.id,
+            job_id=job_id,
+            storage_url=upload.storage_url,
+        )
+    return {
+        "upload_id": str(upload.id),
+        "job_id": str(job_id),
+    }
+
+
 @router.get("/uploads/{upload_id}/snapshot")
 async def get_snapshot_route(
     upload_id: UUID,
@@ -280,6 +329,16 @@ async def get_assessment_route(
     inventory = (
         await get_archive_files(pool, upload_id) or []
     )
+    findings: dict[str, list[dict[str, str | None]]] = {}
+    for f in await list_findings(pool, upload_id):
+        findings.setdefault(f.category, []).append(
+            {
+                "rule_id": f.rule_id,
+                "severity": f.severity,
+                "title": f.title,
+                "detail": f.detail,
+            }
+        )
     return {
         "verdict": rollup_verdict([r.verdict for r in rows]),
         "briefs": [
@@ -293,6 +352,7 @@ async def get_assessment_route(
                 "prompt_tokens": r.prompt_tokens,
                 "completion_tokens": r.completion_tokens,
                 "created_at": r.created_at.isoformat(),
+                "findings": findings.get(r.category, []),
                 "sources": sources_for_category(
                     r.category, inventory
                 ),

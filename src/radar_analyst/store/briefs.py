@@ -62,3 +62,14 @@ async def list_briefs(
         (upload_id,),
         row_factory=class_row(Brief),
     )
+
+
+async def delete_briefs(
+    pool: AsyncConnectionPool, upload_id: UUID
+) -> int:
+    """Delete every brief of *upload_id*; returns the row count."""
+    return await execute(
+        pool,
+        "DELETE FROM radar.briefs WHERE upload_id = %s",
+        (upload_id,),
+    )

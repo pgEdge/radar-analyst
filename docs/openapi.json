@@ -73,7 +73,7 @@
   "info": {
     "description": "Analyzes radar diagnostic zipfiles with deterministic rules plus per-category LLM synthesis.",
     "title": "radar-analyst",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -365,6 +365,54 @@
           }
         },
         "summary": "Get Upload Route",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/uploads/{upload_id}/assess": {
+      "post": {
+        "description": "Assess the upload again from its stored archive.\n\nThe previous briefs and findings are removed first, so the\nassessment page never shows two results side by side; the new\nrun replaces the snapshot when it writes one. Refused with 409\nwhile an assessment of the upload is still running.",
+        "operationId": "assess_again_route_api_uploads__upload_id__assess_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Assess Again Route Api Uploads  Upload Id  Assess Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assess Again Route",
         "tags": [
           "uploads"
         ]

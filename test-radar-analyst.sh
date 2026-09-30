@@ -47,13 +47,16 @@ for i in $(seq 1 60); do
     sleep 1
 done
 
-# Generate a radar-format zip so this script has no external
-# fixture dependency; the generator is the shared source of
-# fixture truth (see src/radar_analyst/tests/make_sample_zip.py).
+# The fixture is the walkthrough's sample archive, written inside the
+# analyst's container and copied out exactly as the walkthrough does
+# it, so this also proves the image ships the generator the
+# walkthrough relies on (src/radar_analyst/tests/make_sample_zip.py).
+echo -e "${YELLOW}Writing the walkthrough's sample archive in the container...${NC}"
 FIXTURE="$(mktemp /tmp/radar-e2e-XXXXXX.zip)"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PYTHONPATH="$SCRIPT_DIR/src" python3 -m \
-    radar_analyst.tests.make_sample_zip "$FIXTURE"
+docker compose -p "$PROJECT" -f "$COMPOSE_FILE" exec -T app \
+    python -m radar_analyst.tests.make_sample_zip /tmp/radar-sample.zip
+docker compose -p "$PROJECT" -f "$COMPOSE_FILE" cp \
+    app:/tmp/radar-sample.zip "$FIXTURE"
 
 echo -e "${YELLOW}POST /api/uploads...${NC}"
 UPLOAD_JSON="$(curl -fsS -F "file=@${FIXTURE}" ${BASE_URL}/api/uploads)"

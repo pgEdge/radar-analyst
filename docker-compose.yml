@@ -91,6 +91,12 @@ services:
       OPENAI_MODEL:
       RADAR_ANALYST_OLLAMA_HOST: ${RADAR_ANALYST_OLLAMA_HOST:-http://host.docker.internal:11434}
       RADAR_ANALYST_OLLAMA_MODEL: ${RADAR_ANALYST_OLLAMA_MODEL:-}
+    # host.docker.internal is Docker Desktop's name for the machine
+    # running Docker, and the default Ollama address above uses it.
+    # Docker Engine on Linux does not define the name, so map it to
+    # the host gateway here.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Published on loopback only: the analyst is a local tool and
     # must not be reachable from other hosts. Dropping the
     # 127.0.0.1 prefix would expose it on every interface.

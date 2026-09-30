@@ -1,113 +1,231 @@
 # pgEdge Radar Analyst
 
-pgEdge Radar Analyst reads a
-[radar](https://github.com/pgEdge/radar) diagnostic archive and
-returns an assessment of the PostgreSQL host it came from. The
-analyst checks the archive against deterministic rules and writes a
-short brief for each diagnostic category, then serves the result over
-a browser console and a JSON API.
+pgEdge Radar Analyst assesses the health of a PostgreSQL host from a
+[pgEdge Radar](https://github.com/pgEdge/radar) diagnostic archive.
+The analyst checks the archive against deterministic rules, gives
+each diagnostic category a verdict, and writes a brief that explains
+the verdict. You read the assessment in a browser console, or fetch
+it from a JSON API.
 
-## What you need
+The analyst works from the uploaded archive alone. It never connects
+to the host being assessed, and holds no credentials for it.
 
-Docker, with the Compose plugin. Nothing else: the analyst and the
-PostgreSQL it keeps its own state in both come up as containers.
+![An assessment in the console: the host's details, the five categories with their verdicts, PostgreSQL Configuration open on its brief and findings, and the databases on the server](img/console-assessment-light.png#only-light)
+![An assessment in the console: the host's details, the five categories with their verdicts, PostgreSQL Configuration open on its brief and findings, and the databases on the server](img/console-assessment-dark.png#only-dark)
 
-## Quick start
+## Understanding an assessment
 
-Save `docker-compose.yml` from the repository into an empty
-directory, then:
+An assessment covers five diagnostic categories, and each category
+answers one question about the host:
+
+- Host & OS asks whether the machine is sized and tuned for a
+  database workload.
+- PostgreSQL Configuration asks whether the settings suit this
+  hardware and this workload.
+- Workload asks what the server is doing and whether anything is
+  stuck.
+- Internals & I/O Health asks whether the background processes, the
+  WAL pipeline, and storage I/O are healthy.
+- Replication asks whether replication is safe and caught up, and
+  whether its WAL retention is under control.
+
+Each category has a verdict of `HEALTHY`, `WARNING`, or `CRITICAL`,
+the findings behind it, and a brief that explains them. Each brief
+lists the archive files that its category covers. A category that
+the archive holds no data for reads `UNKNOWN`.
+
+The assessment's own verdict is the worst of the category verdicts.
+`UNKNOWN` means that nothing was collected, so it never makes the
+assessment's verdict worse than what was measured.
+
+The assessment also has a card for each database on the server,
+except template databases and databases that accept no connections.
+A database with findings lists them and gets a brief of its own, and
+a database without findings reads "No issues observed for this
+database."
+
+Findings are the issues that the analyst detects in the archive.
+They are deterministic, and the same archive always produces the
+same findings. A provider writes the briefs, and proposes a verdict
+with each one. The analyst keeps a proposed verdict only when it is
+at least as severe as the worst finding, so a provider can raise a
+verdict but never lower it. Without a provider, or when the provider
+cannot be reached, the findings alone decide each verdict, and each
+brief reads as unavailable.
+
+## Installing the analyst
+
+The analyst runs as two containers: the analyst itself, and a
+PostgreSQL database that holds its assessments. The only requirement
+is Docker with the Compose plugin.
+
+Save
+[docker-compose.yml](https://github.com/pgEdge/radar-analyst/blob/main/docker-compose.yml)
+into an empty directory, and start the analyst from that directory:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
-Open [http://localhost:8080/](http://localhost:8080/) and drag a
-`radar-*.zip` onto the upload area. The analyst reads the archive,
-applies the rules, and returns the assessment in the console. A file
-that is not a zip archive is refused at upload time.
+The command returns once both containers are ready. If the image
+pull is refused, sign in to the GitHub Container Registry with
+`docker login ghcr.io`, using a token that can read packages, and
+run the command again.
 
-Both images live in the pgEdge container registry. If the pull is
-refused, sign in first with a token that can read packages:
+Open [http://localhost:8080/](http://localhost:8080/), drag a radar
+archive onto the upload area or click the area to choose one, and
+press Upload. The console shows the progress while the analyst reads
+the archive and assesses each category, then opens the finished
+assessment. The front page lists the 50 most recent assessments. Each
+entry shows the host, the collection time, and the verdict, or
+"Assessing…" while the assessment runs and "Failed" if it fails.
 
-```bash
-docker login ghcr.io
-```
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-light.png#only-light)
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.png#only-dark)
 
-The compose file publishes the console on `127.0.0.1:8080`, so it is
-reachable only from your own machine, and gives the database no
-published port at all.
+The analyst accepts zip archives of up to 500 MiB, and refuses any
+other file at upload. The compose file publishes the console on
+`127.0.0.1:8080`, so only your own machine can reach it, and the
+database publishes no port at all.
 
-New here? The [guided walkthrough](walkthrough.md) goes from nothing
-to an assessment of one of your hosts, taking the radar collection
-included, and from a checkout of the repository
-`bash examples/walkthrough/guide.sh` starts the analyst and opens
-the console for you.
+To stop the analyst, run `docker compose stop`. To start it again,
+with every upload and assessment in place, run
+`docker compose start`. An assessment that was running when the
+analyst stopped is marked failed when it starts again; open it and
+press Assess again to redo it from the stored archive.
 
-To stop it, `docker compose stop`. To bring it back,
-`docker compose start`. Your uploads and their assessments are still
-there.
+Radar collects the archive on the PostgreSQL host. The
+[guided walkthrough](walkthrough.md) takes you from an empty
+directory to an assessment of one of your own hosts, including
+taking the collection. From a checkout of the repository,
+`bash examples/walkthrough/guide.sh` runs the same tour
+interactively and opens the console for you.
 
 ## Adding a provider for the briefs
 
-The assessment works without one: the findings and verdicts are
-computed from the archive and come back either way. A provider adds
-the written brief for each category. Put a credential in a `.env`
-file next to `docker-compose.yml`:
+The analyst works out the findings and verdicts from the archive
+itself, and needs a provider only to write the briefs. To add one,
+put its credential in a `.env` file beside `docker-compose.yml`, and
+start the analyst again:
 
 ```bash
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
-docker compose up -d
+docker compose up -d --wait
 ```
 
-The analyst supports these providers:
+Assessments made before that keep their findings and verdicts. Open
+one and press Assess again to have the briefs written from the
+stored archive.
 
-- Anthropic, by setting `ANTHROPIC_API_KEY`.
-- Google AI Studio, by setting `GOOGLE_API_KEY`.
-- OpenAI, by setting `OPENAI_API_KEY`. Point `OPENAI_BASE_URL` at
-  any OpenAI-compatible server to use one instead.
-- A local Ollama server, by setting `RADAR_ANALYST_AI_PROVIDER=local`
-  and pointing `RADAR_ANALYST_OLLAMA_HOST` at it.
+[examples/compose.env](https://github.com/pgEdge/radar-analyst/blob/main/examples/compose.env)
+is a commented `.env` file to start from.
+`RADAR_ANALYST_AI_PROVIDER` selects the provider and defaults to
+`claude`. The following table describes the providers the analyst
+supports:
 
-Set `RADAR_ANALYST_AI_PROVIDER` to `claude`, `gemini`, `openai`, or
-`local` to choose between them. It defaults to `claude`.
+| Provider | Service | Credential | Default model |
+|---|---|---|---|
+| `claude` | Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-5` |
+| `gemini` | Google AI Studio | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `gemini-3.7-flash` |
+| `openai` | OpenAI, or an OpenAI-compatible server | `OPENAI_API_KEY` | `gpt-5.6-luna` |
+| `local` | Ollama | None | `gemma4:e4b` |
 
-## Where your data is kept
+The `claude` and `gemini` providers always use their default model.
+`OPENAI_MODEL` chooses the model for `openai`, and
+`RADAR_ANALYST_OLLAMA_MODEL` chooses it for `local`.
 
-The stack keeps three Docker volumes:
+### OpenAI-compatible servers
+
+The `openai` provider works with any server that implements the
+OpenAI chat completions API, such as vLLM, LM Studio, llama.cpp,
+OpenRouter, or Groq. Set the server's address and model name in
+`.env`, and set `OPENAI_API_KEY` even when the server ignores it,
+because the OpenAI client library requires a key:
+
+```bash
+RADAR_ANALYST_AI_PROVIDER=openai
+OPENAI_BASE_URL=http://inference.example.com:8000/v1
+OPENAI_API_KEY=unused
+OPENAI_MODEL=Qwen/Qwen3-32B
+```
+
+The analyst runs in a container, so `localhost` in `OPENAI_BASE_URL`
+refers to that container. Use an address the container can reach.
+
+### A local Ollama server
+
+The `local` provider sends its requests to the Ollama server at
+`RADAR_ANALYST_OLLAMA_HOST`, so the briefs are written without
+sending anything to an outside service. The compose file sets it to
+`http://host.docker.internal:11434`, an Ollama server on the machine
+that runs Docker, and maps that name itself, so the address works on
+Docker Desktop and on Docker Engine for Linux alike. Point it at any
+Ollama server that the analyst's container can reach.
+
+The default model, `gemma4:e4b`, needs roughly 10 GB of GPU memory to
+run entirely on the GPU, and runs more slowly on a smaller card.
+
+## Using your own PostgreSQL
+
+The analyst keeps its assessments in PostgreSQL. The compose file
+includes a database for them, and the analyst can use a PostgreSQL
+server you already run instead. The
+compose file sets `RADAR_ANALYST_STATE_DB_URL` itself and ignores a
+value in `.env`, so change the entry under the `app` service in
+`docker-compose.yml` to your database's connection URL:
+
+```yaml
+      RADAR_ANALYST_STATE_DB_URL: postgresql://radar_analyst:PASSWORD@db.example.com:5432/radar_analyst?sslmode=require
+```
+
+To stop running the bundled database as well, remove the `db`
+service and the `depends_on` entry that waits for it.
+
+This database holds only the analyst's own state, and is never the
+server being assessed. It must meet two conditions:
+
+- It uses the UTF8 encoding. Under SQL_ASCII, PostgreSQL returns
+  text as raw bytes, and the analyst refuses to start rather than
+  misread its own rows. Any other encoding logs a warning at
+  startup, because it can mangle text taken from a radar archive.
+- The role in the URL has the CREATE privilege on the database,
+  because the analyst creates a `radar` schema at startup and keeps
+  all of its tables there.
+
+## Managing your data
+
+The compose stack uses three Docker volumes. The following table
+describes what each volume holds:
 
 | Volume | Holds |
 |---|---|
-| `db` | the assessments, findings, and briefs |
-| `archives` | the radar archives you uploaded, and the admin token |
-| `sock` | the socket the analyst talks to the database over |
+| `db` | The assessments and their briefs |
+| `archives` | The uploaded radar archives and the admin token |
+| `sock` | The socket the analyst uses to reach the database |
 
-The database has no network port at all. The analyst reaches it
-through that shared socket, so nothing else on your machine can
-connect to it.
+The volumes outlive the containers. `docker compose down` and pulling
+a newer image both leave them in place, and `docker compose down -v`
+deletes them permanently.
 
-Replacing the containers keeps all of it. `docker compose down`
-followed by `docker compose up -d`, which is what upgrading does,
-gives you new containers reading the same volumes.
+Each service logs to `docker compose logs`. Docker keeps at most
+three 10 MB log files for each service, 30 MB in all.
 
-Logs go to `docker compose logs`, capped at three files of 10 MB per
-service, so they cannot grow until the disk is full.
-
-The first two outlive the containers. `docker compose down` leaves them in
-place, and so does pulling a newer image. `docker compose down -v` is
-what deletes them.
-
-To keep the uploaded archives somewhere you can see, replace the
-`archives` volume in the compose file with a directory of your own:
+To keep the uploaded archives in a directory you can see, replace the
+`archives` volume under the `app` service with that directory, and
+keep the `sock` volume:
 
 ```yaml
     volumes:
-      - /home/you/radar-analyst:/data
+      - /srv/radar-analyst:/data
+      - sock:/run/postgresql
 ```
 
 ### Backing up
 
-Stop the stack first: copying a running server's data directory does
-not give a consistent snapshot.
+Stop the stack before copying the volumes, because a copy of a
+running server's data directory is not consistent. These commands
+write the database and the uploaded archives to
+`radar-analyst-backup.tar.gz` in the current directory:
 
 ```bash
 docker compose stop
@@ -117,111 +235,76 @@ docker run --rm -v radar-analyst_db:/db -v radar-analyst_archives:/archives \
 docker compose start
 ```
 
-The volume names are prefixed with the directory the compose file
-lives in; `docker volume ls` shows the real ones.
+Compose prefixes each volume name with the name of the directory that
+holds the compose file, so these commands assume a directory named
+`radar-analyst`. `docker volume ls` lists the actual names.
 
-## Deleting an assessment
+### Deleting an assessment
 
-The delete button in the console asks for an admin token. The analyst
-generates one on first start and keeps it in the archives volume:
+Each assessment in the console's list has a delete button. It asks
+you to confirm, then asks for the admin token, which the console
+remembers until the browser tab is closed. Deleting an assessment
+also deletes its uploaded archive. The analyst generates the token
+on first start and keeps it in the `archives` volume, and this
+command prints it:
 
 ```bash
 docker compose exec app cat /data/admin-token
 ```
 
-Paste it into the prompt. To choose the token yourself, set
-`RADAR_ANALYST_ADMIN_TOKEN` in your `.env` file.
-
-## What you get
-
-Every archive is assessed against five diagnostic categories:
-
-- Host and OS asks whether the machine is sized and tuned for a
-  database workload.
-- PostgreSQL Configuration asks whether the settings suit this
-  hardware and this workload.
-- Workload asks what the server is doing and whether anything is
-  stuck.
-- Internals and I/O Health asks whether the background processes,
-  the WAL pipeline, and storage I/O are sound.
-- Replication asks whether replication is safe, caught up, and
-  retention-sound.
-
-Each category carries a verdict of HEALTHY, WARNING, or CRITICAL,
-the deterministic findings that verdict rests on, and a brief that
-reads those findings back in prose. The assessment's own verdict is
-the worst of the five. Each user database gets its own brief when
-findings or meaningful activity are present.
-
-Findings and verdicts are deterministic and reproducible from the
-archive alone. If the configured provider is unreachable the briefs
-are omitted, and the findings and verdicts still come back.
-
-## Using your own PostgreSQL
-
-Set `RADAR_ANALYST_STATE_DB_URL` and the analyst uses the database
-that URL names instead of the one in the compose file. This is the
-database the analyst keeps its own state in, never the server being
-assessed: the analyst works from the uploaded archive and holds no
-credentials for the assessed host.
-
-The database must use the UTF8 encoding. Under SQL_ASCII, PostgreSQL
-hands text back as raw bytes and the analyst refuses to start rather
-than misreading its own rows.
+To choose the token yourself, set `RADAR_ANALYST_ADMIN_TOKEN` in
+`.env`. The analyst then accepts only that token, and ignores the one
+in `/data/admin-token`.
 
 ## Environment variables
 
-The settings the analyst reads from its environment. The README
-documents the full list.
+Every setting in this section is optional. The following table
+describes the settings that the compose file reads from the `.env`
+file beside `docker-compose.yml`:
 
-Everything is optional. `docker-compose.yml` supplies the database
-URL, and without a provider credential you still get the findings
-and the verdicts.
+| Variable | Default | Purpose |
+|---|---|---|
+| `RADAR_ANALYST_AI_PROVIDER` | `claude` | The provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`; any other value stops the analyst at startup |
+| `ANTHROPIC_API_KEY` | Unset | The credential for `claude` |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | The credential for `gemini`; `GOOGLE_API_KEY` wins when both are set |
+| `OPENAI_API_KEY` | Unset | The credential for `openai`, required even by a server that ignores it |
+| `OPENAI_BASE_URL` | OpenAI's own endpoint | The address of an OpenAI-compatible server |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | The model for `openai`; a compatible server needs its own |
+| `RADAR_ANALYST_OLLAMA_HOST` | `http://host.docker.internal:11434` | The Ollama server for `local` |
+| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | The model for `local` |
+| `RADAR_ANALYST_ADMIN_TOKEN` | Generated | The token that authorises deletes, generated into `/data/admin-token` on first start when unset |
+| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | The password of the bundled database, which publishes no port |
 
-`RADAR_ANALYST_STATE_DB_URL`
-: PostgreSQL for the analyst's own state, never the assessed
-  server. Set by the compose file. Must be a UTF8 database.
+The analyst also reads settings that the compose file does not pass
+through. To set one of these, add it to the `environment` of the
+`app` service in `docker-compose.yml`. The following table describes
+them:
 
-`RADAR_ANALYST_DATA_DIR`
-: Where uploaded archives and the admin token are kept. `/data` in
-  the image.
+| Variable | Default | Purpose |
+|---|---|---|
+| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | The largest upload the analyst accepts, in bytes |
+| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | The most requests `local` sends to Ollama at once |
+| `RADAR_ANALYST_LOG_LEVEL` | `INFO` | The log level |
 
-`RADAR_ANALYST_AI_PROVIDER`
-: `claude`, `gemini`, `openai`, or `local`. Defaults to `claude`.
+The compose file sets `RADAR_ANALYST_STATE_DB_URL` itself, as
+[Using your own PostgreSQL](#using-your-own-postgresql) describes.
 
-`RADAR_ANALYST_ADMIN_TOKEN`
-: Bearer token required to delete an upload. Generated into
-  `/data/admin-token` when unset.
+## Using the API
 
-`RADAR_ANALYST_DB_PASSWORD`
-: Password for the database service. Defaults to `radar_analyst`,
-  which is safe because the database has no reachable port.
+The console reads everything it shows from a JSON API, and any other
+client can use the same endpoints. The [API reference](api.md)
+lists them. A running analyst serves an interactive browser for the
+API at [http://localhost:8080/docs](http://localhost:8080/docs), and
+the OpenAPI description at `/openapi.json`.
 
-`ANTHROPIC_API_KEY`
-: Required when the provider is `claude`.
+## Support and resources
 
-`GOOGLE_API_KEY`
-: Required when the provider is `gemini`.
-
-`OPENAI_API_KEY`
-: Required when the provider is `openai`, including for compatible
-  servers that ignore the value.
-
-`OPENAI_BASE_URL`
-: Point this at an OpenAI-compatible server, for example
-  `http://localhost:8000/v1`. Defaults to OpenAI's own endpoint.
-
-`OPENAI_MODEL`
-: Model name. A compatible server needs its own, for example
-  `Qwen/Qwen3-32B`. Defaults to `gpt-5.6-luna`.
-
-`RADAR_ANALYST_OLLAMA_HOST`
-: Used when the provider is `local`. Defaults to
-  `http://localhost:11434`.
-
-`RADAR_ANALYST_OLLAMA_MODEL`
-: Used when the provider is `local`. Defaults to `gemma4:e4b`,
-  which needs roughly 10 GB of VRAM to run fully on GPU.
+To report a problem or request a feature, open an issue at
+[github.com/pgEdge/radar-analyst/issues](https://github.com/pgEdge/radar-analyst/issues).
+To report a security vulnerability, follow the
+[security policy](https://github.com/pgEdge/radar-analyst/security/policy)
+instead of opening a public issue. The pgEdge documentation is at
+[docs.pgedge.com](https://docs.pgedge.com).
 
 ## Author
 
@@ -229,4 +312,5 @@ Written by Jimmy Angelakos.
 
 ## Licence
 
-See [LICENCE](LICENCE.md). The PostgreSQL Licence.
+pgEdge Radar Analyst is released under the
+[PostgreSQL Licence](LICENCE.md).

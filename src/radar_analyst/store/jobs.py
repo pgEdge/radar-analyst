@@ -84,3 +84,25 @@ async def get_job(
         (job_id,),
         row_factory=class_row(Job),
     )
+
+
+async def fail_interrupted_jobs(
+    pool: AsyncConnectionPool, *, error: str
+) -> int:
+    """Mark every job that is not finished as failed with *error*.
+
+    Meant for startup: a job that was running when the process
+    stopped went with it, so nothing will ever finish it. Returns
+    how many jobs were marked.
+    """
+    return await execute(
+        pool,
+        "UPDATE radar.jobs SET "
+        "  state = 'failed', "
+        "  phase = NULL, "
+        "  error = %s, "
+        "  started_at = COALESCE(started_at, now()), "
+        "  finished_at = now() "
+        "WHERE state NOT IN ('done', 'failed')",
+        (error,),
+    )

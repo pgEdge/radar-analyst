@@ -161,6 +161,27 @@
                 '</ul>' +
                 '</details>';
             }
+            var findingsBlock = '';
+            if (a.findings && a.findings.length) {
+              findingsBlock =
+                '<div class="pg-findings">' +
+                '<div class="pg-kv__label">Findings</div>' +
+                '<ul>' +
+                a.findings
+                  .map(function (f) {
+                    return (
+                      '<li><strong>' +
+                      esc(f.title) +
+                      '</strong>: ' +
+                      esc(f.detail) +
+                      ' <span class="pg-text-muted pg-mono">' +
+                      esc(f.rule_id) +
+                      '</span></li>'
+                    );
+                  })
+                  .join('') +
+                '</ul></div>';
+            }
             // Default COLLAPSED for every category: the user
             // drives exploration via the [+] / [−] toggle.
             return (
@@ -175,6 +196,7 @@
               '</summary>' +
               '<div class="pg-category__body">' +
               renderMarkdown(a.markdown) +
+              findingsBlock +
               sourcesBlock +
               '</div>' +
               '<footer class="pg-category__meta">' +

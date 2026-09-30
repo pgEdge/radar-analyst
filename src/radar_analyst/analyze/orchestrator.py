@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -48,6 +49,7 @@ from radar_analyst.parse.pg_activity import (
     PgActivity,
 )
 from radar_analyst.rules import (
+    Finding,
     apply_finding_floor,
     rank_to_verdict,
     run_for_category,
@@ -56,6 +58,7 @@ from radar_analyst.rules import (
 from radar_analyst.rules.pg_db import run_per_db_rules
 from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.briefs import insert_brief
+from radar_analyst.store.findings import insert_findings
 from radar_analyst.store.jobs import update_job_state
 from radar_analyst.store.snapshots import upsert_snapshot
 from radar_analyst.store.uploads import (
@@ -250,7 +253,9 @@ def _build_database_summaries(
     Aggregates: size, schema counts, extensions, per-db activity
     (sessions, cache-hit ratio, deadlocks, temp files, recovery
     conflicts, tuple traffic), and per-db rule findings. Template
-    databases are filtered out via ``datistemplate``.
+    databases (``datistemplate``) and databases that accept no
+    connections (``datallowconn``) are left out: nothing can run in
+    them, and radar cannot connect to collect their contents.
     """
     dbs: list[DatabaseInfo] = parsed.get("pg.databases") or []
     if not dbs:
@@ -262,7 +267,7 @@ def _build_database_summaries(
     out = [
         _summarize_db(db, parsed, sessions)
         for db in dbs
-        if not db.datistemplate
+        if not db.datistemplate and db.datallowconn
     ]
     out.sort(
         key=lambda d: (
@@ -366,13 +371,24 @@ def _build_snapshot(
     }
 
 
+@dataclass(frozen=True)
+class _CategoryResult:
+    """What one category's analysis produced."""
+
+    markdown: str
+    verdict: str | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    findings: list[Finding]
+
+
 async def _analyze_category(
     cat: Category,
     parsed: dict[str, Any],
     system_prompt: str,
     analyzer: Analyzer,
-) -> tuple[str, str | None, int | None, int | None]:
-    """One category's brief: markdown, verdict, token counts.
+) -> _CategoryResult:
+    """One category's findings, brief, verdict, and token counts.
 
     A category with no facts short-circuits to UNKNOWN without an
     LLM call, because "not collected" is more honest than asking
@@ -382,7 +398,9 @@ async def _analyze_category(
     facts = build_category_facts(cat, parsed)
     findings = run_for_category(cat.name, parsed)
     if facts is None:
-        return _UNKNOWN_MARKDOWN, "UNKNOWN", None, None
+        return _CategoryResult(
+            _UNKNOWN_MARKDOWN, "UNKNOWN", None, None, findings
+        )
     finding_dicts = [
         {
             "severity": f.severity,
@@ -429,7 +447,9 @@ async def _analyze_category(
     verdict = apply_finding_floor(
         verdict, (f.severity for f in findings)
     )
-    return markdown, verdict, ptokens, ctokens
+    return _CategoryResult(
+        markdown, verdict, ptokens, ctokens, findings
+    )
 
 
 async def _analyze_databases(
@@ -527,13 +547,14 @@ async def _analyze_categories(
                 ),
             },
         )
-        (
-            markdown,
-            verdict,
-            ptokens,
-            ctokens,
-        ) = await _analyze_category(
+        result = await _analyze_category(
             cat, parsed, system_prompt, analyzer
+        )
+        await insert_findings(
+            pool,
+            upload_id=upload_id,
+            category=cat.name,
+            findings=result.findings,
         )
         await insert_brief(
             pool,
@@ -542,17 +563,17 @@ async def _analyze_categories(
             category=cat.name,
             provider=analyzer.name,
             model=analyzer.model,
-            verdict=verdict,
-            markdown=markdown,
-            prompt_tokens=ptokens,
-            completion_tokens=ctokens,
+            verdict=result.verdict,
+            markdown=result.markdown,
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
         )
         hub.publish(
             job_id,
             {
                 "type": "brief",
                 "category": cat.name,
-                "verdict": verdict,
+                "verdict": result.verdict,
             },
         )
 

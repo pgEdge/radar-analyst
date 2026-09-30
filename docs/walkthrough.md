@@ -1,11 +1,12 @@
 # Guided walkthrough
 
-New here? This page takes you from nothing to an assessment of one of
-your PostgreSQL hosts: start the analyst, take a radar collection on
-the host, drop it on the console, and read the result.
+This page takes you from nothing to an assessment of one of your
+PostgreSQL hosts: start the analyst, take a radar collection on the
+host, upload it to the console, and read the result.
 
-From a checkout of the repository, the interactive guide does the
-first and last parts for you and opens the console in your browser:
+From a checkout of the repository, the interactive guide starts the
+analyst, opens the console in your browser, and explains the rest as
+it goes:
 
 ```bash
 bash examples/walkthrough/guide.sh
@@ -30,14 +31,15 @@ analyst, and a PostgreSQL it keeps its results in. The console is
 reachable only from your own machine, and the database only from the
 analyst.
 
-If the pull is refused, sign in to the pgEdge registry first with
-`docker login ghcr.io`, using a token that can read packages.
+If the pull is refused, sign in to the GitHub Container Registry
+first with `docker login ghcr.io`, using a token that can read
+packages.
 
 ## 2. Open the console
 
 Open [http://localhost:8080/](http://localhost:8080/). The console
-has an upload area for radar archives and, below it, every
-assessment made so far. On a fresh install that list is empty.
+has an upload area for radar archives and, below it, the most recent
+assessments. On a fresh install that list is empty.
 
 ## 3. Take a radar collection
 
@@ -74,31 +76,38 @@ docker compose cp app:/tmp/radar-sample.zip ./radar-sample.zip
 ## 4. Upload it
 
 Drag the archive onto the console's upload area, or click the area
-and choose it. The console moves to a progress page while the archive
-is read and each category is assessed, then to the finished
-assessment on its own. A sample takes seconds; a real collection, up
-to a minute or two.
+and choose it, and press Upload. The console moves to a progress page
+while the archive is read and each category is assessed, then to the
+finished assessment on its own. A sample takes seconds; a real
+collection, up to a minute or two.
 
 ## 5. Read the assessment
 
-Five categories, each with a verdict and a brief, and one verdict for
-the host, which is the worst of the five: Host and OS, PostgreSQL
-Configuration, Workload, Internals and I/O Health, and Replication. A
-category the archive holds no data for reads `UNKNOWN`, and never
-makes the host look worse than what was measured. Under each brief is
-the list of archive files it drew on.
+The assessment covers five categories: Host & OS, PostgreSQL
+Configuration, Workload, Internals & I/O Health, and Replication.
+Each has a verdict, and the host's own verdict is the worst of the
+five. A category the archive holds no data for reads `UNKNOWN`, and
+never makes the host look worse than what was measured. Open a
+category to read its brief, the findings behind its verdict, and the
+list of archive files the category covers. Below the categories,
+each database on the server has a card of its own.
 
-The verdicts are worked out from the archive alone and always come
-back. The written briefs come from a provider, which is optional:
-without one, each brief reads as unavailable. To add a provider, put
-a credential in a `.env` file beside `docker-compose.yml` and start
-the analyst again; the `examples/` directory has a file to copy for
-each supported provider.
+The findings are worked out from the archive alone and always come
+back, and so does a verdict for every category. The written briefs
+come from a provider, which is optional: without one, each brief
+reads as unavailable. To add a provider, put a credential in a
+`.env` file beside `docker-compose.yml` and start the analyst again;
+`examples/compose.env` in the repository is a commented `.env` file
+to start from.
 
 ```bash
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 docker compose up -d --wait
 ```
+
+An assessment made before that keeps its findings and verdicts. Open
+it and press Assess again to have the briefs written from the stored
+archive.
 
 Every assessment you make is added to the list on the console's
 front page, and can be opened again from there.
@@ -109,8 +118,9 @@ Assessments, and the archives behind them, are kept in Docker
 volumes. They survive `docker compose down`, and they survive
 pulling a newer image.
 
-Each entry in the list has a delete button. It asks for the admin
-token, which the analyst wrote for you on first start:
+Each entry in the list has a delete button. It asks you to confirm,
+then asks for the admin token, which the analyst wrote for you on
+first start:
 
 ```bash
 docker compose exec app cat /data/admin-token
@@ -127,6 +137,10 @@ docker compose down       # remove the containers, keep every assessment
 docker compose down -v    # remove the containers AND delete every
                           # assessment and archive. There is no undo.
 ```
+
+An assessment that was running when the analyst stopped is marked
+failed when it starts again. Open it and press Assess again to redo
+it from the stored archive.
 
 From a checkout, `bash examples/walkthrough/guide.sh --down` is the
 last of those with a confirmation first, and it removes the sample

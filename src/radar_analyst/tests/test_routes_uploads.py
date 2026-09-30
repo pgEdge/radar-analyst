@@ -15,9 +15,11 @@ from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.blob.base import BlobStore, PutResult
 from radar_analyst.blob.localfs import LocalFsStore
+from radar_analyst.rules.base import Finding
 from radar_analyst.server.app import create_app
-from radar_analyst.store.briefs import insert_brief
+from radar_analyst.store.briefs import insert_brief, list_briefs
 from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.findings import insert_findings, list_findings
 from radar_analyst.store.jobs import get_job, insert_job
 from radar_analyst.store.uploads import get_upload, insert_upload
 from radar_analyst.tests.helpers import build_app
@@ -438,3 +440,92 @@ async def test_list_carries_the_verdict_and_the_job_state(
     assert by_id[str(assessed)]["state"] == "queued"
     assert by_id[str(bare)]["verdict"] is None
     assert by_id[str(bare)]["state"] is None
+
+
+async def _seed_assessed_upload(
+    pool: AsyncConnectionPool, *, job_state: str = "done"
+) -> UUID:
+    """An upload with a job, one brief, and one finding."""
+    upload_id = uuid4()
+    await insert_upload(
+        pool,
+        upload_id=upload_id,
+        filename="radar-db01-20260401-120000.zip",
+        storage_url=f"file:///tmp/{upload_id}.zip",
+        size_bytes=1024,
+        sha256="d" * 64,
+        hostname="db01",
+        archive_timestamp=None,
+    )
+    await insert_job(
+        pool,
+        job_id=uuid4(),
+        upload_id=upload_id,
+        ai_provider="mock",
+        state=job_state,
+    )
+    await insert_brief(
+        pool,
+        brief_id=uuid4(),
+        upload_id=upload_id,
+        category="Host & OS",
+        provider="mock",
+        model="mock-v0",
+        verdict="WARNING",
+        markdown="**[WARNING]** swap",
+        prompt_tokens=None,
+        completion_tokens=None,
+    )
+    await insert_findings(
+        pool,
+        upload_id=upload_id,
+        category="Host & OS",
+        findings=[
+            Finding(
+                rule_id="host.swap_configured",
+                severity="warning",
+                title="Swap is configured",
+                detail="Disable swap on a database host.",
+            )
+        ],
+    )
+    return upload_id
+
+
+async def test_assess_again_starts_a_new_job_and_clears_the_result(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = await _seed_assessed_upload(fresh_pool)
+    with TestClient(app) as client:
+        resp = client.post(f"/api/uploads/{upload_id}/assess")
+    assert resp.status_code == 202, resp.text
+    body = resp.json()
+    assert body["upload_id"] == str(upload_id)
+    job = await get_job(fresh_pool, UUID(body["job_id"]))
+    assert job is not None
+    assert job.state == "queued"
+    assert await list_briefs(fresh_pool, upload_id) == []
+    assert await list_findings(fresh_pool, upload_id) == []
+
+
+async def test_assess_again_refuses_while_an_assessment_runs(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = await _seed_assessed_upload(
+        fresh_pool, job_state="parsing"
+    )
+    with TestClient(app) as client:
+        resp = client.post(f"/api/uploads/{upload_id}/assess")
+    assert resp.status_code == 409
+    assert len(await list_briefs(fresh_pool, upload_id)) == 1
+
+
+async def test_assess_again_of_an_unknown_upload_is_404(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    with TestClient(app) as client:
+        resp = client.post(f"/api/uploads/{uuid4()}/assess")
+    assert resp.status_code == 404

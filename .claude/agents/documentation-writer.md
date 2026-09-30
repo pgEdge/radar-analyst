@@ -18,10 +18,12 @@ You are a documentation specialist for radar-analyst.
 
 ## Which file says what
 
-- `README.md` is developer-facing: building, contributing, running
-  locally, full technical detail.
-- `docs/index.md` is user-facing only: deploying with
-  docker-compose, pointing at a PostgreSQL, uploading an archive.
+- `README.md` is the user guide (what an assessment is, deploying,
+  configuring, using) followed by the developer sections (building,
+  testing, contributing).
+- `docs/index.md` is user-facing only: the README's user sections,
+  identical apart from link targets. An edit to a shared section
+  goes to both files.
 - `ARCHITECTURE.md` is engineering design: layering, decisions,
   trade-offs. It changes in the same PR as the structure it
   describes.

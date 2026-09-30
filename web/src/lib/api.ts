@@ -29,6 +29,13 @@ export interface Snapshot {
 
 export type Verdict = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'UNKNOWN';
 
+export interface Finding {
+  rule_id: string;
+  severity: string;
+  title: string;
+  detail: string | null;
+}
+
 export interface Brief {
   id: string;
   category: string;
@@ -39,6 +46,7 @@ export interface Brief {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   created_at: string;
+  findings: Finding[];
 }
 
 export interface Assessment {
@@ -125,6 +133,20 @@ export const api = {
     }
     throw new Error(
       `DELETE /api/uploads/${id} returned ${resp.status}`,
+    );
+  },
+
+  async assessAgain(id: string): Promise<UploadReceipt> {
+    const resp = await fetch(`/api/uploads/${id}/assess`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    });
+    if (resp.ok) return (await resp.json()) as UploadReceipt;
+    if (resp.status === 409) {
+      throw new Error('This upload is still being assessed.');
+    }
+    throw new Error(
+      `POST /api/uploads/${id}/assess returned ${resp.status}`,
     );
   },
 

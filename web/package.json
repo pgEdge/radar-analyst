@@ -1,9 +1,9 @@
 {
   "name": "radar-analyst-web",
-  "description": "Astro front-end for radar-analyst (internal).",
+  "description": "The console for pgEdge Radar Analyst.",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

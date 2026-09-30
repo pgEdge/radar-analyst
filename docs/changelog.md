@@ -3,7 +3,7 @@
 All notable changes to pgEdge Radar Analyst are documented here.
 Only user-facing changes are listed.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-29
 
 ### Added
 - Deploy with `docker compose up -d`: the analyst alongside a pgEdge
@@ -37,8 +37,17 @@ Only user-facing changes are listed.
   the analyst, opens the console in the browser, and walks through
   taking a radar collection and assessing it; `docs/walkthrough.md`
   is the same tour by hand.
+- The findings behind each category's verdict are kept with the
+  assessment, returned by the API, and listed under the brief in the
+  console, so a verdict explains itself without a provider.
+- An Assess again button on the assessment page, and
+  `POST /api/uploads/{id}/assess` behind it, redo an assessment from
+  the stored archive: to add the briefs once a provider is
+  configured, or after an interrupted run.
 
 ### Changed
+- An assessment that was running when the analyst stopped is marked
+  failed at the next start, instead of reading as running forever.
 - The console's front page is laid out for the job: a compact upload
   bar, then every assessment in one table showing the host, when its
   archive was collected, and its verdict, or that it is still being
@@ -60,6 +69,14 @@ Only user-facing changes are listed.
 - The analyst reaches PostgreSQL over a unix socket shared only with
   the database container, so the database has no network port
   anything else can reach.
+- A database that accepts no connections is left out of the database
+  list, as template databases already were: nothing can run in it,
+  and radar cannot connect to collect its contents.
+
+### Fixed
+- The default Ollama address works on Docker Engine for Linux. The
+  compose file now maps `host.docker.internal`, which only Docker
+  Desktop defined, to the machine running Docker.
 
 ## [0.1.0] - 2026-08-21
 

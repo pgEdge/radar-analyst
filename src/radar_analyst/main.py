@@ -36,6 +36,15 @@ from radar_analyst.store.db import (
     check_encoding,
     create_pool,
 )
+from radar_analyst.store.jobs import fail_interrupted_jobs
+
+
+# What a job left unfinished by the previous run reports as its
+# error. The console shows it on the progress page and offers to
+# assess the upload again.
+INTERRUPTED_ERROR = (
+    "the analyst stopped before this assessment finished"
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -170,6 +179,18 @@ def build_production_app() -> FastAPI:
         pool = await create_pool(dsn)
         await check_encoding(pool)
         await apply_migrations(pool)
+        # The task that ran such a job went with the previous
+        # process, so nothing will ever finish it.
+        interrupted = await fail_interrupted_jobs(
+            pool, error=INTERRUPTED_ERROR
+        )
+        if interrupted:
+            _logger.warning(
+                "%d assessment(s) were interrupted by the previous "
+                "stop and are marked failed; each can be assessed "
+                "again from the console",
+                interrupted,
+            )
         app.state.pool = pool
         analyzer = make(provider_name)
         _logger.info(

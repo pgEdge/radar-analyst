@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.store.briefs import (
+    delete_briefs,
     insert_brief,
     list_briefs,
 )
@@ -97,3 +98,29 @@ async def test_insert_and_list_briefs(
     assert len(rows) == 2
     categories = {r.category for r in rows}
     assert categories == {"Host & OS", "Replication"}
+
+
+async def test_delete_briefs_removes_only_that_uploads_rows(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    kept = await _seed_upload(fresh_pool)
+    cleared = await _seed_upload(fresh_pool)
+    for upload_id in (kept, cleared):
+        await insert_brief(
+            fresh_pool,
+            brief_id=uuid4(),
+            upload_id=upload_id,
+            category="Host & OS",
+            provider="mock",
+            model="mock-v0",
+            verdict="HEALTHY",
+            markdown="**[HEALTHY]** fine",
+            prompt_tokens=None,
+            completion_tokens=None,
+        )
+
+    await delete_briefs(fresh_pool, cleared)
+
+    assert await list_briefs(fresh_pool, cleared) == []
+    assert len(await list_briefs(fresh_pool, kept)) == 1

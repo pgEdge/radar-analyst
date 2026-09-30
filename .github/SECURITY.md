@@ -2,29 +2,36 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in this project, please
-report it responsibly.
+Please report security vulnerabilities to
+[**security@pgedge.com**](mailto:security@pgedge.com), which reaches the
+pgEdge security team.
 
-**Do not open a public issue.**
+Please do not open a public issue for a suspected vulnerability.
 
-Instead, email security@pgedge.com with:
+Tell us the product and version, what the impact is, and how to reproduce
+it. You do not need to sign anything or hold a pgEdge contract to report to
+us.
 
-- A description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
-
-We will acknowledge receipt within 48 hours and provide an
-estimated timeline for a fix.
+We acknowledge reports within five business days, tell you the outcome of
+our assessment, and tell you before we publish anything.
 
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| Latest  | Yes       |
+Security fixes are provided for the latest release of each product. Where a
+product has its own published support lifecycle, that lifecycle governs.
 
-## Security Updates
+## Scope and Safe Harbour
 
-Security patches are applied as soon as possible after
-verification. This is an internal service and is not published
-to GitHub Releases, so watch the repository to be notified.
+What is in scope, our safe harbour terms, and how we handle coordinated
+disclosure and CVE identifiers are all set out in the pgEdge Vulnerability
+Disclosure Statement:
+
+[**https://docs.pgedge.com/security**](https://docs.pgedge.com/security)
+
+You may test this software freely in an environment you control. Testing
+pgEdge Cloud requires prior written authorisation — see the statement.
+
+## Published Advisories
+
+Advisories are published under the Security tab of the repository for the
+affected product.
