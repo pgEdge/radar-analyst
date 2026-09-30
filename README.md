@@ -38,11 +38,6 @@ This README covers using the analyst and developing it:
 - [Developing the analyst](#developing-the-analyst)
 - [Support and resources](#support-and-resources)
 
-The [documentation](docs/index.md) has the same material without the
-development sections, and adds a
-[guided walkthrough](docs/walkthrough.md), the
-[API reference](docs/api.md), and the [changelog](docs/changelog.md).
-
 ## Understanding an assessment
 
 An assessment covers five diagnostic categories, and each category
@@ -199,10 +194,10 @@ run entirely on the GPU, and runs more slowly on a smaller card.
 
 The analyst keeps its assessments in PostgreSQL. The compose file
 includes a database for them, and the analyst can use a PostgreSQL
-server you already run instead. The
-compose file sets `RADAR_ANALYST_STATE_DB_URL` itself and ignores a
-value in `.env`, so change the entry under the `app` service in
-`docker-compose.yml` to your database's connection URL:
+server you already run instead. The compose file sets
+`RADAR_ANALYST_STATE_DB_URL` itself and ignores a value in `.env`, so
+change the entry under the `app` service in `docker-compose.yml` to
+your database's connection URL:
 
 ```yaml
       RADAR_ANALYST_STATE_DB_URL: postgresql://radar_analyst:PASSWORD@db.example.com:5432/radar_analyst?sslmode=require
@@ -460,11 +455,7 @@ assesses three real radar collections: the showcase, an anonymized
 collection of a real server kept outside git in `data/showcase/`,
 and two collected on the spot from throwaway PostgreSQL containers.
 It then captures the front page and the showcase assessment in the
-light and the dark theme. The page is laid out 1280 pixels wide and
-drawn at 1.5 times, as on a scaled display, into JPEG files 1920
-pixels wide at quality 75. The assessment picture is a square from
-the top of the page, with the PostgreSQL Configuration category open
-on its brief. The showcase is not in the repository,
+light and the dark theme. The showcase is not in the repository,
 because it comes from a real server; any anonymized radar collection
 works in its place, named with `SHOWCASE_ARCHIVE`.
 
@@ -485,7 +476,8 @@ To report a problem or request a feature, open an issue at
 To report a security vulnerability, follow the
 [security policy](.github/SECURITY.md) instead of opening a public
 issue. The pgEdge documentation is at
-[docs.pgedge.com](https://docs.pgedge.com).
+[docs.pgedge.com](https://docs.pgedge.com). The
+[changelog](docs/changelog.md) lists the changes in each release.
 
 ## Author
 

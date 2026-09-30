@@ -169,10 +169,10 @@ run entirely on the GPU, and runs more slowly on a smaller card.
 
 The analyst keeps its assessments in PostgreSQL. The compose file
 includes a database for them, and the analyst can use a PostgreSQL
-server you already run instead. The
-compose file sets `RADAR_ANALYST_STATE_DB_URL` itself and ignores a
-value in `.env`, so change the entry under the `app` service in
-`docker-compose.yml` to your database's connection URL:
+server you already run instead. The compose file sets
+`RADAR_ANALYST_STATE_DB_URL` itself and ignores a value in `.env`, so
+change the entry under the `app` service in `docker-compose.yml` to
+your database's connection URL:
 
 ```yaml
       RADAR_ANALYST_STATE_DB_URL: postgresql://radar_analyst:PASSWORD@db.example.com:5432/radar_analyst?sslmode=require
@@ -304,7 +304,8 @@ To report a problem or request a feature, open an issue at
 To report a security vulnerability, follow the
 [security policy](https://github.com/pgEdge/radar-analyst/security/policy)
 instead of opening a public issue. The pgEdge documentation is at
-[docs.pgedge.com](https://docs.pgedge.com).
+[docs.pgedge.com](https://docs.pgedge.com). The
+[changelog](changelog.md) lists the changes in each release.
 
 ## Author
 
