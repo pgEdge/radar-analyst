@@ -21,7 +21,7 @@ to the host being assessed, and holds no credentials for it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-assessment-dark.jpg">
-  <img alt="An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings" src="docs/img/console-assessment-light.jpg">
+  <img alt="An assessment in the console: the host's details, and PostgreSQL Configuration open on its verdict, brief, and findings" src="docs/img/console-assessment-light.jpg">
 </picture>
 
 ## Table of contents
@@ -460,10 +460,11 @@ assesses three real radar collections: the showcase, an anonymized
 collection of a real server kept outside git in `data/showcase/`,
 and two collected on the spot from throwaway PostgreSQL containers.
 It then captures the front page and the showcase assessment in the
-light and the dark theme, as JPEG files 1920 pixels wide at quality
-75. The assessment picture is a square from the top of the page, with
-the PostgreSQL Configuration category open on its brief. The showcase
-is not in the repository,
+light and the dark theme. The page is laid out 1280 pixels wide and
+drawn at 1.5 times, as on a scaled display, into JPEG files 1920
+pixels wide at quality 75. The assessment picture is a square from
+the top of the page, with the PostgreSQL Configuration category open
+on its brief. The showcase is not in the repository,
 because it comes from a real server; any anonymized radar collection
 works in its place, named with `SHOWCASE_ARCHIVE`.
 

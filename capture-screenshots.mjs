@@ -20,8 +20,12 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 
-const WIDTH = 1920;
-const HEIGHT = 1080;
+// The page is laid out WIDTH by HEIGHT CSS pixels and drawn at SCALE,
+// the way a browser on a scaled display draws it, so a picture is
+// WIDTH * SCALE = 1920 pixels wide.
+const WIDTH = 1280;
+const HEIGHT = 720;
+const SCALE = 1.5;
 const QUALITY = 75;
 const TIMEOUT_MS = 30000;
 const SCHEMES = ['light', 'dark'];
@@ -193,7 +197,7 @@ async function open(page, shot, scheme) {
   await page('Emulation.setDeviceMetricsOverride', {
     width: WIDTH,
     height: shot.height,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: SCALE,
     mobile: false,
   });
   await page('Emulation.setEmulatedMedia', {
@@ -224,7 +228,7 @@ async function capture(page, shot) {
     });
     const path = join(outDir, `${shot.name}-${scheme}.jpg`);
     await writeFile(path, Buffer.from(data, 'base64'));
-    console.log(`wrote ${path}: ${WIDTH}x${shot.height}`);
+    console.log(`wrote ${path}: ${WIDTH * SCALE}x${shot.height * SCALE}`);
   }
 }
 

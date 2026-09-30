@@ -10,8 +10,8 @@ it from a JSON API.
 The analyst works from the uploaded archive alone. It never connects
 to the host being assessed, and holds no credentials for it.
 
-![An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings](img/console-assessment-light.jpg#only-light)
-![An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings](img/console-assessment-dark.jpg#only-dark)
+![An assessment in the console: the host's details, and PostgreSQL Configuration open on its verdict, brief, and findings](img/console-assessment-light.jpg#only-light)
+![An assessment in the console: the host's details, and PostgreSQL Configuration open on its verdict, brief, and findings](img/console-assessment-dark.jpg#only-dark)
 
 ## Understanding an assessment
 
