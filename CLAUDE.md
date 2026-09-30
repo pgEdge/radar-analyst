@@ -60,7 +60,7 @@ invariants a change must not break.
   user sees in the console, whether in `web/` or in what an
   assessment returns (a finding's wording, a category, a field on a
   page), comes with new screenshots in the same PR. `make
-  screenshots` regenerates `docs/img/console-*.png`, which the README
+  screenshots` regenerates `docs/img/console-*.jpg`, which the README
   and the docs show; review the pictures before committing them. The
   showcase they open is an anonymized real radar collection in
   `data/showcase/`, outside git: every name in it is fake, and
@@ -120,7 +120,7 @@ Change the value in the file that owns it. Do not restate it here.
 | Pre-commit hooks | `.pre-commit-config.yaml` |
 | Common commands | `Makefile` |
 | Archive paths the classifier must know | `check-archive-coverage.py` |
-| Console screenshots, and what taking them needs | `capture-screenshots.sh` (`make screenshots`) |
+| Console screenshots: what taking them needs, their framing, width and quality | `capture-screenshots.sh` (`make screenshots`), `capture-screenshots.mjs` |
 
 `./run-ci-local.sh` must exit 0 before a commit.
 

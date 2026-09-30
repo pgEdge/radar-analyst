@@ -10,8 +10,8 @@ it from a JSON API.
 The analyst works from the uploaded archive alone. It never connects
 to the host being assessed, and holds no credentials for it.
 
-![An assessment in the console: the host's details, the five categories with their verdicts, PostgreSQL Configuration open on its brief and findings, and the databases on the server](img/console-assessment-light.png#only-light)
-![An assessment in the console: the host's details, the five categories with their verdicts, PostgreSQL Configuration open on its brief and findings, and the databases on the server](img/console-assessment-dark.png#only-dark)
+![An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings](img/console-assessment-light.jpg#only-light)
+![An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings](img/console-assessment-dark.jpg#only-dark)
 
 ## Understanding an assessment
 
@@ -80,8 +80,8 @@ assessment. The front page lists the 50 most recent assessments. Each
 entry shows the host, the collection time, and the verdict, or
 "Assessing…" while the assessment runs and "Failed" if it fails.
 
-![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-light.png#only-light)
-![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.png#only-dark)
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-light.jpg#only-light)
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.jpg#only-dark)
 
 The analyst accepts zip archives of up to 500 MiB, and refuses any
 other file at upload. The compose file publishes the console on

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /*
  * Captures the console screenshots that the README and the
- * documentation show: the front page, and one assessment with one
- * category open, each in the light and the dark theme. It drives a
- * headless Chromium over the DevTools protocol, with nothing beyond
- * the WebSocket client built into Node 22 and later.
+ * documentation show: the front page, and the top of one assessment
+ * as a square with one category open on its brief, each in the light
+ * and the dark theme, as JPEG files 1920 pixels wide at quality 75.
+ * Every picture starts at the top of the page. It drives a headless
+ * Chromium over the DevTools protocol, with nothing beyond the
+ * WebSocket client built into Node 22 and later.
  *
  *   node capture-screenshots.mjs BASE_URL UPLOAD_ID CATEGORY OUT_DIR
  *
@@ -18,8 +20,11 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 
-const WIDTH = 1280;
+const WIDTH = 1920;
+const HEIGHT = 1080;
+const QUALITY = 75;
 const TIMEOUT_MS = 30000;
+const SCHEMES = ['light', 'dark'];
 
 const [base, uploadId, category, outDir] = process.argv.slice(2);
 if (!base || !uploadId || !category || !outDir) {
@@ -39,6 +44,7 @@ const SHOTS = [
     ready:
       "document.querySelectorAll('#pg-uploads-tbody tr " +
       "a.pg-list__host').length >= 3",
+    height: HEIGHT,
   },
   {
     name: 'console-assessment',
@@ -50,6 +56,8 @@ const SHOTS = [
       '.length === 5 && ' +
       "!!document.querySelector('#pg-snapshot-body .pg-kv') && " +
       "!document.body.textContent.includes('Loading')",
+    // A square from the top of the page.
+    height: WIDTH,
     prepare: `(() => {
       const card = [
         ...document.querySelectorAll('#pg-categories .pg-category'),
@@ -180,10 +188,11 @@ async function waitFor(page, expression, what) {
   throw new Error(`${what} did not finish rendering`);
 }
 
-async function capture(page, shot, scheme) {
+// Opens SHOT in SCHEME, ready to capture.
+async function open(page, shot, scheme) {
   await page('Emulation.setDeviceMetricsOverride', {
     width: WIDTH,
-    height: 800,
+    height: shot.height,
     deviceScaleFactor: 1,
     mobile: false,
   });
@@ -201,18 +210,22 @@ async function capture(page, shot, scheme) {
     page,
     'new Promise((r) => requestAnimationFrame(() => r(true)))',
   );
-  const height = await evaluate(
-    page,
-    'Math.ceil(document.documentElement.scrollHeight)',
-  );
-  const { data } = await page('Page.captureScreenshot', {
-    format: 'png',
-    captureBeyondViewport: true,
-    clip: { x: 0, y: 0, width: WIDTH, height, scale: 1 },
-  });
-  const path = join(outDir, `${shot.name}-${scheme}.png`);
-  await writeFile(path, Buffer.from(data, 'base64'));
-  console.log(`wrote ${path}`);
+}
+
+// Captures the top of SHOT's page, WIDTH by its height, in every
+// scheme.
+async function capture(page, shot) {
+  for (const scheme of SCHEMES) {
+    await open(page, shot, scheme);
+    const { data } = await page('Page.captureScreenshot', {
+      format: 'jpeg',
+      quality: QUALITY,
+      clip: { x: 0, y: 0, width: WIDTH, height: shot.height, scale: 1 },
+    });
+    const path = join(outDir, `${shot.name}-${scheme}.jpg`);
+    await writeFile(path, Buffer.from(data, 'base64'));
+    console.log(`wrote ${path}: ${WIDTH}x${shot.height}`);
+  }
 }
 
 const { proc, url } = launch(findChrome());
@@ -231,9 +244,7 @@ try {
     tools.send(method, params, sessionId);
   await page('Page.enable');
   for (const shot of SHOTS) {
-    for (const scheme of ['light', 'dark']) {
-      await capture(page, shot, scheme);
-    }
+    await capture(page, shot);
   }
 } catch (error) {
   console.error(`capture-screenshots: ${error.message}`);

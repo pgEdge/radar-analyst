@@ -20,8 +20,8 @@ The analyst works from the uploaded archive alone. It never connects
 to the host being assessed, and holds no credentials for it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-assessment-dark.png">
-  <img alt="An assessment in the console: the host's details, the five categories with their verdicts, PostgreSQL Configuration open on its brief and findings, and the databases on the server" src="docs/img/console-assessment-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-assessment-dark.jpg">
+  <img alt="An assessment in the console: the host's details, the five categories with their verdicts, and PostgreSQL Configuration open on its brief and findings" src="docs/img/console-assessment-light.jpg">
 </picture>
 
 ## Table of contents
@@ -110,8 +110,8 @@ entry shows the host, the collection time, and the verdict, or
 "Assessing…" while the assessment runs and "Failed" if it fails.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-front-page-dark.png">
-  <img alt="The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict" src="docs/img/console-front-page-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-front-page-dark.jpg">
+  <img alt="The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict" src="docs/img/console-front-page-light.jpg">
 </picture>
 
 The analyst accepts zip archives of up to 500 MiB, and refuses any
@@ -460,7 +460,10 @@ assesses three real radar collections: the showcase, an anonymized
 collection of a real server kept outside git in `data/showcase/`,
 and two collected on the spot from throwaway PostgreSQL containers.
 It then captures the front page and the showcase assessment in the
-light and the dark theme. The showcase is not in the repository,
+light and the dark theme, as JPEG files 1920 pixels wide at quality
+75. The assessment picture is a square from the top of the page, with
+the PostgreSQL Configuration category open on its brief. The showcase
+is not in the repository,
 because it comes from a real server; any anonymized radar collection
 works in its place, named with `SHOWCASE_ARCHIVE`.
 

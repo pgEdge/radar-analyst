@@ -2,7 +2,8 @@
 #
 # Regenerates the console screenshots in docs/img/ that the README and
 # the documentation show: the front page, and one assessment with one
-# category open, each in the light and the dark theme.
+# category open on its brief, each in the light and the dark theme.
+# capture-screenshots.mjs takes the pictures, as JPEG files.
 #
 #   ./capture-screenshots.sh        (or: make screenshots)
 #
@@ -179,9 +180,4 @@ fi
 say "capturing"
 node "$ROOT/capture-screenshots.mjs" \
     "$BASE" "$SHOWCASE_ID" "$SHOWCASE_CATEGORY" "$OUT"
-# The large-file pre-commit hook refuses anything over 500 KB.
-for shot in "$OUT"/console-*.png; do
-    [ "$(wc -c <"$shot")" -le 512000 ] \
-        || die "$(basename "$shot") is over 500 KB, which pre-commit refuses"
-done
-say "done; review docs/img/console-*.png before committing them"
+say "done; review docs/img/console-*.jpg before committing them"
