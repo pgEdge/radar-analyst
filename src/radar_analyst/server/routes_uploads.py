@@ -52,7 +52,6 @@ from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import (
     delete_upload,
     get_archive_files,
-    get_upload,
     insert_upload,
     list_uploads,
 )
@@ -317,7 +316,7 @@ async def get_snapshot_route(
 
 @router.get("/uploads/{upload_id}/assessment")
 async def get_assessment_route(
-    upload_id: UUID,
+    upload: UploadListing = Depends(require_upload),
     pool: AsyncConnectionPool = Depends(get_pool),
 ) -> dict[str, object]:
     """The upload's briefs plus its roll-up verdict.
@@ -328,13 +327,12 @@ async def get_assessment_route(
     null verdict rather than a 404, because the console polls this
     while the job is still running.
     """
-    upload = await get_upload(pool, upload_id)
-    rows = await list_briefs(pool, upload_id)
+    rows = await list_briefs(pool, upload.id)
     inventory = (
-        await get_archive_files(pool, upload_id) or []
+        await get_archive_files(pool, upload.id) or []
     )
     findings: dict[str, list[dict[str, str | None]]] = {}
-    for f in await list_findings(pool, upload_id):
+    for f in await list_findings(pool, upload.id):
         findings.setdefault(f.category, []).append(
             {
                 "rule_id": f.rule_id,
@@ -344,7 +342,7 @@ async def get_assessment_route(
             }
         )
     return {
-        "verdict": rollup_verdict(upload.verdicts if upload else []),
+        "verdict": rollup_verdict(upload.verdicts),
         "briefs": [
             {
                 "id": str(r.id),

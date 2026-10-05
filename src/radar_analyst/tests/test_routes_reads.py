@@ -277,6 +277,16 @@ async def test_assessment_of_unanalysed_upload_has_no_verdict(
 
 
 @pytest.mark.asyncio
+async def test_assessment_of_an_unknown_upload_is_404(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/uploads/{uuid4()}/assessment")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_assessment_includes_sources_per_category(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:

@@ -132,8 +132,7 @@ A job assesses an upload in the background. `GET /api/jobs/{id}` returns status
 array with one entry per category. The roll-up is the worst of the category
 verdicts and the database verdicts that the analyst has stored. Until the
 analyst stores the first brief, the response has a `null` verdict and an empty
-`briefs` array. The endpoint returns the same empty response for an upload ID
-that does not exist.
+`briefs` array.
 
 The following table describes the fields of a brief:
 

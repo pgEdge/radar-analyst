@@ -16,6 +16,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one example of such a finding.
 - A progress stream opened as an assessment finished no longer stays open
   forever. The stream now sends the final `done` or `error` event and closes.
+- `GET /api/uploads/{id}/assessment` returns status 404 for an upload that does
+  not exist, instead of an empty assessment.
 
 ## [0.2.0] - 2026-09-29
 
