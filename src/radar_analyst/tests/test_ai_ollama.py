@@ -7,6 +7,7 @@ from typing import Any
 import ollama
 import pytest
 
+from radar_analyst.ai import ollama as ollama_adapter
 from radar_analyst.ai.base import AIError, Request
 from radar_analyst.ai.ollama import OllamaAdapter
 
@@ -208,3 +209,31 @@ def test_unavailable_reason_is_empty_when_always_available() -> None:
     adapter = OllamaAdapter()
     assert adapter.available() is True
     assert adapter.unavailable_reason() == ""
+
+
+async def test_a_server_that_never_answers_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stalled server leaves an unavailable brief, not a stalled job."""
+
+    async def silent(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        await reader.read()
+
+    server = await asyncio.start_server(silent, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    monkeypatch.delenv("RADAR_ANALYST_OLLAMA_HOST", raising=False)
+    monkeypatch.setattr(ollama_adapter, "_TIMEOUT_SECONDS", 0.5)
+    adapter = OllamaAdapter(model="m", host=f"http://127.0.0.1:{port}")
+    req = Request(
+        category="X",
+        system_prompt="s",
+        user_prompt="u",
+        cache_static=False,
+    )
+    try:
+        with pytest.raises(AIError, match=r"\(timeout\)"):
+            await asyncio.wait_for(adapter.analyze(req), timeout=5.0)
+    finally:
+        server.close()

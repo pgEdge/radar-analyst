@@ -43,6 +43,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - An analyst built from the checkout with `docker-compose.build.yml` is named
   `radar-analyst:local`. A later run without the build overlay therefore uses
   the published image again.
+- A call to the Ollama server for the `local` provider ends after 10 minutes
+  without an answer. A stalled Ollama server leaves the brief unavailable
+  instead of keeping the assessment running indefinitely.
 
 ### Security
 

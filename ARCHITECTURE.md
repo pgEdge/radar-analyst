@@ -262,7 +262,7 @@ The following table describes each adapter:
 | `claude.py` | `anthropic.AsyncAnthropic` | Marks the system block with `cache_control` for prompt caching. |
 | `gemini.py` | `google.genai.Client` | Runs the client's synchronous call in a worker thread through `asyncio.to_thread`. |
 | `openai_compat.py` | `openai.AsyncOpenAI`, chat completions | Serves OpenAI and any compatible server: `OPENAI_BASE_URL` picks the server and `OPENAI_MODEL` the model. The base URL is passed to the SDK explicitly, because the SDK accepts an empty `OPENAI_BASE_URL` from the environment and then sends requests to it. |
-| `ollama.py` | `ollama.AsyncClient` | A semaphore, three calls by default, keeps parallel calls from overwhelming a local server. |
+| `ollama.py` | `ollama.AsyncClient` | A semaphore, three calls by default, keeps parallel calls from overwhelming a local server, and each call waits ten minutes at most for an answer. |
 | `mock.py` | None | Returns a fixed `[HEALTHY]` brief. It is registered only when `RADAR_ANALYST_TEST=1`, for the end-to-end test, which needs no key. |
 
 `ai/__init__.py::providers()` lists the providers, and `make(name)`
