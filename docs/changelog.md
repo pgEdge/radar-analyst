@@ -39,9 +39,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   write-ahead log (WAL). The finding detects a slot whose consumer is connected
   but falling behind. The earlier slot findings covered only a missing
   consumer.
-- The assessment notes unlogged tables on hosts that replicate. PostgreSQL
-  truncates unlogged tables during crash recovery and never sends them to a
-  standby.
+- The assessment notes unlogged tables on hosts that replicate. The note exists
+  because PostgreSQL truncates unlogged tables during crash recovery and never
+  sends those tables to a standby.
 - The analyst no longer lists the files that newer radar releases add as
   unknown archive entries. These files contain Spock replication state, control
   file contents, subscription statistics, and the server log directory listing.
@@ -50,10 +50,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The analyst no longer lists the system files of archives taken on macOS as
   unknown archive entries. The per-table freeze ages no longer appear as
   unknown archive entries either.
-- A guided walkthrough explains how to take and assess a radar collection. The
-  `bash examples/walkthrough/guide.sh` command starts the analyst and opens the
-  console in the browser. The [walkthrough page](walkthrough.md) describes the
-  same tour by hand.
+- The `bash examples/walkthrough/guide.sh` command starts a guided walkthrough.
+  The guide starts the analyst, opens the console, and explains how to take and
+  assess a radar collection. The [walkthrough page](walkthrough.md) describes
+  the same tour by hand.
 - The analyst stores the findings behind each category's verdict with the
   assessment. The API returns the findings, and the console lists the findings
   under the brief. Each verdict therefore explains itself without a provider.
@@ -69,8 +69,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   indefinitely.
 - The console's front page shows a compact upload bar above a single table of
   assessments. Each row shows the host, the time radar collected the archive,
-  and the verdict. While an assessment runs, the row shows that the assessment
-  is still running. The analyst reads the host and the collection time from
+  and the verdict. While an assessment runs, the row shows "Assessing…" in
+  place of the verdict. The analyst reads the host and the collection time from
   radar's archive name at upload. The analyst then confirms the host from the
   archive's contents.
 - The progress page keeps following an assessment when the connection to the
@@ -103,8 +103,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Uploading a radar archive produces an assessment of five diagnostic
-  categories. Each category has a verdict that deterministic findings support,
-  and a written brief.
+  categories. Each category has a written brief and a verdict that
+  deterministic findings support.
 - The assessment includes a card for each user database, with a brief for each
   database that has findings.
 - The analyst streams the progress of a running assessment to the console.

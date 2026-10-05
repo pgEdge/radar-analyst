@@ -195,8 +195,8 @@ path traversal attempt.
 the `Authorization` header. The request removes the upload, the assessment, and
 the stored archive, and returns status 204. The analyst refuses a request
 without a valid token with status 401. When the analyst has no admin token, the
-analyst refuses every delete with status 503. This happens, for example, when
-the data directory is not writable. The
+analyst refuses every delete with status 503. The analyst has no admin token
+when, for example, the data directory is not writable. The
 [Deleting an Assessment](index.md#deleting-an-assessment) section describes
 where the admin token comes from. The following command deletes an upload with
 the token in `TOKEN`:
@@ -216,7 +216,7 @@ job that an upload starts. While a job for the upload is queued or in progress,
 the analyst refuses the request with status 409.
 
 At startup, the analyst marks every job that had not finished at the previous
-stop as `failed`. The job's `error` field explains the interruption.
+stop as `failed`. The `error` field of each such job explains the interruption.
 
 ## Providers
 

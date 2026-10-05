@@ -22,7 +22,7 @@ environment variables that change how the guide runs:
 
 | Variable | Effect |
 |---|---|
-| `WALKTHROUGH_BUILD=1` | Builds the analyst from the checkout. The build takes the published image's name locally. Later runs use the build until you pull the published image again. |
+| `WALKTHROUGH_BUILD=1` | Builds the analyst from the checkout. The build takes the published image's name locally. Later runs therefore use the build until you pull the published image again. |
 | `WALKTHROUGH_NO_BROWSER=1` | Prints the console's address instead of opening a browser. |
 | `WALKTHROUGH_NONINTERACTIVE=1` | Skips every prompt and takes each default answer, except that `--down` then removes everything without asking. |
 | `BROWSER` | Names the command that opens the console, in place of the platform's default. |

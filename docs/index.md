@@ -96,7 +96,7 @@ following command runs the same tour interactively:
 bash examples/walkthrough/guide.sh
 ```
 
-The guide also opens the console for you.
+The command also opens the console in your browser.
 
 To assess an archive in the console, perform the following steps:
 
@@ -132,10 +132,10 @@ The analyst derives the findings, and a verdict for every category, from the
 archive itself. A provider writes the briefs and can raise a verdict, as
 [Understanding an Assessment](#understanding-an-assessment) describes. To add a
 provider, set `RADAR_ANALYST_AI_PROVIDER` and the provider's credential in a
-`.env` file beside `docker-compose.yml`. Then start the analyst again to apply
-the settings. The default provider, `claude`, needs only a credential. Add the
-following line to the `.env` file, and create the file if the file does not
-exist:
+`.env` file beside `docker-compose.yml`. Then recreate the analyst's container
+to apply the settings. The default provider, `claude`, needs only a credential.
+Add the following line to the `.env` file, and create the file if the file does
+not exist:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
@@ -257,8 +257,8 @@ assessment. The database must meet two conditions:
   analyst logs a warning. Such an encoding may not represent all text in a
   radar archive correctly.
 - The role in the URL has the `CREATE` privilege on the database. The analyst
-  needs the privilege because the analyst creates a `radar` schema for all of
-  its tables at startup.
+  uses the privilege at startup to create the `radar` schema for all of its
+  tables.
 
 ## Managing Your Data
 
