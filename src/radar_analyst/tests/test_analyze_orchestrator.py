@@ -339,6 +339,22 @@ def test_read_and_parse_container_flag_false_on_bare_host(
     assert parsed["sys.is_container"] is False
 
 
+def test_read_and_parse_lists_only_the_kinds_the_archive_held(
+    tmp_path: Path,
+) -> None:
+    # The container flag and the cloud provider are derived from
+    # other entries rather than read from an entry of their own.
+    z = tmp_path / "container.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("system/container/dockerenv.out", "")
+    parsed, _, parsed_kinds, _, _ = read_and_parse(z)
+    derived = {"sys.is_container", "sys.cloud_provider"}
+    assert derived <= parsed.keys()
+    assert "pg.version" in parsed_kinds
+    assert not derived & set(parsed_kinds)
+
+
 # ---------------------------------------------------------------------------
 # Per-db conditional LLM analysis tests
 # ---------------------------------------------------------------------------

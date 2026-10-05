@@ -491,10 +491,12 @@ def read_and_parse(zip_path: Path) -> tuple[
     inventory)``.
 
     - ``parsed`` maps kind string to parsed value for every entry
-      we actually decoded.
+      we actually decoded, plus the derived ``sys.is_container``
+      and ``sys.cloud_provider``.
     - ``unknown`` is the coverage-canary list of archive paths
       that don't match any classification.
-    - ``parsed_kinds`` is a sorted list of the kinds that had data.
+    - ``parsed_kinds`` is a sorted list of the kinds read from the
+      archive's entries, without the derived ones.
     - ``present`` is the set of ALL classified kinds in the archive
       (including those without a registered parser). Used for
       "is the host containerised?"-style derivations without
@@ -522,6 +524,7 @@ def read_and_parse(zip_path: Path) -> tuple[
             _parse_fixed_entry(zip_path, entry, parsed)
 
     _resolve_deferred_counts(deferred, schema_maps, parsed)
+    parsed_kinds = sorted(parsed.keys())
 
     # Containerisation and cloud provider are derived once here
     # so rules and facts builders read one consistent answer.
@@ -533,6 +536,5 @@ def read_and_parse(zip_path: Path) -> tuple[
     )
 
     return (
-        parsed, unknown, sorted(parsed.keys()), present,
-        inventory,
+        parsed, unknown, parsed_kinds, present, inventory,
     )

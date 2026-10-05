@@ -34,6 +34,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The `archive_timestamp` field no longer labels the host's local collection
   time as UTC. The field returns the time without a time zone, as the archive's
   name gives the time.
+- The `parsed_kinds` field of the archive details lists only the kinds of data
+  read from the archive. The field no longer lists `sys.is_container` and
+  `sys.cloud_provider`, which the analyst derives.
 
 ## [0.2.0] - 2026-09-29
 
