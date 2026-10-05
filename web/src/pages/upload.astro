@@ -23,12 +23,28 @@ import Databases from '../components/Databases.astro';
 
 <script>
   import { api } from '../lib/api';
+  import { failureNote } from '../lib/format';
 
   // Assess the same archive again: the stored result is replaced,
   // and the page moves to the progress page as an upload does.
   const button = document.getElementById('pg-assess-again');
   const errorEl = document.getElementById('pg-assess-error');
   const id = new URLSearchParams(window.location.search).get('id');
+
+  // A failed assessment says why, above what it left behind. The
+  // header reports an upload that cannot be read.
+  if (errorEl && id) {
+    api
+      .getUpload(id)
+      .then((upload) => {
+        const note = failureNote(upload.state, upload.error);
+        if (note) {
+          errorEl.textContent = note;
+          errorEl.hidden = false;
+        }
+      })
+      .catch(() => {});
+  }
 
   if (button instanceof HTMLButtonElement && id) {
     button.addEventListener('click', async () => {

@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  failureNote,
   formatClock,
   formatSize,
   formatWhen,
@@ -84,5 +85,23 @@ describe('statusChip', () => {
       label: 'HEALTHY',
       tone: 'healthy',
     });
+  });
+});
+
+describe('failureNote', () => {
+  it('says why a failed assessment failed', () => {
+    expect(failureNote('failed', 'File is not a zip file')).toBe(
+      'This assessment failed: File is not a zip file',
+    );
+  });
+
+  it('still says that it failed without a reason', () => {
+    expect(failureNote('failed', null)).toBe('This assessment failed.');
+  });
+
+  it('says nothing about a running or finished assessment', () => {
+    expect(failureNote('analyzing', null)).toBeNull();
+    expect(failureNote('done', null)).toBeNull();
+    expect(failureNote(null, null)).toBeNull();
   });
 });

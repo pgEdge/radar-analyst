@@ -20,12 +20,13 @@ class Upload:
 
 @dataclass(frozen=True)
 class UploadListing(Upload):
-    """An upload with its latest job state and its briefs' verdicts.
+    """An upload with its latest job's state and error, and verdicts.
 
     ``verdicts`` holds one entry per brief, ``None`` included, so the
     roll-up is computed the same way as for the assessment itself.
     """
     job_state: str | None
+    job_error: str | None
     verdicts: list[str | None]
 
 

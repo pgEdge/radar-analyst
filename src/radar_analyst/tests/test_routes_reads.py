@@ -277,6 +277,35 @@ async def test_assessment_of_unanalysed_upload_has_no_verdict(
 
 
 @pytest.mark.asyncio
+async def test_an_upload_says_why_its_assessment_failed(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="radar-db02-20260401-120000.zip",
+        storage_url=f"file:///tmp/{upload_id}.zip",
+        size_bytes=1024,
+        sha256="c" * 64,
+        hostname="db02",
+        archive_timestamp=None,
+    )
+    job_id = uuid4()
+    await insert_job(
+        fresh_pool, job_id=job_id, upload_id=upload_id, ai_provider="mock"
+    )
+    await update_job_state(
+        fresh_pool, job_id, state="failed", error="File is not a zip file"
+    )
+    with TestClient(app) as client:
+        body = client.get(f"/api/uploads/{upload_id}").json()
+    assert body["state"] == "failed"
+    assert body["error"] == "File is not a zip file"
+
+
+@pytest.mark.asyncio
 async def test_assessment_of_an_unknown_upload_is_404(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:

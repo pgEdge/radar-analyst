@@ -8,6 +8,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The assessment page shows why an assessment failed. `GET /api/uploads` and
+  `GET /api/uploads/{id}` return the reason in an `error` field.
+
 ### Fixed
 
 - The overall verdict and the front-page status now count each database's

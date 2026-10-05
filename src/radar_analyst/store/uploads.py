@@ -22,19 +22,16 @@ _UPLOAD_COLUMNS = (
     "archive_timestamp, created_at"
 )
 
-# An upload as the console lists it: the row plus the state of its
-# most recent job and every verdict behind its roll-up, gathered in
-# the one query so a page of fifty costs one round trip. The
-# verdicts are the category briefs' and each database's, which the
-# snapshot gains once the databases have been assessed; lax-mode
+# An upload as the console lists it: the row plus the state and error
+# of its most recent job and every verdict behind its roll-up,
+# gathered in the one query so a page of fifty costs one round trip.
+# The verdicts are the category briefs' and each database's, which
+# the snapshot gains once the databases have been assessed; lax-mode
 # jsonpath yields nothing for a snapshot without them.
 _LISTING_SELECT = (
     "SELECT u.id, u.filename, u.storage_url, u.size_bytes, u.sha256, "
     "       u.hostname, u.archive_timestamp, u.created_at, "
-    "       (SELECT j.state FROM radar.jobs j "
-    "         WHERE j.upload_id = u.id "
-    "         ORDER BY j.started_at DESC NULLS FIRST LIMIT 1) "
-    "         AS job_state, "
+    "       j.state AS job_state, j.error AS job_error, "
     "       COALESCE((SELECT array_agg(b.verdict) FROM radar.briefs b "
     "         WHERE b.upload_id = u.id), '{}') "
     "       || COALESCE((SELECT array_agg(v #>> '{}') "
@@ -42,6 +39,9 @@ _LISTING_SELECT = (
     "           s.data, '$.databases[*].brief_verdict') AS v "
     "         WHERE s.upload_id = u.id), '{}') AS verdicts "
     "FROM radar.uploads u "
+    "LEFT JOIN LATERAL (SELECT state, error FROM radar.jobs "
+    "    WHERE upload_id = u.id "
+    "    ORDER BY started_at DESC NULLS FIRST LIMIT 1) j ON true "
 )
 
 

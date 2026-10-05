@@ -324,9 +324,9 @@ upload.
 The front page of the console lists the 50 most recent uploads, newest first.
 Each entry shows the host, the file name and size, the collection time, the
 status, and the upload time. The status is the verdict, "Assessing…" while the
-assessment runs, or "Failed" if the assessment fails. The collection time comes
-from the name that radar gives the archive, so a renamed archive has no
-collection time.
+assessment runs, or "Failed" if the assessment fails. The assessment page of a
+failed assessment shows the reason. The collection time comes from the name
+that radar gives the archive, so a renamed archive has no collection time.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/console-front-page-dark.jpg">

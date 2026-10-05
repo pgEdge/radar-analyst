@@ -121,8 +121,9 @@ The following sections describe assessments that fail or take a long time.
 
 ### An Assessment Failed
 
-The front page shows "Failed" for an assessment that did not finish. The job's
-`error` field, which `GET /api/jobs/{id}` returns, describes the failure.
+The front page shows "Failed" for an assessment that did not finish, and the
+assessment page shows the reason. The job's `error` field, which
+`GET /api/jobs/{id}` returns, holds the same reason.
 
 When the analyst stops during an assessment, the analyst marks the assessment
 failed at the next start. The error then reads "the analyst stopped before this

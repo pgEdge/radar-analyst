@@ -102,6 +102,7 @@ each upload. The following table describes the fields of an upload:
 | `archive_timestamp` | This field holds the collection time from the archive's name. |
 | `created_at` | This field holds the time that the analyst received the upload. |
 | `state` | This field reports the state of the most recent job for the upload. |
+| `error` | This field describes why the most recent job failed, or is `null`. |
 | `verdict` | This field reports the roll-up verdict over the category briefs and the assessed databases. The verdict is `null` until the analyst stores the first brief. |
 
 The analyst reads `hostname` and `archive_timestamp` from the archive's name at

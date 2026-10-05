@@ -166,6 +166,36 @@ async def test_set_upload_context_keeps_what_it_is_not_given(
     assert row.archive_timestamp == when
 
 
+async def test_an_upload_carries_why_its_latest_job_failed(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname="db1",
+        archive_timestamp=None,
+    )
+    job_id = uuid4()
+    await insert_job(
+        fresh_pool, job_id=job_id, upload_id=upload_id, ai_provider="mock"
+    )
+    await update_job_state(
+        fresh_pool, job_id, state="failed", error="File is not a zip file"
+    )
+
+    row = await get_upload(fresh_pool, upload_id)
+
+    assert row is not None
+    assert row.job_state == "failed"
+    assert row.job_error == "File is not a zip file"
+
+
 async def test_list_uploads_carries_job_state_and_verdicts(
     fresh_pool: AsyncConnectionPool,
 ) -> None:

@@ -43,6 +43,18 @@ export function formatClock(
   return iso ? formatWhen(`${iso}Z`, locale, 'UTC') : '';
 }
 
+// What the assessment page says about an assessment that failed,
+// or null for one that runs or has finished.
+export function failureNote(
+  state: string | null,
+  error: string | null,
+): string | null {
+  if (state !== 'failed') return null;
+  return error
+    ? `This assessment failed: ${error}`
+    : 'This assessment failed.';
+}
+
 export function toneFor(verdict: string): Tone {
   switch (verdict) {
     case 'HEALTHY':

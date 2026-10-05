@@ -14,6 +14,7 @@ export interface UploadSummary {
   archive_timestamp: string | null;
   created_at: string;
   state: JobState['state'] | null;
+  error: string | null;
   verdict: Verdict | null;
 }
 

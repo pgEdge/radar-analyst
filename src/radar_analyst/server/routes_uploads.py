@@ -177,6 +177,7 @@ def _upload_dict(upload: UploadListing) -> dict[str, object]:
         ),
         "created_at": upload.created_at.isoformat(),
         "state": upload.job_state,
+        "error": upload.job_error,
         "verdict": rollup_verdict(upload.verdicts),
     }
 
