@@ -31,7 +31,8 @@ The pgEdge Radar Analyst documentation includes:
 - [Contributing](#contributing)
 - [Release Notes](docs/changelog.md)
 
-pgEdge Radar Analyst assesses the health of a PostgreSQL host from a
+pgEdge Radar Analyst assesses the health of a
+[PostgreSQL](https://www.postgresql.org/) host from a
 [pgEdge Radar](https://github.com/pgEdge/radar) diagnostic archive. The analyst
 checks the archive against deterministic rules and gives each diagnostic
 category a verdict. For each category, the analyst also writes a brief that
@@ -175,9 +176,9 @@ completions API. Such servers include [vLLM](https://docs.vllm.ai/),
 [llama.cpp](https://github.com/ggml-org/llama.cpp),
 [OpenRouter](https://openrouter.ai/), and [Groq](https://groq.com/). To use
 such a server, set the server's address and model name in `.env`. Set
-`OPENAI_API_KEY` even when the server ignores the key, because the OpenAI
-client library requires a key. The following `.env` file selects a server at
-`inference.example.com`:
+`OPENAI_API_KEY` even when the server ignores the key, because the
+[OpenAI client library](https://github.com/openai/openai-python) requires a
+key. The following `.env` file selects a server at `inference.example.com`:
 
 ```bash
 RADAR_ANALYST_AI_PROVIDER=openai
@@ -204,13 +205,14 @@ RADAR_ANALYST_AI_PROVIDER=local
 The compose file sets `RADAR_ANALYST_OLLAMA_HOST` to
 `http://host.docker.internal:11434`, which addresses an Ollama server on the
 machine that runs Docker. The compose file maps the `host.docker.internal` name
-itself. The name therefore resolves on both Docker Desktop and Docker Engine
-for Linux. On Docker Engine for Linux, the Ollama server must also listen on an
-address that containers can reach. Ollama listens only on `127.0.0.1` by
-default, and the `OLLAMA_HOST` environment variable of the Ollama server
-changes that address. To use a different Ollama server, set
-`RADAR_ANALYST_OLLAMA_HOST` in `.env` to an address that the analyst's
-container can reach.
+itself. The name therefore resolves on both
+[Docker Desktop](https://docs.docker.com/desktop/) and
+[Docker Engine](https://docs.docker.com/engine/install/) for Linux. On Docker
+Engine for Linux, the Ollama server must also listen on an address that
+containers can reach. Ollama listens only on `127.0.0.1` by default, and the
+`OLLAMA_HOST` environment variable of the Ollama server changes that address.
+To use a different Ollama server, set `RADAR_ANALYST_OLLAMA_HOST` in `.env` to
+an address that the analyst's container can reach.
 
 The Ollama server must already have the model, because the analyst does not
 download models. The following command downloads the default model on the
@@ -554,8 +556,8 @@ itself against a stub `docker` command.
 
 The `test_real_radar_zip.py` test checks the analyst against the radar archive
 that `RADAR_SAMPLE_ZIP` names. When the variable is unset, `./run-ci-local.sh`
-generates a sample archive, and a plain pytest run skips the test. The
-following command checks a real collection:
+generates a sample archive, and a plain [pytest](https://docs.pytest.org/) run
+skips the test. The following command checks a real collection:
 
 ```bash
 RADAR_SAMPLE_ZIP=/path/to/radar-host-YYYYMMDD-HHMMSS.zip \
@@ -590,22 +592,23 @@ The `make screenshots` command regenerates the console screenshots in
 screenshots. The command starts an analyst built from the checkout and assesses
 three radar collections. The command first collects and assesses two archives
 from temporary PostgreSQL containers. The command then assesses the showcase,
-an anonymized collection from a real server, which lives outside Git in
-`data/showcase/`. The command then captures the front page and the showcase
-assessment in the light and dark themes. At exit, the command removes the stack
-and the stack's volumes.
+an anonymized collection from a real server, which lives outside
+[Git](https://git-scm.com/) in `data/showcase/`. The command then captures the
+front page and the showcase assessment in the light and dark themes. At exit,
+the command removes the stack and the stack's volumes.
 
 The repository does not include the showcase, because the showcase comes from a
 real server. Any anonymized radar collection can replace the showcase. To use
 such a collection, set `SHOWCASE_ARCHIVE` to the collection's path.
 
-The command requires Docker, curl, Node.js 22 or later, Chromium or Chrome, and
-a provider configured in `.env`. The command also needs network access to
-download the latest radar release, and runs only on x86-64 or ARM64 hosts. The
-command refuses to start when another service answers on port 8080. When
-Chromium or Chrome is not on the `PATH`, set `CHROME` to the browser's binary.
-The provider writes the showcase's briefs, so each run costs one assessment's
-worth of provider calls.
+The command requires Docker, [curl](https://curl.se/), Node.js 22 or later,
+[Chromium](https://www.chromium.org/getting-involved/download-chromium/) or
+[Chrome](https://www.google.com/chrome/), and a provider configured in `.env`.
+The command also needs network access to download the latest radar release, and
+runs only on x86-64 or ARM64 hosts. The command refuses to start when another
+service answers on port 8080. When Chromium or Chrome is not on the `PATH`, set
+`CHROME` to the browser's binary. The provider writes the showcase's briefs, so
+each run costs one assessment's worth of provider calls.
 
 ## Contributing
 

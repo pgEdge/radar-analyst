@@ -43,11 +43,15 @@ The commit message prefixes are `fix:`, `feat:`, `build:`, `deps:`,
 The [CLAUDE.md](CLAUDE.md) file describes the project-specific conventions. The
 `./run-ci-local.sh` script runs the same checks as CI. The checks cover:
 
-- the flake8 and ruff linters, and the interrogate docstring check.
-- the mypy and pyright type checkers.
+- the [flake8](https://flake8.pycqa.org/) and
+  [ruff](https://docs.astral.sh/ruff/) linters, and the
+  [interrogate](https://interrogate.readthedocs.io/) docstring check.
+- the [mypy](https://mypy.readthedocs.io/) and
+  [pyright](https://github.com/microsoft/pyright) type checkers.
 - the Python tests, and the console's lint and unit tests.
 - the builds of the console, the Python wheel, and the container image.
-- the end-to-end suite inside Docker.
+- the end-to-end suite inside
+  [Docker](https://docs.docker.com/get-started/get-docker/).
 
 Every check must pass before you commit.
 

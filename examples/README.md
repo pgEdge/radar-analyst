@@ -13,10 +13,12 @@ To use the settings template, copy `compose.env` to `.env` beside
 
 The guide starts the analyst with the `docker-compose.yml` at the repository
 root. The guide then opens the console in a browser and explains how to take
-and assess a radar collection. The guide needs only Docker with the Compose
-plugin. The guide runs the published image, unless `WALKTHROUGH_BUILD=1` asks
-for a build from the checkout. The guide never stops an analyst that is already
-running. The `guide.sh --down` command is the only way that the guide removes
-anything, and the command removes the volumes too. The command asks for
-confirmation first, unless `WALKTHROUGH_NONINTERACTIVE=1` is set. The
+and assess a radar collection. The guide needs only
+[Docker](https://docs.docker.com/get-started/get-docker/) with the
+[Compose plugin](https://docs.docker.com/compose/install/). The guide runs the
+published image, unless `WALKTHROUGH_BUILD=1` asks for a build from the
+checkout. The guide never stops an analyst that is already running. The
+`guide.sh --down` command is the only way that the guide removes anything, and
+the command removes the volumes too. The command asks for confirmation first,
+unless `WALKTHROUGH_NONINTERACTIVE=1` is set. The
 [walkthrough page](../docs/walkthrough.md) describes the same tour by hand.

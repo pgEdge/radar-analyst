@@ -1,16 +1,18 @@
 # Guided Walkthrough
 
 This walkthrough takes you from an empty directory to an assessment of one of
-your own PostgreSQL hosts. You start the analyst and take a radar collection on
-the host. You then upload the collection to the console and read the result.
+your own [PostgreSQL](https://www.postgresql.org/) hosts. You start the analyst
+and take a radar collection on the host. You then upload the collection to the
+console and read the result.
 
 ## Running the Interactive Guide
 
 The repository includes an interactive guide that starts the analyst and opens
 the console in your browser. The guide then explains each remaining step. The
-guide requires only Docker with the Compose plugin. From a clone of the
-[pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst) repository, the
-following command starts the guide:
+guide requires only [Docker](https://docs.docker.com/get-started/get-docker/)
+with the [Compose plugin](https://docs.docker.com/compose/install/). From a
+clone of the [pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst)
+repository, the following command starts the guide:
 
 ```bash
 bash examples/walkthrough/guide.sh

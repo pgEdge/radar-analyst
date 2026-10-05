@@ -1,6 +1,7 @@
 # pgEdge Radar Analyst
 
-pgEdge Radar Analyst assesses the health of a PostgreSQL host from a
+pgEdge Radar Analyst assesses the health of a
+[PostgreSQL](https://www.postgresql.org/) host from a
 [pgEdge Radar](https://github.com/pgEdge/radar) diagnostic archive. The analyst
 checks the archive against deterministic rules and gives each diagnostic
 category a verdict. For each category, the analyst also writes a brief that
@@ -144,9 +145,9 @@ completions API. Such servers include [vLLM](https://docs.vllm.ai/),
 [llama.cpp](https://github.com/ggml-org/llama.cpp),
 [OpenRouter](https://openrouter.ai/), and [Groq](https://groq.com/). To use
 such a server, set the server's address and model name in `.env`. Set
-`OPENAI_API_KEY` even when the server ignores the key, because the OpenAI
-client library requires a key. The following `.env` file selects a server at
-`inference.example.com`:
+`OPENAI_API_KEY` even when the server ignores the key, because the
+[OpenAI client library](https://github.com/openai/openai-python) requires a
+key. The following `.env` file selects a server at `inference.example.com`:
 
 ```bash
 RADAR_ANALYST_AI_PROVIDER=openai
@@ -173,13 +174,14 @@ RADAR_ANALYST_AI_PROVIDER=local
 The compose file sets `RADAR_ANALYST_OLLAMA_HOST` to
 `http://host.docker.internal:11434`, which addresses an Ollama server on the
 machine that runs Docker. The compose file maps the `host.docker.internal` name
-itself. The name therefore resolves on both Docker Desktop and Docker Engine
-for Linux. On Docker Engine for Linux, the Ollama server must also listen on an
-address that containers can reach. Ollama listens only on `127.0.0.1` by
-default, and the `OLLAMA_HOST` environment variable of the Ollama server
-changes that address. To use a different Ollama server, set
-`RADAR_ANALYST_OLLAMA_HOST` in `.env` to an address that the analyst's
-container can reach.
+itself. The name therefore resolves on both
+[Docker Desktop](https://docs.docker.com/desktop/) and
+[Docker Engine](https://docs.docker.com/engine/install/) for Linux. On Docker
+Engine for Linux, the Ollama server must also listen on an address that
+containers can reach. Ollama listens only on `127.0.0.1` by default, and the
+`OLLAMA_HOST` environment variable of the Ollama server changes that address.
+To use a different Ollama server, set `RADAR_ANALYST_OLLAMA_HOST` in `.env` to
+an address that the analyst's container can reach.
 
 The Ollama server must already have the model, because the analyst does not
 download models. The following command downloads the default model on the
