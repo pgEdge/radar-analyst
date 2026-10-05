@@ -41,9 +41,9 @@ LABEL org.opencontainers.image.title="pgEdge Radar Analyst" \
       org.opencontainers.image.licenses="PostgreSQL"
 
 # Nothing is installed here beyond the wheel and its dependencies.
-# PostgreSQL is a separate service: docker-compose runs the pgEdge
-# minimal image alongside this one, and a package install uses the
-# system server. Either way the analyst is told where it is with
+# PostgreSQL is a separate service: docker-compose runs the minimal
+# pgEdge Postgres image alongside this one, and a package install uses
+# the system server. Either way the analyst is told where it is with
 # RADAR_ANALYST_STATE_DB_URL.
 RUN groupadd --system --gid 10001 radar && \
     useradd --system --uid 10001 --gid radar --home-dir /app \

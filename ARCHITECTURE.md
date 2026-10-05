@@ -361,7 +361,7 @@ The `app` service maps `host.docker.internal` to the host gateway.
 Docker Engine on Linux does not define that name, and the default
 Ollama address uses it.
 
-The pgEdge image's `initdb` defaults to SQL_ASCII, under which
+The pgEdge Postgres image's `initdb` defaults to SQL_ASCII, under which
 psycopg returns every text column as `bytes`: a finished job never
 reads as `done`, and the first rule to treat a value as a string
 fails. The compose file sets UTF8. `store.db.check_server_encoding`

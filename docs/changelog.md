@@ -19,7 +19,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- The analyst deploys with `docker compose up -d` alongside a pgEdge PostgreSQL
+- The analyst deploys with `docker compose up -d` alongside a pgEdge Postgres
   service and publishes the console on the loopback interface only.
 - The analyst generates an admin token on first start and keeps the token in
   the data directory, so deleting an upload works without configuring a shared

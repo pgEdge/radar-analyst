@@ -483,7 +483,7 @@ interface. The compose file keeps the analyst local by publishing the port on
 
 ### Running the Tests
 
-The tests run against the same pgEdge PostgreSQL image as the deployment, in
+The tests run against the same pgEdge Postgres image as the deployment, in
 containers that [Testcontainers](https://testcontainers.com/) starts; the tests
 therefore require Docker. The `RADAR_ANALYST_PG_MAJOR` variable selects the
 PostgreSQL version and defaults to 18. The following commands run the tests at

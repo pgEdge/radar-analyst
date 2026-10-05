@@ -11,7 +11,7 @@
 # the pictures open, is an anonymized collection of a real server, kept
 # outside git in data/showcase/ (SHOWCASE_ARCHIVE names another). The
 # two other hosts in the list are collected on the spot: for each, a
-# throwaway pgEdge PostgreSQL container under a fictional hostname gets
+# throwaway pgEdge Postgres container under a fictional hostname gets
 # a database and a pgbench workload, and the latest radar release runs
 # inside it as root, so the system facts are the container's and
 # nothing about this machine beyond its kernel, processors and memory

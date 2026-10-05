@@ -15,7 +15,7 @@ against deterministic rules, writes a brief per diagnostic category,
 and serves the assessment over a JSON API with an Astro console.
 
 Deployed with docker-compose: the analyst's container image next to
-a pgEdge PostgreSQL image. The image is the distribution.
+a pgEdge Postgres image. The image is the distribution.
 
 The AI SDKs (`anthropic`, `google-genai`, `openai`, `ollama`) are
 required runtime dependencies, not optional extras: the briefing
