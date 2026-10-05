@@ -81,52 +81,14 @@ the analyst marks any assessment that was still running at the previous stop as
 failed. To redo such an assessment from the stored archive, open the assessment
 and press Assess again.
 
-## Assessing a Radar Archive
+## Configuring the Analyst
 
-Radar collects the diagnostic archive on the PostgreSQL host, and you then
-upload the archive to the analyst. The [guided walkthrough](walkthrough.md)
-describes how to take a radar collection. The walkthrough covers every step
-from an empty directory to a finished assessment.
+The analyst reads its configuration from environment variables. This section
+describes adding a provider for the briefs and using your own PostgreSQL
+server. The [Settings Reference](#settings-reference) section describes every
+setting.
 
-From a clone of the
-[pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst) repository, the
-following command runs the same tour interactively:
-
-```bash
-bash examples/walkthrough/guide.sh
-```
-
-The command also opens the console in your browser.
-
-To assess an archive in the console, perform the following steps:
-
-1. Open [http://localhost:8080/](http://localhost:8080/) in a browser on the
-   machine that runs the analyst.
-2. Drag the radar archive onto the upload area, or click the upload area and
-   choose the archive.
-3. Press Upload to send the archive to the analyst.
-
-The console shows the progress while the analyst reads the archive and assesses
-each category. When the assessment finishes, the console opens the result. The
-analyst accepts zip archives of up to 500 MiB and refuses any other file at
-upload.
-
-The front page of the console lists the 50 most recent uploads, newest first.
-Each entry shows the host, the file name and size, the collection time, the
-status, and the upload time. The status is the verdict, "Assessing…" while the
-assessment runs, or "Failed" if the assessment fails. The collection time comes
-from the name that radar gives the archive, so a renamed archive has no
-collection time.
-
-![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-light.jpg#only-light)
-![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.jpg#only-dark)
-
-To redo an assessment from the stored archive, open the assessment, press
-Assess again, and confirm. The new result replaces the previous result.
-Assessing again is useful after you configure a provider, or after a stop
-interrupts an assessment.
-
-## Adding a Provider for the Briefs
+### Adding a Provider for the Briefs
 
 The analyst derives the findings, and a verdict for every category, from the
 archive itself. A provider writes the briefs and can raise a verdict, as
@@ -174,7 +136,7 @@ RADAR_ANALYST_AI_PROVIDER=gemini
 GOOGLE_API_KEY=...
 ```
 
-### Using an OpenAI-Compatible Server
+#### Using an OpenAI-Compatible Server
 
 The `openai` provider works with any server that implements the OpenAI chat
 completions API. Such servers include [vLLM](https://docs.vllm.ai/),
@@ -197,7 +159,7 @@ Inside the analyst's container, `localhost` in `OPENAI_BASE_URL` refers to that
 container rather than the machine that runs Docker. Use an address that the
 analyst's container can reach.
 
-### Using a Local Ollama Server
+#### Using a Local Ollama Server
 
 The `local` provider sends requests to an [Ollama](https://ollama.com/) server
 that you run, at the address in `RADAR_ANALYST_OLLAMA_HOST`. The analyst then
@@ -230,7 +192,7 @@ ollama pull gemma4:e4b
 The default model needs approximately 10 GB of GPU memory to run entirely on
 the GPU. The model runs more slowly on a GPU with less memory.
 
-## Using Your Own PostgreSQL Server
+### Using Your Own PostgreSQL Server
 
 The analyst stores its assessments in PostgreSQL. The compose file includes a
 database for this purpose, but the analyst can use an existing PostgreSQL
@@ -259,6 +221,85 @@ assessment. The database must meet two conditions:
 - The role in the URL has the `CREATE` privilege on the database. The analyst
   uses the privilege at startup to create the `radar` schema for all of its
   tables.
+
+### Settings Reference
+
+Every setting in this section is optional. The following table describes the
+settings that the compose file reads from the `.env` file beside
+`docker-compose.yml`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RADAR_ANALYST_AI_PROVIDER` | `claude` | Selects the provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`. Any other value stops the analyst at startup. |
+| `ANTHROPIC_API_KEY` | Unset | Sets the credential for `claude`. |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Sets the credential for `gemini`. When both are set, `GOOGLE_API_KEY` takes precedence. |
+| `OPENAI_API_KEY` | Unset | Sets the credential for `openai`. The OpenAI client library requires a key, even for a server that ignores the key. |
+| `OPENAI_BASE_URL` | OpenAI's own endpoint | Sets the address of an OpenAI-compatible server. |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | Selects the model for `openai`. A compatible server needs the name of a model that the server provides. |
+| `RADAR_ANALYST_OLLAMA_HOST` | `http://host.docker.internal:11434` | Sets the address of the Ollama server for `local`. |
+| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | Selects the model for `local`. |
+| `RADAR_ANALYST_ADMIN_TOKEN` | Generated | Sets the token that authorizes deletes. When the variable is unset, the analyst generates a token into `/data/admin-token` on first start. |
+| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | Sets the password of the bundled database when the `db` volume is first initialized. The database publishes no port. |
+
+The analyst also reads the following settings, which the compose file does not
+pass through from `.env`. To change one of these settings, add the variable to
+the `environment` section of the `app` service in `docker-compose.yml`. The
+following table describes these settings:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | Sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
+| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | Sets the maximum number of requests that `local` sends to Ollama at once, as a positive integer. The analyst ignores a value that is not an integer. |
+| `RADAR_ANALYST_LOG_LEVEL` | `INFO` | Sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
+
+The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly, as
+[Using Your Own PostgreSQL Server](#using-your-own-postgresql-server)
+describes.
+
+## Assessing a Radar Archive
+
+Radar collects the diagnostic archive on the PostgreSQL host, and you then
+upload the archive to the analyst. The [guided walkthrough](walkthrough.md)
+describes how to take a radar collection. The walkthrough covers every step
+from an empty directory to a finished assessment.
+
+From a clone of the
+[pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst) repository, the
+following command runs the same tour interactively:
+
+```bash
+bash examples/walkthrough/guide.sh
+```
+
+The command also opens the console in your browser.
+
+To assess an archive in the console, perform the following steps:
+
+1. Open [http://localhost:8080/](http://localhost:8080/) in a browser on the
+   machine that runs the analyst.
+2. Drag the radar archive onto the upload area, or click the upload area and
+   choose the archive.
+3. Press Upload to send the archive to the analyst.
+
+The console shows the progress while the analyst reads the archive and assesses
+each category. When the assessment finishes, the console opens the result. The
+analyst accepts zip archives of up to 500 MiB and refuses any other file at
+upload.
+
+The front page of the console lists the 50 most recent uploads, newest first.
+Each entry shows the host, the file name and size, the collection time, the
+status, and the upload time. The status is the verdict, "Assessing…" while the
+assessment runs, or "Failed" if the assessment fails. The collection time comes
+from the name that radar gives the archive, so a renamed archive has no
+collection time.
+
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-light.jpg#only-light)
+![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.jpg#only-dark)
+
+To redo an assessment from the stored archive, open the assessment, press
+Assess again, and confirm. The new result replaces the previous result.
+Assessing again is useful after you configure a provider, or after a stop
+interrupts an assessment.
 
 ## Managing Your Data
 
@@ -330,40 +371,6 @@ docker compose exec app cat /data/admin-token
 To choose the token yourself, set `RADAR_ANALYST_ADMIN_TOKEN` in `.env` and run
 `docker compose up -d --wait` again. The analyst then accepts only that token
 and ignores the token in `/data/admin-token`.
-
-## Configuring the Analyst
-
-The analyst reads its configuration from environment variables, and every
-setting in this section is optional. The following table describes the settings
-that the compose file reads from the `.env` file beside `docker-compose.yml`:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `RADAR_ANALYST_AI_PROVIDER` | `claude` | Selects the provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`. Any other value stops the analyst at startup. |
-| `ANTHROPIC_API_KEY` | Unset | Sets the credential for `claude`. |
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Sets the credential for `gemini`. When both are set, `GOOGLE_API_KEY` takes precedence. |
-| `OPENAI_API_KEY` | Unset | Sets the credential for `openai`. The OpenAI client library requires a key, even for a server that ignores the key. |
-| `OPENAI_BASE_URL` | OpenAI's own endpoint | Sets the address of an OpenAI-compatible server. |
-| `OPENAI_MODEL` | `gpt-5.6-luna` | Selects the model for `openai`. A compatible server needs the name of a model that the server provides. |
-| `RADAR_ANALYST_OLLAMA_HOST` | `http://host.docker.internal:11434` | Sets the address of the Ollama server for `local`. |
-| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | Selects the model for `local`. |
-| `RADAR_ANALYST_ADMIN_TOKEN` | Generated | Sets the token that authorizes deletes. When the variable is unset, the analyst generates a token into `/data/admin-token` on first start. |
-| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | Sets the password of the bundled database when the `db` volume is first initialized. The database publishes no port. |
-
-The analyst also reads the following settings, which the compose file does not
-pass through from `.env`. To change one of these settings, add the variable to
-the `environment` section of the `app` service in `docker-compose.yml`. The
-following table describes these settings:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | Sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
-| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | Sets the maximum number of requests that `local` sends to Ollama at once, as a positive integer. The analyst ignores a value that is not an integer. |
-| `RADAR_ANALYST_LOG_LEVEL` | `INFO` | Sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
-
-The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly, as
-[Using Your Own PostgreSQL Server](#using-your-own-postgresql-server)
-describes.
 
 ## Using the API
 
