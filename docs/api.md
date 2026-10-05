@@ -79,7 +79,7 @@ The following table lists every endpoint that the analyst serves:
 | `GET` | `/api/jobs/{id}/events` | This endpoint streams the progress of a job as events. |
 | `GET` | `/api/config` | This endpoint lists the providers and whether each one is available. |
 | `GET` | `/healthz` | This endpoint returns `{"status": "ok"}` while the analyst process runs. |
-| `GET` | `/readyz` | This endpoint returns `{"status": "ready"}` once the analyst has a database connection pool. The check does not query the database. |
+| `GET` | `/readyz` | This endpoint returns `{"status": "ready"}` while the analyst's database answers a query. |
 
 ## Uploads
 
@@ -241,4 +241,4 @@ The following table describes the error statuses that the API returns:
 | 413 | The upload is larger than the upload limit. |
 | 415 | The upload is empty or is not a zip archive. |
 | 422 | The request is malformed, for example with a missing `file` field or an invalid ID. |
-| 503 | The analyst has no admin token and refuses every delete. |
+| 503 | The analyst has no admin token and refuses every delete, or the database does not answer the `/readyz` check. |

@@ -632,7 +632,7 @@
     },
     "/readyz": {
       "get": {
-        "description": "Readiness probe: ok only once the DB pool is attached.",
+        "description": "Readiness probe: ok only while the database answers.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {

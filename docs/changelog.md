@@ -24,6 +24,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   request, and a negative concurrency no longer fails the assessment.
 - An unknown `RADAR_ANALYST_LOG_LEVEL` stops the analyst with a one-line
   message instead of a traceback.
+- `/readyz` queries the database and returns status 503 when the database does
+  not answer. The image's healthcheck therefore reports an analyst that lost
+  its database as unhealthy.
 
 ## [0.2.0] - 2026-09-29
 

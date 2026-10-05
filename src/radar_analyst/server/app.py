@@ -1,5 +1,6 @@
 """FastAPI application factory for radar-analyst."""
 
+import psycopg
 from fastapi import FastAPI, HTTPException, status
 from psycopg_pool import AsyncConnectionPool
 
@@ -11,6 +12,12 @@ from radar_analyst.server.routes_jobs import router as jobs_router
 from radar_analyst.server.routes_uploads import router as uploads_router
 from radar_analyst.server.sse import SSEHub
 from radar_analyst.server.static import mount_static
+
+
+# How long /readyz waits for a connection. It stays under the 5 s
+# timeout of the image's healthcheck, so a database that does not
+# answer reads as not ready rather than as a probe that hangs.
+_READY_TIMEOUT = 3.0
 
 
 def create_app(
@@ -56,15 +63,26 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/readyz")
-    def readyz() -> dict[str, str]:
-        """Readiness probe: ok only once the DB pool is attached."""
-        if app.state.pool is None:
+    async def readyz() -> dict[str, str]:
+        """Readiness probe: ok only while the database answers."""
+        pool = app.state.pool
+        if pool is None:
             raise HTTPException(
                 status_code=(
                     status.HTTP_503_SERVICE_UNAVAILABLE
                 ),
                 detail="db pool not initialized",
             )
+        try:
+            async with pool.connection(timeout=_READY_TIMEOUT) as conn:
+                await conn.execute("SELECT 1")
+        except psycopg.Error:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_503_SERVICE_UNAVAILABLE
+                ),
+                detail="database not answering",
+            ) from None
         return {"status": "ready"}
 
     app.include_router(uploads_router)
