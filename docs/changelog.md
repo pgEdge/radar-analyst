@@ -31,6 +31,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   selects in `default`, rather than always `claude`.
 - A brief that no provider wrote no longer names a provider and a model. Such a
   brief covers a category without data, or follows a provider failure.
+- The `archive_timestamp` field no longer labels the host's local collection
+  time as UTC. The field returns the time without a time zone, as the archive's
+  name gives the time.
 
 ## [0.2.0] - 2026-09-29
 

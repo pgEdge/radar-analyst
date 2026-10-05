@@ -13,7 +13,6 @@ archive.
 import logging
 import zipfile
 from collections.abc import AsyncIterator, Iterator
-from datetime import UTC
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -132,7 +131,8 @@ async def post_upload(
     # error to the client.
     # Radar names the archive after the host and the moment of
     # collection, so both are known before the archive is read. The
-    # name carries no zone, so the time is taken as UTC.
+    # name gives the host's clock without a zone, and the time is
+    # stored as written.
     named = parse_archive_name(file.filename or "")
     try:
         await insert_upload(
@@ -143,9 +143,7 @@ async def post_upload(
             size_bytes=result.size,
             sha256=result.sha256,
             hostname=named.hostname if named else None,
-            archive_timestamp=(
-                named.collected_at.replace(tzinfo=UTC) if named else None
-            ),
+            archive_timestamp=named.collected_at if named else None,
         )
         ai_provider = (
             runner.analyzer_name

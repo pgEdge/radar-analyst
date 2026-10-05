@@ -108,7 +108,7 @@ The analyst reads `hostname` and `archive_timestamp` from the archive's name at
 upload. Once the analyst has read the archive, the analyst replaces `hostname`
 with the host name that the archive records. Radar writes the host's local time
 into the archive's name without a time zone. The `archive_timestamp` field
-returns that local time with a UTC offset of zero.
+returns that local time without a time zone, such as `2026-09-03T16:44:50`.
 
 ## Jobs
 

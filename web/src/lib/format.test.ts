@@ -6,7 +6,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { formatSize, formatWhen, statusChip } from './format';
+import {
+  formatClock,
+  formatSize,
+  formatWhen,
+  statusChip,
+} from './format';
 
 describe('formatSize', () => {
   it('picks the unit that keeps the number short', () => {
@@ -26,6 +31,18 @@ describe('formatWhen', () => {
 
   it('is empty for a missing time', () => {
     expect(formatWhen(null, 'en-GB', 'UTC')).toBe('');
+  });
+});
+
+describe('formatClock', () => {
+  it('shows a time without a zone as written', () => {
+    expect(formatClock('2026-09-03T16:44:50', 'en-GB')).toBe(
+      '3 Sept 2026, 16:44',
+    );
+  });
+
+  it('is empty for a missing time', () => {
+    expect(formatClock(null, 'en-GB')).toBe('');
   });
 });
 

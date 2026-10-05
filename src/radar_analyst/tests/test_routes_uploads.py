@@ -389,7 +389,8 @@ async def test_post_upload_reads_host_and_time_from_the_filename(
         shown = client.get(f"/api/uploads/{resp.json()['upload_id']}")
     body = shown.json()
     assert body["hostname"] == "db1"
-    assert body["archive_timestamp"].startswith("2026-09-03T16:44:50")
+    # The host's own clock, which the name gives without a zone.
+    assert body["archive_timestamp"] == "2026-09-03T16:44:50"
 
 
 async def test_post_upload_with_another_name_leaves_host_unknown(

@@ -33,6 +33,16 @@ export function formatWhen(
   });
 }
 
+// A time without a zone, such as the host's clock that a radar
+// archive's name records, shown as written rather than shifted into
+// the browser's zone.
+export function formatClock(
+  iso: string | null,
+  locale?: string,
+): string {
+  return iso ? formatWhen(`${iso}Z`, locale, 'UTC') : '';
+}
+
 export function toneFor(verdict: string): Tone {
   switch (verdict) {
     case 'HEALTHY':

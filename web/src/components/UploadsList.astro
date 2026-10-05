@@ -41,7 +41,12 @@
 
 <script>
   import { api, type UploadSummary } from '../lib/api';
-  import { formatSize, formatWhen, statusChip } from '../lib/format';
+  import {
+    formatClock,
+    formatSize,
+    formatWhen,
+    statusChip,
+  } from '../lib/format';
 
   const TOKEN_KEY = 'radar_analyst_admin_token';
   const DELETE_ICON =
@@ -136,10 +141,9 @@
       hostCell.appendChild(file);
 
       // The collection time is the host's own clock, read from the
-      // archive name with no zone, so it is shown as written rather
-      // than shifted into the browser's zone.
+      // archive name.
       cell(row, 'pg-col-collected pg-list__when').textContent =
-        formatWhen(item.archive_timestamp, undefined, 'UTC') || '–';
+        formatClock(item.archive_timestamp) || '–';
 
       const chip = statusChip(item.state, item.verdict);
       const chipEl = document.createElement('span');

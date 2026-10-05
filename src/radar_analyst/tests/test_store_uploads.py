@@ -1,6 +1,6 @@
 """Tests for upload row CRUD."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -133,7 +133,7 @@ async def test_set_upload_context_fills_host_and_time(
         hostname=None,
         archive_timestamp=None,
     )
-    when = datetime(2026, 9, 3, 16, 44, 50, tzinfo=UTC)
+    when = datetime(2026, 9, 3, 16, 44, 50)
     await set_upload_context(
         fresh_pool, upload_id, hostname="db1", archive_timestamp=when
     )
@@ -148,7 +148,7 @@ async def test_set_upload_context_keeps_what_it_is_not_given(
 ) -> None:
     await apply_migrations(fresh_pool)
     upload_id = uuid4()
-    when = datetime(2026, 9, 3, 16, 44, 50, tzinfo=UTC)
+    when = datetime(2026, 9, 3, 16, 44, 50)
     await insert_upload(
         fresh_pool,
         upload_id=upload_id,

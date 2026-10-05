@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS radar.uploads (
     size_bytes BIGINT NOT NULL,
     sha256 TEXT NOT NULL,
     hostname TEXT,
-    archive_timestamp TIMESTAMPTZ,
+    archive_timestamp TIMESTAMP,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     archive_files JSONB
 );
@@ -97,9 +97,8 @@ COMMENT ON COLUMN radar.uploads.hostname IS
     'Null when neither says.';
 COMMENT ON COLUMN radar.uploads.archive_timestamp IS
     'When radar collected the archive, as the archive name records '
-    'it: the local clock time of the host, which the name gives '
-    'without a zone, stored as UTC. Null when the name is not in '
-    'radar form.';
+    'it: the local clock time of the host, without a zone, since '
+    'the name gives none. Null when the name is not in radar form.';
 COMMENT ON COLUMN radar.uploads.created_at IS
     'When the upload was accepted by the service.';
 COMMENT ON COLUMN radar.uploads.archive_files IS
