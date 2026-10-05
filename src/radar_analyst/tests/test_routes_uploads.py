@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from psycopg_pool import AsyncConnectionPool
@@ -103,6 +104,39 @@ async def test_post_upload_rejects_over_size_limit(
             },
         )
     assert resp.status_code == 413
+
+
+async def test_an_oversized_upload_is_refused_before_it_all_arrives(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    # The form parser spools a whole upload to a temporary file
+    # before the route runs, so a limit that waits for the route
+    # lets any upload fill the disk first.
+    mib = 1024 * 1024
+    app, _ = await build_app(fresh_pool, tmp_path, max_upload_bytes=mib)
+    sent = 0
+
+    async def body() -> AsyncIterator[bytes]:
+        nonlocal sent
+        yield (
+            b"--b\r\nContent-Disposition: form-data; name=\"file\"; "
+            b"filename=\"radar.zip\"\r\n\r\nPK\x03\x04"
+        )
+        for _ in range(64):
+            sent += 1
+            yield bytes(mib)
+        yield b"\r\n--b--\r\n"
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/uploads",
+            content=body(),
+            headers={"content-type": "multipart/form-data; boundary=b"},
+        )
+    assert resp.status_code == 413
+    assert sent <= 2, f"read {sent} MiB against a 1 MiB limit"
 
 
 async def test_post_upload_rejects_non_zip_with_415(

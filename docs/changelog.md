@@ -46,6 +46,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A call to the Ollama server for the `local` provider ends after 10 minutes
   without an answer. A stalled Ollama server leaves the brief unavailable
   instead of keeping the assessment running indefinitely.
+- The analyst refuses an oversized upload as soon as the upload passes the
+  limit. Such an upload no longer fills a temporary file before the analyst
+  answers with status 413.
 
 ### Security
 

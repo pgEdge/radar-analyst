@@ -3,6 +3,7 @@
 import psycopg
 from fastapi import FastAPI, HTTPException, status
 from psycopg_pool import AsyncConnectionPool
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from radar_analyst import __version__
 from radar_analyst.analyze.runner import JobRunner
@@ -18,6 +19,43 @@ from radar_analyst.server.static import mount_static
 # timeout of the image's healthcheck, so a database that does not
 # answer reads as not ready rather than as a probe that hangs.
 _READY_TIMEOUT = 3.0
+
+
+class _BodyLimit:
+    """Refuse a request body over the upload limit as it arrives.
+
+    The form parser spools a whole upload to a temporary file before
+    the route runs, so the limit is counted here, on the body itself,
+    and an oversized upload stops at the limit instead of filling the
+    disk first.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap *app*."""
+        self.app = app
+
+    async def __call__(
+        self, scope: Scope, receive: Receive, send: Send
+    ) -> None:
+        """Pass the request on, counting its body as it is read."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit: int = scope["app"].state.max_upload_bytes
+        received = 0
+
+        async def counted() -> Message:
+            nonlocal received
+            message = await receive()
+            received += len(message.get("body", b""))
+            if received > limit:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail=f"upload exceeds max_upload_bytes ({limit})",
+                )
+            return message
+
+        await self.app(scope, counted, send)
 
 
 def create_app(
@@ -56,6 +94,7 @@ def create_app(
     app.state.job_runner = job_runner
     app.state.max_upload_bytes = max_upload_bytes
     app.state.admin_token = admin_token
+    app.add_middleware(_BodyLimit)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

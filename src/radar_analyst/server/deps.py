@@ -61,11 +61,6 @@ def get_blob_store(request: Request) -> BlobStore:
     return store
 
 
-def get_max_upload_bytes(request: Request) -> int:
-    """The configured upload size ceiling in bytes."""
-    return _from_state(request, "max_upload_bytes", int)
-
-
 def get_sse_hub(request: Request) -> SSEHub:
     """The in-process progress-event hub."""
     return _from_state(request, "sse_hub", SSEHub)

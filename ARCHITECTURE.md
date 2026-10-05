@@ -51,10 +51,12 @@ console or any other client.
 
 An assessment takes these steps:
 
-1. The client posts the archive to `POST /api/uploads`. Starlette
-   spools the multipart body to a temporary file before the route
-   runs. The route copies it into the blob store, refusing anything
-   that is not a zip or is larger than `RADAR_ANALYST_MAX_UPLOAD_BYTES`,
+1. The client posts the archive to `POST /api/uploads`. A
+   middleware in `server/app.py` counts the body as it arrives and
+   refuses it with `413` once it passes
+   `RADAR_ANALYST_MAX_UPLOAD_BYTES`. Starlette spools the multipart
+   body to a temporary file before the route runs. The route copies
+   it into the blob store, refusing anything that is not a zip,
    records the upload and a queued job, hands the job to the runner,
    and answers `201` with the upload and job ids. The runner runs at
    most four jobs at once, and the rest wait as `queued`.
@@ -387,7 +389,7 @@ the most each stage holds in memory and the cap that bounds it:
 
 | Stage | Peak in memory | Cap |
 |---|---|---|
-| Upload | Up to 1 MiB, because Starlette spools the rest of the body to a temporary file, and `routes_uploads.py::_bounded_stream` copies it on in chunks | `RADAR_ANALYST_MAX_UPLOAD_BYTES`, 500 MiB by default, applied as the upload is copied into the blob store |
+| Upload | Up to 1 MiB, because Starlette spools the rest of the body to a temporary file, and `routes_uploads.py::_zip_chunks` copies it on in chunks | `RADAR_ANALYST_MAX_UPLOAD_BYTES`, 500 MiB by default, applied to the request body as it arrives, so the temporary file never grows past it |
 | Blob store to temporary file | One 64 KiB chunk, in `blob.base.download_to_temp` | The upload cap |
 | Reading the zip's directory | One `ZipInfo` per entry, which `zipfile` builds when it opens the archive | The upload cap. `archive/reader.py::list_entries` then refuses more than 100,000 entries, 2 GiB uncompressed, or 500 MiB in one entry, before anything is decompressed |
 | Parsing an entry | Up to 1 MiB, in `analyze/parsing.py::read_and_parse` | A larger entry is skipped with a warning |

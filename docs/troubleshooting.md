@@ -104,7 +104,7 @@ form. The following table describes each message and how to fix the problem:
 |---|---|
 | `empty upload: not a zip archive` | The uploaded file contains no data at all. Upload the zip archive that radar wrote on the host. |
 | `not a zip archive` | The uploaded file does not start like a zip archive. Upload the zip archive that radar wrote, not an extracted copy. |
-| `upload exceeds max_upload_bytes` | The archive is larger than the upload limit, which is 500 MiB by default. Add `RADAR_ANALYST_MAX_UPLOAD_BYTES` with a higher value to the `environment` section of the `app` service. |
+| `upload exceeds max_upload_bytes` | The upload is larger than the upload limit, which is 500 MiB by default. Add `RADAR_ANALYST_MAX_UPLOAD_BYTES` with a higher value to the `environment` section of the `app` service. |
 | `The upload did not reach the analyst.` | The console could not reach the analyst during the upload. Check that the analyst's container is running with `docker compose ps`. |
 
 ### An Assessment Has No Collection Time

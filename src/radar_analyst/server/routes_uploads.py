@@ -39,7 +39,6 @@ from radar_analyst.model import UploadListing
 from radar_analyst.server.deps import (
     get_blob_store,
     get_job_runner,
-    get_max_upload_bytes,
     get_pool,
     require_admin_token,
     require_upload,
@@ -68,16 +67,13 @@ _READ_CHUNK = 1 * 1024 * 1024  # 1 MiB
 _ZIP_MAGIC = (b"PK\x03\x04", b"PK\x05\x06")
 
 
-async def _bounded_stream(
-    upload: UploadFile, max_bytes: int
-) -> AsyncIterator[bytes]:
-    """Yield UploadFile chunks, enforcing type and size.
+async def _zip_chunks(upload: UploadFile) -> AsyncIterator[bytes]:
+    """Yield UploadFile chunks, refusing what is not a zip archive.
 
     The first bytes must carry zip magic (415 otherwise, since
-    radar archives are zipfiles) and the running total must stay
-    within *max_bytes* (413 otherwise).
+    radar archives are zipfiles). The upload limit applies to the
+    request body as it arrives, before this runs.
     """
-    total = 0
     first = True
     while True:
         chunk = await upload.read(_READ_CHUNK)
@@ -92,15 +88,6 @@ async def _bounded_stream(
                     detail="not a zip archive",
                 )
             first = False
-        total += len(chunk)
-        if total > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=(
-                    f"upload exceeds max_upload_bytes "
-                    f"({max_bytes})"
-                ),
-            )
         yield chunk
     if first:
         raise HTTPException(
@@ -114,16 +101,13 @@ async def post_upload(
     file: UploadFile = FastAPIFile(...),
     pool: AsyncConnectionPool = Depends(get_pool),
     store: BlobStore = Depends(get_blob_store),
-    max_bytes: int = Depends(get_max_upload_bytes),
     runner: JobRunner | None = Depends(get_job_runner),
 ) -> dict[str, str]:
     """Accept a radar zip, store it, enqueue analysis."""
     upload_id = uuid4()
     job_id = uuid4()
     key = f"{upload_id}.zip"
-    result = await store.put(
-        key, _bounded_stream(file, max_bytes)
-    )
+    result = await store.put(key, _zip_chunks(file))
     # Once the blob is on disk, any failure before the upload row
     # is committed leaks storage: the file has no DB row pointing
     # to it, so it can never be cleaned up by a delete. Roll back
