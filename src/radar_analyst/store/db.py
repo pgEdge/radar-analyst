@@ -6,9 +6,11 @@ applied in lexical order at startup. A bootstrap step creates the
 table before any migration file runs, so migrations themselves
 assume ``CREATE SCHEMA`` is done.
 
-While the project is pre-release there is only ``0001_init.sql``: a
-schema change goes into it rather than into a new file beside it,
-because there is nothing deployed whose data needs preserving.
+Each release adds at most one migration file. A git tag freezes the
+files it ships: the runner records each file by name and never applies
+it twice, so an edit to a shipped file would never reach a database
+created from that release. Schema changes after a tag go into one new
+file, the next in sequence, until the next tag.
 """
 
 import asyncio

@@ -51,11 +51,12 @@ invariants a change must not break.
   `def test_*()` functions, no test classes.
 - **No auto-formatter.** Code is written to comply with the linters;
   `ruff format` is never run.
-- **One migration while pre-release.** A schema change edits
-  `0001_init.sql` rather than adding a file beside it, because
-  nothing deployed has data to preserve. Once something is deployed,
-  a change gets its own file, because a newer build has to open an
-  older data directory and apply only what is missing.
+- **One new migration file per release.** A git tag freezes the
+  migration files it ships: the runner records each file by name and
+  never applies it twice, so an edit to a shipped file never reaches
+  a database that release created. Schema changes after a tag go
+  into one new file, the next in sequence, which may change until
+  the next tag.
 - **Comments describe the current code**, never its history.
 - **Screenshots follow the console.** A change that alters what the
   user sees in the console, whether in `web/` or in what an

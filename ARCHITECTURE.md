@@ -119,7 +119,7 @@ it:
 | Language | Python 3.11 or later | The work is in the rules and the prompts, not in CPU-bound parsing, and the provider SDKs are Python-first. |
 | Web framework | FastAPI, with `sse-starlette` for the progress stream | Async throughout, OpenAPI built in, and `Depends()` for injecting test doubles. |
 | Database driver | psycopg 3, async, with a connection pool | Async throughout. |
-| Migrations | Plain SQL files in `store/migrations/`, applied in lexical order at startup | No migration framework. `radar.schema_migrations` records what has run, so a newer build applies only what an older data directory lacks. |
+| Migrations | Plain SQL files in `store/migrations/`, applied in lexical order at startup | No migration framework. `radar.schema_migrations` records what has run, so a newer build applies only what an older data directory lacks. Each release adds at most one file, and a tagged release's files never change. |
 | Blob storage | The `BlobStore` Protocol, implemented for the local filesystem | PostgreSQL stores only an opaque URL, so another store needs no schema change. |
 | Providers | Anthropic, Google Gemini, OpenAI and any OpenAI-compatible server, and Ollama | One adapter serves OpenAI and every compatible server, because they share the chat-completions request shape. |
 | Console | Astro, built to static files | Everything it shows comes from the JSON API, so any client of the same endpoints can replace it. |
