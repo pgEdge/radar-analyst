@@ -67,7 +67,7 @@ and the server, never table contents or query results.
 
 Download the radar binary for the host's platform from
 [github.com/pgEdge/radar/releases](https://github.com/pgEdge/radar/releases).
-Current releases include the following binaries:
+Current releases include:
 
 - `radar-linux-amd64`
 - `radar-linux-arm64`

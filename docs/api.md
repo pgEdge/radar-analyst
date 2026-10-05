@@ -39,7 +39,7 @@ archive. For an upload larger than the limit in
 To follow a job without polling, read `GET /api/jobs/{id}/events`, which
 streams the job's progress as Server-Sent Events. The stream sends each event
 as an unnamed message whose `data` field holds a JSON object. The object's
-`type` field names the event, which is one of the following:
+`type` field names one of four events:
 
 - `phase` marks the start of a stage and describes the stage in a `phase`
   field.
@@ -157,21 +157,21 @@ a `title`, and a `detail`.
 
 `GET /api/uploads/{id}/snapshot` returns the details that the analyst read from
 the archive. The endpoint returns status 404 until the analyst has read the
-archive. The response contains the following fields:
+archive. The response describes:
 
-- `hostname`, `os`, `kernel`, `cpu_count`, `cpu_model`, `total_ram`, and
-  `host_uptime` describe the host.
-- `is_container`, `hypervisor`, `runtime`, and `cloud_provider` describe where
-  the host runs.
-- `pg_version` and `pg_started` describe the PostgreSQL server, and
-  `radar_version` and `radar_commit` describe the radar release that took the
-  collection.
-- `databases` lists each database with the database's counters and findings.
-  Each database's `brief_markdown` and `brief_verdict` appear once the analyst
-  has assessed the databases.
-- `parsed_kinds` names the kinds of data that the analyst read from the
-  archive.
-- `unknown_entries` lists the archive paths that the analyst did not recognize.
+- the host, in `hostname`, `os`, `kernel`, `cpu_count`, `cpu_model`,
+  `total_ram`, and `host_uptime`.
+- where the host runs, in `is_container`, `hypervisor`, `runtime`, and
+  `cloud_provider`.
+- the PostgreSQL server, in `pg_version` and `pg_started`.
+- the radar release that took the collection, in `radar_version` and
+  `radar_commit`.
+- each database with its counters and findings, in `databases`.
+- the kinds of data that the analyst read from the archive, in `parsed_kinds`.
+- the archive paths that the analyst did not recognize, in `unknown_entries`.
+
+Each entry in `databases` gains `brief_markdown` and `brief_verdict` once the
+analyst has assessed the databases.
 
 ## Archive Files
 

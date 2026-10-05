@@ -211,16 +211,16 @@ compose file. Then remove the `depends_on` entry that waits for the `db`
 service.
 
 This database holds only the analyst's own state and is never the server under
-assessment. The database must meet two conditions:
+assessment. Before you start the analyst, make sure that:
 
-- The database uses the UTF8 encoding, which the analyst checks at startup.
-  Under SQL_ASCII, PostgreSQL returns text as raw bytes, so the analyst refuses
-  to start rather than misread its own rows. With any other encoding, the
-  analyst logs a warning. Such an encoding may not represent all text in a
-  radar archive correctly.
-- The role in the URL has the `CREATE` privilege on the database. The analyst
-  uses the privilege at startup to create the `radar` schema for all of its
-  tables.
+- the database uses the UTF8 encoding, which the analyst checks at startup.
+- the role in the URL has the `CREATE` privilege on the database.
+
+Under SQL_ASCII, PostgreSQL returns text as raw bytes, so the analyst refuses
+to start rather than misread its own rows. With any other encoding, the analyst
+logs a warning. Such an encoding may not represent all text in a radar archive
+correctly. The analyst uses the privilege at startup to create the `radar`
+schema for all of its tables.
 
 ### Settings Reference
 

@@ -23,22 +23,25 @@ README describes the prerequisites, the build, and the tests.
 
 ## Pull Request Guidelines
 
-A pull request should meet the following guidelines:
+Reviewers check each pull request against these guidelines. A pull request
+should:
 
-- The pull request contains one logical change.
-- The pull request title uses a commit message prefix: `fix:`, `feat:`,
-  `build:`, `deps:`, `refactor:`, `test:`, or `docs:`. A title can also start
-  with a plain verb, but never with `chore:`.
-- New functionality comes with tests.
-- A change in behavior comes with the matching documentation update.
-- A change to what the console displays comes with new screenshots from
-  `make screenshots`.
-- Every CI check passes before you request a review.
+- contain one logical change.
+- have a title that starts with a commit message prefix or a plain verb.
+- include tests for new functionality.
+- update the documentation to match any change in behavior.
+- include new screenshots from `make screenshots` when what the console
+  displays changes.
+- pass every CI check before you request a review.
+
+The commit message prefixes are `fix:`, `feat:`, `build:`, `deps:`,
+`refactor:`, `test:`, and `docs:`. A pull request title never starts with
+`chore:`.
 
 ## Code Style
 
 The [CLAUDE.md](CLAUDE.md) file describes the project-specific conventions. The
-`./run-ci-local.sh` script runs the same checks as CI:
+`./run-ci-local.sh` script runs the same checks as CI. The checks cover:
 
 - the flake8 and ruff linters, and the interrogate docstring check.
 - the mypy and pyright type checkers.
