@@ -76,18 +76,18 @@ available at [http://localhost:8080/](http://localhost:8080/). The compose file
 publishes the console on `127.0.0.1:8080`, so only the local machine can reach
 the console. The database publishes no port at all.
 
-To stop the analyst, run `docker compose stop`. To start the analyst again with
-every upload and assessment in place, run `docker compose start`. At startup,
-the analyst marks any assessment that was still running at the previous stop as
-failed. To redo such an assessment from the stored archive, open the assessment
-and press Assess again.
+To stop the analyst, run the `docker compose stop` command. To start the
+analyst again with every upload and assessment in place, run
+`docker compose start`. At startup, the analyst marks any assessment that was
+still running at the previous stop as failed. To redo such an assessment from
+the stored archive, open the assessment and press Assess again.
 
 ## Configuring the Analyst
 
 The analyst reads its configuration from environment variables. This section
 describes adding a provider for the briefs and using your own PostgreSQL
-server. The [Settings Reference](#settings-reference) section describes every
-setting.
+server. The [Settings Reference](#settings-reference) section describes the
+settings that a compose deployment uses.
 
 ### Adding a Provider for the Briefs
 
@@ -234,7 +234,7 @@ settings that the compose file reads from the `.env` file beside
 |---|---|---|
 | `RADAR_ANALYST_AI_PROVIDER` | `claude` | This setting selects the provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`. Any other value stops the analyst at startup. |
 | `ANTHROPIC_API_KEY` | Unset | This variable sets the credential that the `claude` provider uses. |
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Either variable sets the credential that the `gemini` provider uses. When both are set, `GOOGLE_API_KEY` takes precedence. |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Either variable sets the credential that the `gemini` provider uses. When you set both variables, the analyst uses `GOOGLE_API_KEY`. |
 | `OPENAI_API_KEY` | Unset | This variable sets the credential that the `openai` provider uses. The OpenAI client library requires a key, even for a server that ignores the key. |
 | `OPENAI_BASE_URL` | OpenAI's own endpoint | This variable sets the address of an OpenAI-compatible server. |
 | `OPENAI_MODEL` | `gpt-5.6-luna` | This variable selects the model that the `openai` provider uses. A compatible server needs the name of a model that the server provides. |
@@ -246,12 +246,12 @@ settings that the compose file reads from the `.env` file beside
 The analyst also reads the following settings, which the compose file does not
 pass through from `.env`. To change one of these settings, add the variable to
 the `environment` section of the `app` service in `docker-compose.yml`. The
-following table describes these settings:
+following table describes each of these additional settings:
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | This variable sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
-| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | This variable sets how many requests `local` sends to Ollama at once, as a positive integer. The analyst ignores a value that is not an integer. |
+| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | This variable sets the maximum number of requests that `local` sends to Ollama at once. Set the variable to a positive integer. The analyst ignores a value that is not an integer. |
 | `RADAR_ANALYST_LOG_LEVEL` | `INFO` | This variable sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
 
 The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly, as
@@ -315,8 +315,8 @@ the contents of each volume:
 | `sock` | This volume holds the socket that the analyst uses to connect to the database. |
 
 The volumes outlive the containers, so running `docker compose down` or pulling
-a newer image leaves the volumes in place. However, `docker compose down -v`
-deletes the volumes permanently.
+a newer image leaves the volumes in place. However, the
+`docker compose down -v` command deletes the volumes permanently.
 
 Each service writes its log to the container output, which
 `docker compose logs` displays. Docker keeps at most three 10 MB log files for

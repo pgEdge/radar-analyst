@@ -62,7 +62,7 @@ curl -N -H 'Accept: text/event-stream' \
 
 ## Endpoints
 
-The following table lists every endpoint:
+The following table lists every endpoint that the analyst serves:
 
 | Method | Path | Purpose |
 |---|---|---|

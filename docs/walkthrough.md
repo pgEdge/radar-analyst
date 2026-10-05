@@ -26,7 +26,7 @@ environment variables that change how the guide runs:
 |---|---|
 | `WALKTHROUGH_BUILD=1` | This setting makes the guide build the analyst from the checkout. The build takes the published image's name locally. Later runs therefore use the build until you pull the published image again. |
 | `WALKTHROUGH_NO_BROWSER=1` | This setting makes the guide print the console's address instead of opening a browser. |
-| `WALKTHROUGH_NONINTERACTIVE=1` | This setting skips every prompt and takes each default answer. With this setting, `--down` removes everything without asking first. |
+| `WALKTHROUGH_NONINTERACTIVE=1` | This setting skips every prompt and takes each default answer. As the one exception, `--down` then removes everything without asking first. |
 | `BROWSER` | This variable names the command that opens the console, in place of the platform's default. |
 
 If an analyst is already running, the guide uses the running analyst instead of
@@ -69,12 +69,8 @@ and the server, never table contents or query results.
 
 Download the radar binary for the host's platform from
 [github.com/pgEdge/radar/releases](https://github.com/pgEdge/radar/releases).
-Current releases include:
-
-- `radar-linux-amd64`
-- `radar-linux-arm64`
-- `radar-darwin-amd64`
-- `radar-darwin-arm64`
+Current releases include `radar-linux-amd64`, `radar-linux-arm64`,
+`radar-darwin-amd64`, and `radar-darwin-arm64`.
 
 Make the binary executable, then run the binary on the host as root. Connect to
 PostgreSQL as a superuser or as a role with the privileges of `pg_monitor`. The

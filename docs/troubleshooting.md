@@ -50,8 +50,8 @@ each message and how to fix the problem:
 | `did not accept a connection within 60s` | The analyst could not connect to its database within 60 seconds of starting. A wrong password in `RADAR_ANALYST_STATE_DB_URL` also ends in this message. Check the URL and check that the database is running. |
 | `uses the SQL_ASCII encoding` | The state database uses the SQL_ASCII encoding, which the analyst cannot read. Create the database again with the UTF8 encoding. The bundled database uses UTF8, so the message concerns your own server. |
 | `InsufficientPrivilege` | The role in the database URL lacks the `CREATE` privilege on the database. Grant the privilege to the role, then start the analyst again. |
-| `invalid listen address` | The `RADAR_ANALYST_LISTEN` setting holds a malformed address. Use `host:port` or a bare port number, such as `9000`. |
-| `RADAR_ANALYST_STATE_DB_URL is required` | The analyst started outside a container without `RADAR_ANALYST_STATE_DB_URL` set. Set the variable to the connection URL of the state database. |
+| `invalid listen address` | The `RADAR_ANALYST_LISTEN` setting holds a malformed address. Use `host:port` or a bare port, and keep `0.0.0.0:8080` inside the container. |
+| `RADAR_ANALYST_STATE_DB_URL is required` | The analyst started without `RADAR_ANALYST_STATE_DB_URL`, which only the compose file sets. Set the variable to the connection URL of the state database. |
 
 ## Writing Briefs
 
@@ -88,31 +88,31 @@ The `local` provider sends requests to the Ollama server at the address in
 - the server listens on an address that the analyst's container can reach.
 - the server has the model, which `ollama pull` downloads.
 
-On Docker Engine for Linux, Ollama listens only on `127.0.0.1` by default,
-which containers cannot reach. The
+Ollama listens only on `127.0.0.1` by default, which containers on Docker
+Engine for Linux cannot reach. The
 [Using a Local Ollama Server](index.md#using-a-local-ollama-server) section
 describes the settings in more detail.
 
 ## Uploading Archives
 
-The analyst refuses an upload that is not a usable radar archive. When the
-analyst refuses an upload, the console shows the reason below the upload form.
-The following table describes each reason and how to fix the problem:
+The analyst refuses an upload that is empty, is not a zip archive, or is too
+large. When an upload fails, the console shows the reason below the upload
+form. The following table describes each message and how to fix the problem:
 
-| Reason | Cause and fix |
+| Message | Cause and fix |
 |---|---|
 | `empty upload: not a zip archive` | The uploaded file contains no data at all. Upload the zip archive that radar wrote on the host. |
 | `not a zip archive` | The uploaded file does not start like a zip archive. Upload the zip archive that radar wrote, not an extracted copy. |
-| `upload exceeds max_upload_bytes` | The archive is larger than the upload limit, which is 500 MiB by default. Raise `RADAR_ANALYST_MAX_UPLOAD_BYTES` in the `environment` section of the `app` service. |
+| `upload exceeds max_upload_bytes` | The archive is larger than the upload limit, which is 500 MiB by default. Add `RADAR_ANALYST_MAX_UPLOAD_BYTES` with a higher value to the `environment` section of the `app` service. |
 | `The upload did not reach the analyst.` | The console could not reach the analyst during the upload. Check that the analyst's container is running with `docker compose ps`. |
 
 ### An Assessment Has No Collection Time
 
 The analyst reads the collection time from the name that radar gives the
 archive, such as `radar-db1-20260903-164450.zip`. A renamed archive still gets
-an assessment, but the assessment has no collection time. The analyst then
-takes the host's name from the archive's contents instead. To keep the
-collection time, upload the archive under the name that radar gave it.
+an assessment, but the assessment has no collection time. The host's name still
+comes from the archive's contents, as for every archive. To keep the collection
+time, upload the archive under the name that radar gave it.
 
 ## Assessing Archives
 
@@ -147,8 +147,8 @@ The following table describes the messages that the console can show:
 
 | Message | Cause and fix |
 |---|---|
-| `The admin token was not accepted.` | The token that you entered does not match the analyst's admin token. Print the token with `docker compose exec app cat /data/admin-token`. When `RADAR_ANALYST_ADMIN_TOKEN` is set, use that value instead. |
-| `Deleting is not configured on this analyst.` | The analyst has no admin token, because the analyst could not write the token file. The log shows `cannot write an admin token` at startup. Set `RADAR_ANALYST_ADMIN_TOKEN` in `.env` and run `docker compose up -d --wait`. |
+| `The admin token was not accepted.` | The token that you entered does not match the analyst's admin token. Print the analyst's admin token with `docker compose exec app cat /data/admin-token`. When you set `RADAR_ANALYST_ADMIN_TOKEN`, enter that value in the prompt instead. |
+| `Deleting is not configured on this analyst.` | The analyst has no admin token, because the analyst could not write the token file. The analyst's log shows `cannot write an admin token` at startup. Set `RADAR_ANALYST_ADMIN_TOKEN` in `.env` and run `docker compose up -d --wait`. |
 
 ## Running the Guided Walkthrough
 
@@ -159,7 +159,7 @@ prints when a check fails:
 | Message | Cause and fix |
 |---|---|
 | `docker is not installed` | The `docker` command is not available on this machine. Install [Docker](https://docs.docker.com/get-started/get-docker/), then run the script again. |
-| `Docker is installed but not running, or not reachable by your user.` | The Docker daemon is stopped, or your user cannot use the daemon. Start Docker and check that `docker info` works for your user. |
+| `Docker is installed but not running, or not reachable by your user.` | The Docker daemon is not running, or your user cannot use the daemon. Start Docker and check that `docker info` works for your user. |
 | `The docker compose plugin is missing` | The `docker compose` command is not available on this machine. Install the [Compose plugin](https://docs.docker.com/compose/install/), then run the script again. |
 | `docker compose up failed` | The script prints the last lines of the Compose output first. One cause is a port that another service already uses. The [Console Port Is Already in Use](#the-console-port-is-already-in-use) section describes that fix. |
 

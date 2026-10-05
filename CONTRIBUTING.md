@@ -35,8 +35,8 @@ should:
 - pass every CI check before you request a review.
 
 The commit message prefixes are `fix:`, `feat:`, `build:`, `deps:`,
-`refactor:`, `test:`, and `docs:`. A pull request title never starts with
-`chore:`.
+`refactor:`, `test:`, and `docs:`. A pull request title must not start with the
+`chore:` prefix.
 
 ## Code Style
 

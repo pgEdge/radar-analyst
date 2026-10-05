@@ -1,7 +1,8 @@
 # Examples
 
 This directory contains a template for the analyst's settings and an
-interactive guide to the analyst. The following table describes each example:
+interactive guide to the analyst. The following table describes each example in
+this directory:
 
 | Path | Purpose |
 |---|---|
@@ -20,5 +21,5 @@ published image, unless `WALKTHROUGH_BUILD=1` asks for a build from the
 checkout. The guide never stops an analyst that is already running. The
 `guide.sh --down` command is the only way that the guide removes anything, and
 the command removes the volumes too. The command asks for confirmation first,
-unless `WALKTHROUGH_NONINTERACTIVE=1` is set. The
+unless you set `WALKTHROUGH_NONINTERACTIVE=1`. The
 [walkthrough page](../docs/walkthrough.md) describes the same tour by hand.
