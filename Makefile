@@ -7,7 +7,7 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci matrix docs openapi notice walkthrough screenshots clean
+.PHONY: help venv build test unit e2e lint typecheck ci archive-coverage matrix docs openapi notice walkthrough screenshots clean
 
 help:
 	@echo "make venv        create .venv and install dev dependencies"
