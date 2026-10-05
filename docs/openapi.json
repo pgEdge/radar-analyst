@@ -420,7 +420,7 @@
     },
     "/api/uploads/{upload_id}/assessment": {
       "get": {
-        "description": "The upload's briefs plus the roll-up verdict over them.\n\nAn upload that hasn't been assessed yet returns an empty brief\nlist and a null verdict rather than a 404, because the console\npolls this while the job is still running.",
+        "description": "The upload's briefs plus its roll-up verdict.\n\nThe roll-up is the one the upload listing carries, over the\ncategory briefs and every database assessed so far. An upload\nthat hasn't been assessed yet returns an empty brief list and a\nnull verdict rather than a 404, because the console polls this\nwhile the job is still running.",
         "operationId": "get_assessment_route_api_uploads__upload_id__assessment_get",
         "parameters": [
           {

@@ -100,9 +100,11 @@ The code keeps four guarantees:
   verdicts; only briefs can be missing. `test_degraded_mode.py` pins
   this.
 - `UNKNOWN` never outranks evidence.
-  `analyze.assessment.rollup_verdict` takes the worst category
-  verdict, and `UNKNOWN`, meaning a category was not collected, never
-  counts as worse than a verdict drawn from data.
+  `analyze.assessment.rollup_verdict` takes the worst of the category
+  verdicts and the assessed databases' verdicts, which the upload
+  listing query gathers for the list, the single upload, and the
+  assessment alike. `UNKNOWN`, meaning a category was not collected,
+  never counts as worse than a verdict drawn from data.
 - The state database is never the assessed server. The analyst works
   from the uploaded archive and holds no credentials for the host it
   came from.

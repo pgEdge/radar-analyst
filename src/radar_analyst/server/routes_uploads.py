@@ -52,6 +52,7 @@ from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import (
     delete_upload,
     get_archive_files,
+    get_upload,
     insert_upload,
     list_uploads,
 )
@@ -319,12 +320,15 @@ async def get_assessment_route(
     upload_id: UUID,
     pool: AsyncConnectionPool = Depends(get_pool),
 ) -> dict[str, object]:
-    """The upload's briefs plus the roll-up verdict over them.
+    """The upload's briefs plus its roll-up verdict.
 
-    An upload that hasn't been assessed yet returns an empty brief
-    list and a null verdict rather than a 404, because the console
-    polls this while the job is still running.
+    The roll-up is the one the upload listing carries, over the
+    category briefs and every database assessed so far. An upload
+    that hasn't been assessed yet returns an empty brief list and a
+    null verdict rather than a 404, because the console polls this
+    while the job is still running.
     """
+    upload = await get_upload(pool, upload_id)
     rows = await list_briefs(pool, upload_id)
     inventory = (
         await get_archive_files(pool, upload_id) or []
@@ -340,7 +344,7 @@ async def get_assessment_route(
             }
         )
     return {
-        "verdict": rollup_verdict([r.verdict for r in rows]),
+        "verdict": rollup_verdict(upload.verdicts if upload else []),
         "briefs": [
             {
                 "id": str(r.id),

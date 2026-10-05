@@ -100,7 +100,7 @@ each upload. The following table describes the fields of an upload:
 | `archive_timestamp` | Records the collection time from the archive's name. |
 | `created_at` | Records the upload time. |
 | `state` | Reports the state of the most recent job for the upload. |
-| `verdict` | Reports the roll-up verdict, which is `null` until the analyst stores the first brief. |
+| `verdict` | Reports the roll-up verdict over the category briefs and the assessed databases, which is `null` until the analyst stores the first brief. |
 
 The analyst reads `hostname` and `archive_timestamp` from the archive's name at
 upload. Once the analyst has read the archive, the analyst replaces `hostname`
@@ -127,9 +127,11 @@ A job assesses an upload in the background. `GET /api/jobs/{id}` returns status
 ## Assessments
 
 `GET /api/uploads/{id}/assessment` returns the roll-up `verdict` and a `briefs`
-array with one entry per category. Until the analyst stores the first brief,
-the response has a `null` verdict and an empty `briefs` array. The endpoint
-returns the same empty response for an upload ID that does not exist.
+array with one entry per category. The roll-up is the worst of the category
+verdicts and the database verdicts that the analyst has stored. Until the
+analyst stores the first brief, the response has a `null` verdict and an empty
+`briefs` array. The endpoint returns the same empty response for an upload ID
+that does not exist.
 
 The following table describes the fields of a brief:
 
@@ -164,7 +166,8 @@ archive. The response contains the following fields:
   `radar_version` and `radar_commit` describe the radar release that took the
   collection.
 - `databases` lists each database with the database's counters and findings;
-  each database's brief appears once the analyst has assessed the databases.
+  each database's `brief_markdown` and `brief_verdict` appear once the analyst
+  has assessed the databases.
 - `parsed_kinds` names the kinds of data that the analyst read from the
   archive.
 - `unknown_entries` lists the archive paths that the analyst did not recognize.

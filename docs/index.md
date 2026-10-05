@@ -33,17 +33,17 @@ also shows the findings behind the verdict and a brief that explains those
 findings. Each brief lists the archive files that the category covers. A
 category for which the archive holds no data has the verdict `UNKNOWN`.
 
-The verdict of the assessment as a whole is the worst of the category verdicts.
-`UNKNOWN` means only that the archive holds no data for a category. An
-`UNKNOWN` category therefore never makes the overall verdict worse than the
-measured evidence.
+The verdict of the assessment as a whole is the worst of the category verdicts
+and the database verdicts. `UNKNOWN` means only that the archive holds no data
+for a category. An `UNKNOWN` category therefore never makes the overall verdict
+worse than the measured evidence.
 
 The assessment also includes a card for each database on the server. Template
 databases and databases that accept no connections have no card. The card for a
 database with findings lists those findings and includes a brief for that
 database. The card for a database without findings reads "No issues observed
-for this database." Each database card shows a verdict of its own, and the
-overall verdict covers only the five categories.
+for this database." Each database card shows a verdict of its own, which counts
+toward the overall verdict once the analyst has assessed the databases.
 
 Findings are the issues that the analyst detects in the archive. Findings are
 deterministic; the same archive always produces the same findings. A provider

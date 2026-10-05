@@ -9,6 +9,7 @@ from psycopg_pool import AsyncConnectionPool
 from radar_analyst.store.briefs import insert_brief
 from radar_analyst.store.db import apply_migrations
 from radar_analyst.store.jobs import insert_job, update_job_state
+from radar_analyst.store.snapshots import upsert_snapshot
 from radar_analyst.store.uploads import (
     get_archive_files,
     get_upload,
@@ -210,6 +211,54 @@ async def test_list_uploads_carries_job_state_and_verdicts(
     assert rows[0].job_state == "done"
     assert sorted(v or "" for v in rows[0].verdicts) == [
         "",
+        "HEALTHY",
+        "WARNING",
+    ]
+
+
+async def test_list_uploads_carries_the_assessed_database_verdicts(
+    fresh_pool: AsyncConnectionPool,
+) -> None:
+    await apply_migrations(fresh_pool)
+    upload_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="r.zip",
+        storage_url="file:///tmp/r.zip",
+        size_bytes=1,
+        sha256="0" * 64,
+        hostname="db1",
+        archive_timestamp=None,
+    )
+    await insert_brief(
+        fresh_pool,
+        brief_id=uuid4(),
+        upload_id=upload_id,
+        category="Host & OS",
+        provider="mock",
+        model="mock-v0",
+        verdict="WARNING",
+        markdown="x",
+        prompt_tokens=None,
+        completion_tokens=None,
+    )
+    await upsert_snapshot(
+        fresh_pool,
+        upload_id=upload_id,
+        data={
+            "databases": [
+                {"datname": "app", "brief_verdict": "CRITICAL"},
+                {"datname": "reports", "brief_verdict": "HEALTHY"},
+                {"datname": "pending", "severity": "CRITICAL"},
+            ]
+        },
+    )
+
+    rows = await list_uploads(fresh_pool)
+
+    assert sorted(v or "" for v in rows[0].verdicts) == [
+        "CRITICAL",
         "HEALTHY",
         "WARNING",
     ]

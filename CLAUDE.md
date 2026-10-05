@@ -35,8 +35,9 @@ invariants a change must not break.
   always carries findings and verdicts even when every brief is
   missing. `test_degraded_mode.py` pins it.
 - **`UNKNOWN` never outranks evidence.** The assessment's verdict is
-  the worst of its category verdicts; `UNKNOWN` means uncollected,
-  so it cannot make a host look worse than what was measured.
+  the worst of its category verdicts and its assessed databases'
+  verdicts; `UNKNOWN` means uncollected, so it cannot make a host
+  look worse than what was measured.
 - **Everything lives in the `radar` schema**, never `public`, and
   every query fully qualifies it. Do not rely on `search_path`.
 - **The state database is never the assessed server.** The analyst

@@ -6,6 +6,15 @@ user-facing changes.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The overall verdict and the front-page status now count each database's
+  verdict. A critical finding in one database, such as data-page checksum
+  failures, no longer leaves the overall verdict better than that database's
+  verdict.
+
 ## [0.2.0] - 2026-09-29
 
 ### Added

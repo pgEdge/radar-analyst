@@ -119,10 +119,11 @@ can take one to two minutes.
 ## Reading the Assessment
 
 The assessment covers five categories: Host & OS, PostgreSQL Configuration,
-Workload, Internals & I/O Health, and Replication. Each category has a verdict,
-and the host's overall verdict is the worst of the five. A category for which
-the archive holds no data reads `UNKNOWN`. An `UNKNOWN` category never makes
-the host look worse than the measured evidence.
+Workload, Internals & I/O Health, and Replication. Each category has a verdict.
+The host's overall verdict is the worst of the category verdicts and the
+verdicts of the database cards, which appear below the categories. A category
+for which the archive holds no data reads `UNKNOWN`. An `UNKNOWN` category
+never makes the host look worse than the measured evidence.
 
 Open a category to read the brief, the findings behind the verdict, and the
 list of archive files that the category covers. Below the categories, the

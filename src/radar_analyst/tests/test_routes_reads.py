@@ -205,6 +205,52 @@ async def test_assessment_verdict_is_the_worst_category_verdict(
 
 
 @pytest.mark.asyncio
+async def test_a_database_verdict_counts_toward_the_overall_verdict(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = await _seed_upload_with_briefs(fresh_pool)
+    await upsert_snapshot(
+        fresh_pool,
+        upload_id=upload_id,
+        data={
+            "hostname": "db01",
+            "databases": [
+                {"datname": "app", "brief_verdict": "CRITICAL"},
+            ],
+        },
+    )
+    with TestClient(app) as client:
+        assessment = client.get(
+            f"/api/uploads/{upload_id}/assessment"
+        ).json()
+        listed = client.get("/api/uploads").json()["items"][0]
+        upload = client.get(f"/api/uploads/{upload_id}").json()
+    assert assessment["verdict"] == "CRITICAL"
+    assert listed["verdict"] == "CRITICAL"
+    assert upload["verdict"] == "CRITICAL"
+
+
+@pytest.mark.asyncio
+async def test_a_database_not_yet_assessed_does_not_count(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    app, _ = await build_app(fresh_pool, tmp_path)
+    upload_id = await _seed_upload_with_briefs(fresh_pool)
+    await upsert_snapshot(
+        fresh_pool,
+        upload_id=upload_id,
+        data={
+            "hostname": "db01",
+            "databases": [{"datname": "app", "severity": "CRITICAL"}],
+        },
+    )
+    with TestClient(app) as client:
+        resp = client.get(f"/api/uploads/{upload_id}/assessment")
+    assert resp.json()["verdict"] == "HEALTHY"
+
+
+@pytest.mark.asyncio
 async def test_assessment_of_unanalysed_upload_has_no_verdict(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:
