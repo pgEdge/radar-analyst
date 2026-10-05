@@ -24,7 +24,7 @@ environment variables that change how the guide runs:
 
 | Variable | Effect |
 |---|---|
-| `WALKTHROUGH_BUILD=1` | This setting makes the guide build the analyst from the checkout. The build takes the published image's name locally. Later runs therefore use the build until you pull the published image again. |
+| `WALKTHROUGH_BUILD=1` | This setting makes the guide build the analyst from the checkout. The build is named `radar-analyst:local`, so a later run without the setting uses the published image again. |
 | `WALKTHROUGH_NO_BROWSER=1` | This setting makes the guide print the console's address instead of opening a browser. |
 | `WALKTHROUGH_NONINTERACTIVE=1` | This setting skips every prompt and takes each default answer. As the one exception, `--down` then removes everything without asking first. |
 | `BROWSER` | This variable names the command that opens the console, in place of the platform's default. |

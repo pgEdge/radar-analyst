@@ -40,6 +40,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - With `WALKTHROUGH_BUILD=1`, the walkthrough guide builds the analyst even
   while an analyst is already running. The guide no longer skips the build and
   keeps the running analyst.
+- An analyst built from the checkout with `docker-compose.build.yml` is named
+  `radar-analyst:local`. A later run without the build overlay therefore uses
+  the published image again.
 
 ## [0.2.0] - 2026-09-29
 

@@ -18,8 +18,7 @@
 #                                 (docker-compose.build.yml) instead of
 #                                 running the published image, so the
 #                                 tour shows the code you have, not the
-#                                 last release; the build takes the
-#                                 published image's name locally
+#                                 last release
 #   WALKTHROUGH_NO_BROWSER=1      print the console's address instead
 #                                 of opening it
 #   WALKTHROUGH_NONINTERACTIVE=1  no prompts: every question takes

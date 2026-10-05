@@ -7,3 +7,7 @@
 services:
   app:
     build: .
+    # A name of its own. Compose runs any local image with the name a
+    # service asks for, so a build under the published name would
+    # stand in for the published image on every run without this file.
+    image: radar-analyst:local
