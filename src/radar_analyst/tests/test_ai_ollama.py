@@ -1,6 +1,7 @@
 """Tests for the Ollama (local) adapter."""
 
 import asyncio
+import logging
 from typing import Any
 
 import ollama
@@ -177,6 +178,30 @@ async def test_concurrency_is_bounded_by_semaphore(
     )
     await asyncio.gather(*(adapter.analyze(req) for _ in range(6)))
     assert max_in_flight <= 2
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "three"])
+async def test_an_unusable_concurrency_gives_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    value: str,
+) -> None:
+    # Zero makes a semaphore that no call can acquire, and a negative
+    # value one that cannot be made at all.
+    _patch_client(monkeypatch, {"message": {"content": "ok"}})
+    monkeypatch.setenv("RADAR_ANALYST_OLLAMA_CONCURRENCY", value)
+    with caplog.at_level(logging.WARNING):
+        adapter = OllamaAdapter(model="m")
+    req = Request(
+        category="X",
+        system_prompt="s",
+        user_prompt="u",
+        cache_static=False,
+    )
+    result = await asyncio.wait_for(adapter.analyze(req), timeout=5.0)
+    assert result.markdown == "ok"
+    assert adapter.concurrency == 3
+    assert "RADAR_ANALYST_OLLAMA_CONCURRENCY" in caplog.text
 
 
 def test_unavailable_reason_is_empty_when_always_available() -> None:

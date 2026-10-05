@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from radar_analyst.ai import DEFAULT_PROVIDER, make
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.blob.localfs import LocalFsStore
+from radar_analyst.env import positive_int_env
 from radar_analyst.layout import (
     admin_token_path,
     data_dir_from_env,
@@ -103,19 +104,6 @@ def parse_listen(value: str) -> tuple[str, int]:
     return host or LOOPBACK_HOST, port
 
 
-def _int_env(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        _logger.warning(
-            "invalid %s=%r, using default %d", name, raw, default
-        )
-        return default
-
-
 def _resolve_admin_token() -> str | None:
     """Return the token that authorises deletes, or None to refuse.
 
@@ -156,7 +144,7 @@ def build_production_app() -> FastAPI:
     # time-series lands around 100–150 MiB compressed. Bump via
     # env for very large instances; shrink where uploads are
     # tightly bounded.
-    max_upload = _int_env(
+    max_upload = positive_int_env(
         "RADAR_ANALYST_MAX_UPLOAD_BYTES", 500 * 1024 * 1024
     )
     provider_name = os.environ.get(

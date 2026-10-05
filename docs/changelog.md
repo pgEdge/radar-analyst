@@ -18,6 +18,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   forever. The stream now sends the final `done` or `error` event and closes.
 - `GET /api/uploads/{id}/assessment` returns status 404 for an upload that does
   not exist, instead of an empty assessment.
+- `RADAR_ANALYST_OLLAMA_CONCURRENCY` and `RADAR_ANALYST_MAX_UPLOAD_BYTES` treat
+  a value that is not a positive integer as invalid. The analyst logs a warning
+  and uses the default. A concurrency of `0` no longer stalls every `local`
+  request, and a negative concurrency no longer fails the assessment.
 
 ## [0.2.0] - 2026-09-29
 

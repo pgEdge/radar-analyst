@@ -1,0 +1,28 @@
+"""What the entrypoint does with a setting that it cannot use."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+import pytest
+
+import radar_analyst.main as main_mod
+
+
+def test_an_unusable_upload_limit_gives_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A limit of zero would refuse every upload.
+    monkeypatch.setenv("RADAR_ANALYST_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("RADAR_ANALYST_BLOB_DIR", raising=False)
+    monkeypatch.setenv(
+        "RADAR_ANALYST_STATE_DB_URL", "postgresql://elsewhere/radar_analyst"
+    )
+    monkeypatch.setenv("RADAR_ANALYST_MAX_UPLOAD_BYTES", "0")
+    with caplog.at_level(logging.WARNING):
+        app = main_mod.build_production_app()
+    assert app.state.max_upload_bytes == 500 * 1024 * 1024
+    assert "RADAR_ANALYST_MAX_UPLOAD_BYTES" in caplog.text

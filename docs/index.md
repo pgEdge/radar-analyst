@@ -250,8 +250,8 @@ following table describes each of these additional settings:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | This variable sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
-| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | This variable sets the maximum number of requests that `local` sends to Ollama at once. Set the variable to a positive integer. The analyst ignores a value that is not an integer. |
+| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | This variable sets the largest upload that the analyst accepts, in bytes. A value that is not a positive integer logs a warning, and the analyst uses the default. |
+| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | This variable sets the maximum number of requests that `local` sends to Ollama at once. A value that is not a positive integer logs a warning, and the analyst uses the default. |
 | `RADAR_ANALYST_LOG_LEVEL` | `INFO` | This variable sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
 
 The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly, as
