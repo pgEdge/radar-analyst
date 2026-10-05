@@ -39,8 +39,8 @@ export interface Finding {
 export interface Brief {
   id: string;
   category: string;
-  provider: string;
-  model: string;
+  provider: string | null;
+  model: string | null;
   verdict: Verdict | null;
   markdown: string;
   prompt_tokens: number | null;

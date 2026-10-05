@@ -136,6 +136,8 @@ async def test_orchestrate_produces_briefs_for_all_categories(
     ):
         assert by_cat[cat_name].verdict == "UNKNOWN"
         assert by_cat[cat_name].prompt_tokens is None
+        assert by_cat[cat_name].provider is None
+        assert by_cat[cat_name].model is None
 
 
 @pytest.mark.asyncio

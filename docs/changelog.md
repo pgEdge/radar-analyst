@@ -29,6 +29,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its database as unhealthy.
 - `GET /api/config` returns the provider that `RADAR_ANALYST_AI_PROVIDER`
   selects in `default`, rather than always `claude`.
+- A brief that no provider wrote no longer names a provider and a model. Such a
+  brief covers a category without data, or follows a provider failure.
 
 ## [0.2.0] - 2026-09-29
 

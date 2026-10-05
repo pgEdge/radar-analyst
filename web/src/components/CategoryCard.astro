@@ -126,6 +126,15 @@
         container.innerHTML = items
           .map(function (a) {
             var tag = (a.verdict || 'UNKNOWN').toUpperCase();
+            // A brief that no provider wrote names none.
+            var writer =
+              a.provider != null
+                ? '<span class="pg-text-muted pg-mono">' +
+                  esc(a.provider) +
+                  ' / ' +
+                  esc(a.model) +
+                  '</span>'
+                : '';
             var tokens =
               a.prompt_tokens != null
                 ? '<span class="pg-text-muted pg-mono">' +
@@ -199,14 +208,12 @@
               findingsBlock +
               sourcesBlock +
               '</div>' +
-              '<footer class="pg-category__meta">' +
-              '<span class="pg-text-muted pg-mono">' +
-              esc(a.provider) +
-              ' / ' +
-              esc(a.model) +
-              '</span>' +
-              tokens +
-              '</footer>' +
+              (writer || tokens
+                ? '<footer class="pg-category__meta">' +
+                  writer +
+                  tokens +
+                  '</footer>'
+                : '') +
               '</details>'
             );
           })

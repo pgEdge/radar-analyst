@@ -148,6 +148,26 @@ async def test_every_brief_keeps_a_verdict_when_the_llm_is_down(
 
 
 @pytest.mark.asyncio
+async def test_no_brief_credits_the_provider_that_failed(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """A provider that never answered wrote none of the briefs."""
+    await apply_migrations(fresh_pool)
+    z = _make_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=DeadAdapter(),
+        hub=SSEHub(),
+    )
+    rows = await list_briefs(fresh_pool, upload_id)
+    assert {(r.provider, r.model) for r in rows} == {(None, None)}
+
+
+@pytest.mark.asyncio
 async def test_per_db_verdict_survives_the_llm_being_down(
     fresh_pool: AsyncConnectionPool, tmp_path: Path
 ) -> None:

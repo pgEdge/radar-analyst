@@ -48,8 +48,8 @@ class Brief:
     id: UUID
     upload_id: UUID
     category: str
-    provider: str
-    model: str
+    provider: str | None
+    model: str | None
     verdict: str | None
     markdown: str
     prompt_tokens: int | None

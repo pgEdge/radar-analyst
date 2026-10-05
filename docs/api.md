@@ -143,8 +143,8 @@ The following table describes the fields of a brief:
 | `verdict` | This field reports the category verdict: `HEALTHY`, `WARNING`, `CRITICAL`, or `UNKNOWN`. |
 | `findings` | This field lists the findings behind the category verdict. |
 | `markdown` | This field holds the text of the brief in Markdown. |
-| `provider` | This field names the provider that the analyst had configured when the analyst stored the brief. |
-| `model` | This field names the model that the analyst had configured when the analyst stored the brief. |
+| `provider` | This field names the provider that wrote the brief. The field is `null` when the category has no data or the provider failed. |
+| `model` | This field names the model that wrote the brief, or `null` when no provider wrote the brief. |
 | `prompt_tokens` | This field holds the input token count that the provider reported, or `null`. |
 | `completion_tokens` | This field holds the output token count that the provider reported, or `null`. |
 | `created_at` | This field holds the time that the analyst stored the brief. |

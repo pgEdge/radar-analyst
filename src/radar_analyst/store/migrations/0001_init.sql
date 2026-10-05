@@ -53,8 +53,8 @@ CREATE TABLE IF NOT EXISTS radar.briefs (
     upload_id UUID NOT NULL
         REFERENCES radar.uploads(id) ON DELETE CASCADE,
     category TEXT NOT NULL,
-    provider TEXT NOT NULL,
-    model TEXT NOT NULL,
+    provider TEXT,
+    model TEXT,
     verdict TEXT,
     markdown TEXT NOT NULL,
     prompt_tokens INT,
@@ -176,9 +176,10 @@ COMMENT ON COLUMN radar.briefs.category IS
     'Diagnostic category, or a per-database key for a '
     'database-level brief.';
 COMMENT ON COLUMN radar.briefs.provider IS
-    'Provider that produced this brief.';
+    'Provider that wrote this brief. Null when no provider wrote it: '
+    'the category had no data, or the provider failed.';
 COMMENT ON COLUMN radar.briefs.model IS
-    'Model that produced this brief.';
+    'Model that wrote this brief. Null when no provider wrote it.';
 COMMENT ON COLUMN radar.briefs.verdict IS
     'HEALTHY, WARNING, or CRITICAL, never below the floor set by '
     'this category''s worst finding. UNKNOWN means the archive '

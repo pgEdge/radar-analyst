@@ -380,6 +380,11 @@ class _CategoryResult:
     prompt_tokens: int | None
     completion_tokens: int | None
     findings: list[Finding]
+    # The provider and model that wrote the markdown, or None for a
+    # brief that no provider wrote: a category without data, or one
+    # whose provider failed.
+    provider: str | None = None
+    model: str | None = None
 
 
 async def _analyze_category(
@@ -418,6 +423,8 @@ async def _analyze_category(
     verdict: str | None
     ptokens: int | None
     ctokens: int | None
+    provider: str | None
+    model: str | None
     try:
         result = await analyzer.analyze(
             Request(
@@ -431,6 +438,7 @@ async def _analyze_category(
         verdict = result.verdict
         ptokens = result.prompt_tokens
         ctokens = result.completion_tokens
+        provider, model = analyzer.name, analyzer.model
     except AIError as e:
         _logger.error("AI failed for %s: %s", cat.name, e)
         markdown = (
@@ -439,6 +447,7 @@ async def _analyze_category(
         verdict = None
         ptokens = None
         ctokens = None
+        provider = model = None
     # Severity floor: the final verdict can never be below the
     # max finding severity. LLMs can ignore calibration prompts;
     # this is the deterministic guard rail. It also carries the
@@ -448,7 +457,7 @@ async def _analyze_category(
         verdict, (f.severity for f in findings)
     )
     return _CategoryResult(
-        markdown, verdict, ptokens, ctokens, findings
+        markdown, verdict, ptokens, ctokens, findings, provider, model
     )
 
 
@@ -561,8 +570,8 @@ async def _analyze_categories(
             brief_id=uuid4(),
             upload_id=upload_id,
             category=cat.name,
-            provider=analyzer.name,
-            model=analyzer.model,
+            provider=result.provider,
+            model=result.model,
             verdict=result.verdict,
             markdown=result.markdown,
             prompt_tokens=result.prompt_tokens,
