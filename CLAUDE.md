@@ -49,6 +49,17 @@ invariants a change must not break.
 - **Tests come first.** Every new function, class, or module begins
   with a failing test, wiring and glue code included. Plain
   `def test_*()` functions, no test classes.
+- **Integration before unit.** Smoke tests, integration tests, and
+  endpoint tests come before unit tests, and every public function
+  still has a unit test. Run `make test` after every change.
+- **Never rig a test.** Never change its timing, ordering or inputs
+  so it stops meeting the case where it fails. A failing test gets a
+  product fix. An assertion is weakened only to a guarantee agreed
+  beforehand, and the change says it is weaker. Before changing a
+  test alongside a fix, confirm the changed test still fails on the
+  unfixed code in every interleaving and input it can meet.
+- **Hand-written fakes.** No mock frameworks: tests define their
+  fakes locally and patch with pytest's `monkeypatch`.
 - **No auto-formatter.** Code is written to comply with the linters;
   `ruff format` is never run.
 - **One new migration file per release.** A git tag freezes the
@@ -57,6 +68,20 @@ invariants a change must not break.
   a database that release created. Schema changes after a tag go
   into one new file, the next in sequence, which may change until
   the next tag.
+- **No ORM.** Plain SQL with parameterized queries.
+- **Derive, don't hardcode.** Don't hardcode lists that can be
+  derived at runtime (for example, column names from `pg_catalog`).
+  Every hardcoded value is a future bug.
+- **One run is not a result.** Briefs and the verdicts a provider
+  proposes vary from run to run, so a prompt or model change is
+  judged over several runs, reporting the spread, before drawing a
+  conclusion.
+- **A dependency workaround is pinned and tested.** It names the
+  dependency and the version it was verified against, and gets a
+  test that runs the dependency without the workaround and fails
+  once the defect is gone. Moving the pin starts by running those
+  tests, and a workaround whose test fails is removed in the same
+  change.
 - **Comments describe the current code**, never its history.
 - **Screenshots follow the console.** A change that alters what the
   user sees in the console, whether in `web/` or in what an
@@ -67,8 +92,25 @@ invariants a change must not break.
   showcase they open is an anonymized real radar collection in
   `data/showcase/`, outside git: every name in it is fake, and
   nothing from it but the screenshots is ever committed.
-- KISS, DRY, stdlib-first, explicit error handling at system
-  boundaries.
+- KISS: the minimum code that does the job. DRY: no repeated logic;
+  extract shared code only when there are at least two real callers.
+  stdlib first, explicit error handling at system boundaries. No
+  speculative abstractions, no backwards-compatibility shims for
+  scenarios that can't happen, no hypothetical-future
+  configurability.
+
+## Working style
+
+- Before making changes that span multiple files, trace the full
+  end-to-end path: where the data comes from, what the code does
+  with it, where it lands, and how the API and the console read it.
+- Don't refactor interfaces (add parameters, rename types) until the
+  concrete scenario works. Test the simple case first, abstract
+  second.
+- When a test fails, read the full error, find the root cause, and
+  make one targeted change.
+- Never use `sudo`. If an operation needs root, tell the user and
+  let them handle it.
 
 ## Vocabulary
 
@@ -109,6 +151,23 @@ describes. Documentation is updated as functionality lands, not
 afterwards. Developer content stays in the root: no
 `docs/contributing.md`, no `docs/code-of-conduct.md`.
 
+ARCHITECTURE.md is reference material, not a work log: brief,
+present tense, no history and no narration of rejected alternatives.
+Keep the rationale that explains the design; cut the journey.
+
+`make docs` runs `mkdocs build --strict`, which must pass with no
+warnings. It passes on a page that nothing links to, so adding,
+renaming or removing a page under `docs/` updates the `mkdocs.yml`
+nav and the README's Table of Contents in the same commit. Apart
+from the README's mirror in `docs/index.md`, each topic has one
+home; when a section moves, fix every anchor that pointed at it.
+
+The changelog's `Fixed` is for bugs that existed in the previous
+release, not for something broken and fixed in the same cycle.
+
+Internal notes (audits, plans, problem lists) stay out of git and
+are never linked from published docs.
+
 ## Where settings live
 
 Change the value in the file that owns it. Do not restate it here.
@@ -143,7 +202,27 @@ and before adding parser or rule support for an archive entry.
   or a plain verb. No `chore:`, no multi-paragraph bodies.
 - No `Co-Authored-By`, and no Claude or AI attribution anywhere in a
   commit.
-- Tags carry the version alone: `v0.1.0`, never "Release v0.1.0".
+- Add specific files by name, never `git add -A` or `git add .`, so
+  a secret or a large binary is never staged by accident.
+- When splitting a commit, land dependency declarations after the
+  code that consumes them: every commit in history is a working
+  state.
+- Never push, force-push, or open a PR without explicit user
+  instruction. Never skip hooks (`--no-verify` and the like) without
+  explicit user instruction.
+- Before `gh pr create`, show the title, the body and the exact
+  commit list, and wait for approval of all three; a branch carries
+  only the commits asked to go through it. Once a PR is open and
+  under review, don't rebase, amend or push its branch without a
+  separate go-ahead.
+- PR bodies are public: state what changes for someone using the
+  analyst (the version, the behaviour, the check that pins it), and
+  never name internal test functions or local CI runs.
+- Fixes that come out of one audit or review pass land on one branch
+  and one PR, one commit per item, never a branch per fix.
+- Tags are 3-part SemVer with the version alone: `v0.1.0`, never
+  "Release v0.1.0". The image tags and the changelog use the same
+  version.
 - Changes go through PRs with at least one peer review, and CI green
   on every PostgreSQL version, before merge.
 - Never commit real hostnames, database names, schema or role names,
