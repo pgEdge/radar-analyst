@@ -11,7 +11,7 @@ export interface Chip {
   tone: Tone;
 }
 
-const RUNNING = new Set(['queued', 'parsing', 'ruling', 'analyzing']);
+const RUNNING = new Set(['queued', 'parsing', 'analyzing']);
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

@@ -57,8 +57,7 @@ export interface Assessment {
 export interface JobState {
   id: string;
   upload_id: string;
-  state:
-    'queued' | 'parsing' | 'ruling' | 'analyzing' | 'done' | 'failed';
+  state: 'queued' | 'parsing' | 'analyzing' | 'done' | 'failed';
   phase: string | null;
   started_at: string | null;
   finished_at: string | null;

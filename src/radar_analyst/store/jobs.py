@@ -13,7 +13,7 @@ from radar_analyst.store.db import execute, fetch_one
 # the rule lives here in code. The orchestrator drives every
 # transition through these states.
 JOB_STATES = frozenset(
-    {"queued", "parsing", "ruling", "analyzing", "done", "failed"}
+    {"queued", "parsing", "analyzing", "done", "failed"}
 )
 
 

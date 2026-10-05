@@ -1,14 +1,17 @@
 """End-to-end tests for the orchestrator (using the mock AI provider)."""
 
 import asyncio
+import contextlib
 import zipfile
 from pathlib import Path
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 from psycopg_pool import AsyncConnectionPool
 
 from radar_analyst.ai.mock import MockAdapter
+from radar_analyst.analyze import orchestrator
 from radar_analyst.analyze.categories import CATEGORIES
 from radar_analyst.analyze.orchestrator import (
     _build_database_summaries,
@@ -20,7 +23,12 @@ from radar_analyst.server.sse import SSEHub
 from radar_analyst.store.briefs import list_briefs
 from radar_analyst.store.db import apply_migrations
 from radar_analyst.store.findings import list_findings
-from radar_analyst.store.jobs import get_job, insert_job
+from radar_analyst.store.jobs import (
+    JOB_STATES,
+    get_job,
+    insert_job,
+    update_job_state,
+)
 from radar_analyst.store.snapshots import get_snapshot
 from radar_analyst.store.uploads import get_upload, insert_upload
 
@@ -318,6 +326,39 @@ async def test_orchestrate_marks_job_failed_on_corrupt_zip(
     assert job.state == "failed"
     assert job.error is not None
     assert "zip" in job.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_every_job_state_is_one_a_job_reaches(
+    fresh_pool: AsyncConnectionPool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The store allows the states a job passes through, and no more."""
+    seen = {"queued"}
+
+    async def recording(
+        pool: AsyncConnectionPool, job_id: UUID, *, state: str, **kw: Any
+    ) -> None:
+        seen.add(state)
+        await update_job_state(pool, job_id, state=state, **kw)
+
+    monkeypatch.setattr(orchestrator, "update_job_state", recording)
+    await apply_migrations(fresh_pool)
+    corrupt = tmp_path / "corrupt.zip"
+    corrupt.write_bytes(b"PK\x03\x04" + b"\x00" * 64)
+    for z in (_make_radar_zip(tmp_path), corrupt):
+        upload_id, job_id = await _seed(fresh_pool, z)
+        with contextlib.suppress(zipfile.BadZipFile):
+            await orchestrate(
+                upload_id=upload_id,
+                job_id=job_id,
+                zip_path=z,
+                pool=fresh_pool,
+                analyzer=MockAdapter(),
+                hub=SSEHub(),
+            )
+    assert seen == JOB_STATES
 
 
 def test_read_and_parse_sets_container_flag(tmp_path: Path) -> None:
