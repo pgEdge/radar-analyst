@@ -206,14 +206,17 @@ def main() -> None:
     """CLI entry: configure logging and serve the listen address."""
     import uvicorn
 
-    logging.basicConfig(
-        level=os.environ.get(
-            "RADAR_ANALYST_LOG_LEVEL", "INFO"
-        ).upper(),
-        format=(
-            "%(asctime)s %(levelname)s %(name)s: %(message)s"
-        ),
-    )
+    try:
+        logging.basicConfig(
+            level=os.environ.get(
+                "RADAR_ANALYST_LOG_LEVEL", "INFO"
+            ).upper(),
+            format=(
+                "%(asctime)s %(levelname)s %(name)s: %(message)s"
+            ),
+        )
+    except ValueError as e:
+        raise SystemExit(f"RADAR_ANALYST_LOG_LEVEL: {e}") from None
     try:
         host, port = parse_listen(
             os.environ.get("RADAR_ANALYST_LISTEN", "")

@@ -22,6 +22,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a value that is not a positive integer as invalid. The analyst logs a warning
   and uses the default. A concurrency of `0` no longer stalls every `local`
   request, and a negative concurrency no longer fails the assessment.
+- An unknown `RADAR_ANALYST_LOG_LEVEL` stops the analyst with a one-line
+  message instead of a traceback.
 
 ## [0.2.0] - 2026-09-29
 

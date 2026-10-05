@@ -26,3 +26,19 @@ def test_an_unusable_upload_limit_gives_the_default(
         app = main_mod.build_production_app()
     assert app.state.max_upload_bytes == 500 * 1024 * 1024
     assert "RADAR_ANALYST_MAX_UPLOAD_BYTES" in caplog.text
+
+
+def test_an_unknown_log_level_stops_with_a_one_line_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(app: str, **kw: object) -> None:
+        raise AssertionError("must not start the server")
+
+    # A fresh process has no handlers on the root logger, and only
+    # then does logging.basicConfig apply the level at all.
+    monkeypatch.setattr(logging.root, "handlers", [])
+    monkeypatch.setenv("RADAR_ANALYST_LOG_LEVEL", "loud")
+    monkeypatch.setattr("uvicorn.run", fake_run)
+    with pytest.raises(SystemExit) as stopped:
+        main_mod.main()
+    assert "RADAR_ANALYST_LOG_LEVEL" in str(stopped.value)
