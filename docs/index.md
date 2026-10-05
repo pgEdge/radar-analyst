@@ -389,6 +389,9 @@ itself at `/openapi.json`.
 For more information about pgEdge products, visit
 [docs.pgedge.com](https://docs.pgedge.com).
 
+The [Troubleshooting](troubleshooting.md) page describes common problems and
+how to solve each one.
+
 To report an issue or request a feature, visit
 [GitHub Issues](https://github.com/pgEdge/radar-analyst/issues). To report a
 security vulnerability, follow the

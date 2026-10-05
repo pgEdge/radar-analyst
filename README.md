@@ -25,6 +25,7 @@ The pgEdge Radar Analyst documentation includes:
 - [Using the API](#using-the-api)
     - [API Reference](docs/api.md)
     - [API Browser](docs/api/browser.md)
+- [Troubleshooting](docs/troubleshooting.md)
 - [Documentation](#documentation)
 - [Support & Resources](#support--resources)
 - [Developing the Analyst](#developing-the-analyst)
@@ -431,6 +432,9 @@ pgEdge products.
 
 For more information about pgEdge products, visit
 [docs.pgedge.com](https://docs.pgedge.com).
+
+The [Troubleshooting](docs/troubleshooting.md) page describes common problems
+and how to solve each one.
 
 To report an issue or request a feature, visit
 [GitHub Issues](https://github.com/pgEdge/radar-analyst/issues). To report a

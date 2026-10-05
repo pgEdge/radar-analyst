@@ -62,5 +62,6 @@ nav:
   - For Developers:
       - API Reference: api.md
       - API Browser: api/browser.md
+  - Troubleshooting: troubleshooting.md
   - Changelog: changelog.md
   - License: LICENSE.md
