@@ -354,6 +354,19 @@ async def test_get_config_lists_providers(
 
 
 @pytest.mark.asyncio
+async def test_get_config_names_the_configured_provider_as_default(
+    fresh_pool: AsyncConnectionPool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RADAR_ANALYST_AI_PROVIDER", "gemini")
+    app, _ = await build_app(fresh_pool, tmp_path)
+    with TestClient(app) as client:
+        resp = client.get("/api/config")
+    assert resp.json()["default"] == "gemini"
+
+
+@pytest.mark.asyncio
 async def test_get_config_marks_openai_available_with_key(
     fresh_pool: AsyncConnectionPool,
     tmp_path: Path,

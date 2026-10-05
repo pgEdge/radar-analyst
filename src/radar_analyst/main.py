@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from radar_analyst.ai import DEFAULT_PROVIDER, make
+from radar_analyst.ai import configured_provider, make
 from radar_analyst.analyze.runner import JobRunner
 from radar_analyst.blob.localfs import LocalFsStore
 from radar_analyst.env import positive_int_env
@@ -147,9 +147,7 @@ def build_production_app() -> FastAPI:
     max_upload = positive_int_env(
         "RADAR_ANALYST_MAX_UPLOAD_BYTES", 500 * 1024 * 1024
     )
-    provider_name = os.environ.get(
-        "RADAR_ANALYST_AI_PROVIDER", DEFAULT_PROVIDER
-    )
+    provider_name = configured_provider()
     admin_token = _resolve_admin_token()
 
     app = create_app(

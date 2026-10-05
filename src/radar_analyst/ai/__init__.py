@@ -82,9 +82,15 @@ def make(name: str) -> Analyzer:
     raise ValueError(f"unknown AI provider: {name}")
 
 
+def configured_provider() -> str:
+    """Name the provider that RADAR_ANALYST_AI_PROVIDER selects."""
+    return os.environ.get("RADAR_ANALYST_AI_PROVIDER", DEFAULT_PROVIDER)
+
+
 __all__ = [
     "DEFAULT_PROVIDER",
     "ProviderInfo",
+    "configured_provider",
     "make",
     "providers",
 ]

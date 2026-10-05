@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from radar_analyst.ai import DEFAULT_PROVIDER, providers
+from radar_analyst.ai import configured_provider, providers
 
 
 router = APIRouter(prefix="/api", tags=["config"])
@@ -36,5 +36,5 @@ def get_config() -> dict[str, Any]:
         items.append(entry)
     return {
         "providers": items,
-        "default": DEFAULT_PROVIDER,
+        "default": configured_provider(),
     }

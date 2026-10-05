@@ -27,6 +27,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `/readyz` queries the database and returns status 503 when the database does
   not answer. The image's healthcheck therefore reports an analyst that lost
   its database as unhealthy.
+- `GET /api/config` returns the provider that `RADAR_ANALYST_AI_PROVIDER`
+  selects in `default`, rather than always `claude`.
 
 ## [0.2.0] - 2026-09-29
 

@@ -221,7 +221,8 @@ stop as `failed`. The `error` field of each such job explains the interruption.
 ## Providers
 
 `GET /api/config` lists the providers in `providers` and returns `default`, the
-provider that the analyst uses when `RADAR_ANALYST_AI_PROVIDER` is unset. Each
+provider that the analyst uses for new assessments. `RADAR_ANALYST_AI_PROVIDER`
+selects that provider, which is `claude` when the variable is unset. Each
 provider entry has a `name`, a `label`, an `available` flag, and a `model`. The
 provider names are `claude`, `gemini`, `openai`, and `local`. An unavailable
 provider also has a `reason`, which names the missing setting. The `local`
