@@ -1,7 +1,7 @@
 # API Reference
 
 The console reads everything that it displays from the JSON API that this page
-describes, and any other client can use the same endpoints. The
+describes. Any other client can use the same endpoints. The
 [openapi.json](openapi.json) file contains the machine-readable description,
 which the analyst generates from its routes. A running analyst serves the same
 description at `/openapi.json`, with interactive browsers at
@@ -37,8 +37,8 @@ archive. For an upload larger than the limit in
 
 To follow a job without polling, read `GET /api/jobs/{id}/events`, which
 streams the job's progress as Server-Sent Events. The stream sends each event
-as an unnamed message whose `data` field holds a JSON object, and the object's
-`type` field names the event:
+as an unnamed message whose `data` field holds a JSON object. The object's
+`type` field names the event, which is one of the following:
 
 - `phase` marks the start of a stage and describes the stage in a `phase`
   field.
@@ -100,7 +100,7 @@ each upload. The following table describes the fields of an upload:
 | `archive_timestamp` | Records the collection time from the archive's name. |
 | `created_at` | Records the upload time. |
 | `state` | Reports the state of the most recent job for the upload. |
-| `verdict` | Reports the roll-up verdict over the category briefs and the assessed databases, which is `null` until the analyst stores the first brief. |
+| `verdict` | Reports the roll-up verdict over the category briefs and the assessed databases. The verdict is `null` until the analyst stores the first brief. |
 
 The analyst reads `hostname` and `archive_timestamp` from the archive's name at
 upload. Once the analyst has read the archive, the analyst replaces `hostname`
@@ -184,17 +184,18 @@ analyst sends `.tsv` entries as `text/tab-separated-values` and `.out`,
 `.conf`, `.done`, and `.txt` entries as `text/plain`. Every other entry has the
 type `application/octet-stream`.
 
-The listing acts as an allowlist. The analyst refuses any path outside the
-listing with status 404, including any path traversal attempt.
+The listing acts as an allowlist for `GET /api/uploads/{id}/files/{path}`. The
+analyst refuses any path outside the listing with status 404, including any
+path traversal attempt.
 
 ## Deleting an Upload
 
 `DELETE /api/uploads/{id}` requires the admin token as a bearer credential in
 the `Authorization` header. The request removes the upload, the assessment, and
 the stored archive, and returns status 204. The analyst refuses a request
-without a valid token with status 401. When the analyst has no admin token, for
-example because the data directory is not writable, the analyst refuses every
-delete with status 503. The
+without a valid token with status 401. When the analyst has no admin token, the
+analyst refuses every delete with status 503. This happens, for example, when
+the data directory is not writable. The
 [Deleting an Assessment](index.md#deleting-an-assessment) section describes
 where the admin token comes from. The following command deletes an upload with
 the token in `TOKEN`:
@@ -214,7 +215,7 @@ job that an upload starts. While a job for the upload is queued or in progress,
 the analyst refuses the request with status 409.
 
 At startup, the analyst marks every job that had not finished at the previous
-stop as `failed`, with an `error` that explains the interruption.
+stop as `failed`. The job's `error` field explains the interruption.
 
 ## Providers
 

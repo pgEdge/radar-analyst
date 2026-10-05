@@ -26,9 +26,9 @@ README describes the prerequisites, the build, and the tests.
 A pull request should meet the following guidelines:
 
 - The pull request contains one logical change.
-- The pull request title uses the same prefix as a commit message: `fix:`,
-  `feat:`, `build:`, `deps:`, `refactor:`, `test:`, `docs:`, or a plain verb,
-  but never `chore:`.
+- The pull request title uses a commit message prefix: `fix:`, `feat:`,
+  `build:`, `deps:`, `refactor:`, `test:`, or `docs:`. A title can also start
+  with a plain verb, but never with `chore:`.
 - New functionality comes with tests.
 - A change in behavior comes with the matching documentation update.
 - A change to what the console displays comes with new screenshots from

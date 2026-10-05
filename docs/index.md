@@ -42,16 +42,16 @@ The assessment also includes a card for each database on the server. Template
 databases and databases that accept no connections have no card. The card for a
 database with findings lists those findings and includes a brief for that
 database. The card for a database without findings reads "No issues observed
-for this database." Each database card shows a verdict of its own, which counts
-toward the overall verdict once the analyst has assessed the databases.
+for this database." Each database card shows a verdict of its own. That verdict
+counts toward the overall verdict once the analyst has assessed the databases.
 
-Findings are the issues that the analyst detects in the archive. Findings are
-deterministic. The same archive always produces the same findings. A provider
-writes each brief and proposes a verdict along with the brief. The analyst
-keeps a proposed verdict only when that verdict is at least as severe as the
-worst finding. A provider can therefore raise a verdict but never lower one.
-Without a provider, or when the provider fails, the findings alone decide each
-verdict, and the briefs that a provider writes read as unavailable. The
+Findings are the issues that the analyst's deterministic rules detect in the
+archive. The same archive always produces the same findings. A provider writes
+each brief and proposes a verdict along with the brief. The analyst keeps a
+proposed verdict only when that verdict is at least as severe as the worst
+finding. A provider can therefore raise a verdict but never lower one. Without
+a provider, or when the provider fails, the findings alone decide each verdict.
+In that case, the briefs read as unavailable. The
 [Adding a Provider for the Briefs](#adding-a-provider-for-the-briefs) section
 describes the supported providers.
 
@@ -90,12 +90,13 @@ from an empty directory to a finished assessment.
 
 From a clone of the
 [pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst) repository, the
-following command runs the same tour interactively and opens the console for
-you:
+following command runs the same tour interactively:
 
 ```bash
 bash examples/walkthrough/guide.sh
 ```
+
+The guide also opens the console for you.
 
 To assess an archive in the console, perform the following steps:
 
@@ -131,9 +132,10 @@ The analyst derives the findings, and a verdict for every category, from the
 archive itself. A provider writes the briefs and can raise a verdict, as
 [Understanding an Assessment](#understanding-an-assessment) describes. To add a
 provider, set `RADAR_ANALYST_AI_PROVIDER` and the provider's credential in a
-`.env` file beside `docker-compose.yml`, then start the analyst again. The
-default provider, `claude`, needs only a credential. Add the following line to
-the `.env` file, and create the file if the file does not exist:
+`.env` file beside `docker-compose.yml`. Then start the analyst again to apply
+the settings. The default provider, `claude`, needs only a credential. Add the
+following line to the `.env` file, and create the file if the file does not
+exist:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
@@ -191,9 +193,9 @@ OPENAI_API_KEY=unused
 OPENAI_MODEL=Qwen/Qwen3-32B
 ```
 
-Because the analyst runs in a container, `localhost` in `OPENAI_BASE_URL`
-refers to the analyst's container rather than the machine that runs Docker. Use
-an address that the analyst's container can reach.
+Inside the analyst's container, `localhost` in `OPENAI_BASE_URL` refers to that
+container rather than the machine that runs Docker. Use an address that the
+analyst's container can reach.
 
 ### Using a Local Ollama Server
 
@@ -209,8 +211,8 @@ RADAR_ANALYST_AI_PROVIDER=local
 The compose file sets `RADAR_ANALYST_OLLAMA_HOST` to
 `http://host.docker.internal:11434`, which addresses an Ollama server on the
 machine that runs Docker. The compose file maps the `host.docker.internal` name
-itself, so the name resolves on both Docker Desktop and Docker Engine for
-Linux. On Docker Engine for Linux, the Ollama server must also listen on an
+itself. The name therefore resolves on both Docker Desktop and Docker Engine
+for Linux. On Docker Engine for Linux, the Ollama server must also listen on an
 address that containers can reach. Ollama listens only on `127.0.0.1` by
 default, and the `OLLAMA_HOST` environment variable of the Ollama server
 changes that address. To use a different Ollama server, set
@@ -233,28 +235,30 @@ the GPU. The model runs more slowly on a GPU with less memory.
 The analyst stores its assessments in PostgreSQL. The compose file includes a
 database for this purpose, but the analyst can use an existing PostgreSQL
 server instead. The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly and
-ignores any value in `.env`. To use your own server, change the
+ignores any value in `.env`. To use your own server, edit the
 `RADAR_ANALYST_STATE_DB_URL` entry under the `app` service in
-`docker-compose.yml` to the connection URL of your database:
+`docker-compose.yml`. Set the entry to the connection URL of your database:
 
 ```yaml
       RADAR_ANALYST_STATE_DB_URL: >-
         postgresql://radar_analyst:PASSWORD@db.example.com/radar_analyst?sslmode=require
 ```
 
-To stop running the bundled database, also remove the `db` service and the
-`depends_on` entry that waits for the `db` service.
+To stop running the bundled database, also remove the `db` service from the
+compose file. Then remove the `depends_on` entry that waits for the `db`
+service.
 
 This database holds only the analyst's own state and is never the server under
 assessment. The database must meet two conditions:
 
-- The database uses the UTF8 encoding. Under SQL_ASCII, PostgreSQL returns text
-  as raw bytes, so the analyst refuses to start rather than misread its own
-  rows. Any other encoding logs a warning at startup, because that encoding may
-  not represent all text in a radar archive correctly.
-- The role in the URL has the `CREATE` privilege on the database, because the
-  analyst creates a `radar` schema at startup and keeps all of its tables
-  there.
+- The database uses the UTF8 encoding, which the analyst checks at startup.
+  Under SQL_ASCII, PostgreSQL returns text as raw bytes, so the analyst refuses
+  to start rather than misread its own rows. With any other encoding, the
+  analyst logs a warning. Such an encoding may not represent all text in a
+  radar archive correctly.
+- The role in the URL has the `CREATE` privilege on the database. The analyst
+  needs the privilege because the analyst creates a `radar` schema for all of
+  its tables at startup.
 
 ## Managing Your Data
 
@@ -267,17 +271,17 @@ the contents of each volume:
 | `archives` | Holds the uploaded radar archives and the admin token. |
 | `sock` | Holds the socket that the analyst uses to connect to the database. |
 
-The volumes outlive the containers. Running `docker compose down` or pulling a
-newer image leaves the volumes in place, but `docker compose down -v` deletes
-the volumes permanently.
+The volumes outlive the containers, so running `docker compose down` or pulling
+a newer image leaves the volumes in place. However, `docker compose down -v`
+deletes the volumes permanently.
 
 Each service writes its log to the container output, which
 `docker compose logs` displays. Docker keeps at most three 10 MB log files for
-each service, so each service uses no more than 30 MB for logs.
+each service. Each service therefore uses no more than 30 MB for logs.
 
-To keep the uploaded archives in a directory on the host, replace the
-`archives` volume of the `app` service with that directory. Keep the `sock`
-volume, as the following example shows:
+To keep the uploaded archives in a host directory, replace the `archives`
+volume of the `app` service with that directory. Keep the `sock` volume, as the
+following example shows:
 
 ```yaml
     volumes:
@@ -365,9 +369,9 @@ describes.
 
 The console reads everything that it displays from a JSON API, and any other
 client can use the same endpoints. The [API reference](api.md) describes each
-endpoint. A running analyst serves an interactive API browser at
-[http://localhost:8080/docs](http://localhost:8080/docs) and the OpenAPI
-description at `/openapi.json`.
+endpoint that the API provides. A running analyst serves an interactive API
+browser at [http://localhost:8080/docs](http://localhost:8080/docs) and the
+OpenAPI description at `/openapi.json`.
 
 ## Support & Resources
 
