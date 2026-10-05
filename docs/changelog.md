@@ -37,6 +37,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The `parsed_kinds` field of the archive details lists only the kinds of data
   read from the archive. The field no longer lists `sys.is_container` and
   `sys.cloud_provider`, which the analyst derives.
+- With `WALKTHROUGH_BUILD=1`, the walkthrough guide builds the analyst even
+  while an analyst is already running. The guide no longer skips the build and
+  keeps the running analyst.
 
 ## [0.2.0] - 2026-09-29
 

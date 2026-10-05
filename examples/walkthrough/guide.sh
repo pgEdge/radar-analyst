@@ -155,7 +155,9 @@ if [ "${WALKTHROUGH_BUILD:-0}" = 1 ]; then
     explain "  ${DIM}Building the analyst from this checkout rather than pulling the published image${RESET}"
 fi
 
-if [ -n "$("${COMPOSE[@]}" ps -q --status running app 2>/dev/null)" ]; then
+# A requested build replaces a running analyst rather than reusing it.
+if [ "${WALKTHROUGH_BUILD:-0}" != 1 ] \
+    && [ -n "$("${COMPOSE[@]}" ps -q --status running app 2>/dev/null)" ]; then
     echo ""
     info "The analyst is already running, so there is nothing to start."
 else

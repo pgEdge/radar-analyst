@@ -308,6 +308,19 @@ def test_build_mode_builds_the_analyst_from_the_checkout(
     assert "docker compose" in proc.stdout and "--build" in proc.stdout
 
 
+def test_build_mode_builds_even_when_the_analyst_is_running(
+    sandbox: Sandbox,
+) -> None:
+    """A requested build replaces the running analyst."""
+    proc = sandbox.run(WALKTHROUGH_BUILD="1", STUB_RUNNING="1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    build = _REPO_ROOT / "docker-compose.build.yml"
+    calls = sandbox.docker_calls()
+    assert (
+        f"compose -f {_COMPOSE} -f {build} up -d --build --wait" in calls
+    ), calls
+
+
 def test_without_build_mode_the_published_image_is_used(
     sandbox: Sandbox,
 ) -> None:

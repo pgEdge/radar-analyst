@@ -30,7 +30,8 @@ environment variables that change how the guide runs:
 | `BROWSER` | This variable names the command that opens the console, in place of the platform's default. |
 
 If an analyst is already running, the guide uses the running analyst instead of
-starting another. The guide reads the `.env` file beside the clone's
+starting another. With `WALKTHROUGH_BUILD=1`, the guide builds the analyst and
+replaces the running one. The guide reads the `.env` file beside the clone's
 `docker-compose.yml`. The guide also offers to write a sample archive,
 `radar-sample.zip`, to the current directory. On Linux, the guide opens a
 browser only in a graphical session and otherwise prints the console's address.
