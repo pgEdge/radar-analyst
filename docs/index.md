@@ -46,7 +46,7 @@ for this database." Each database card shows a verdict of its own, which counts
 toward the overall verdict once the analyst has assessed the databases.
 
 Findings are the issues that the analyst detects in the archive. Findings are
-deterministic; the same archive always produces the same findings. A provider
+deterministic. The same archive always produces the same findings. A provider
 writes each brief and proposes a verdict along with the brief. The analyst
 keeps a proposed verdict only when that verdict is at least as severe as the
 worst finding. A provider can therefore raise a verdict but never lower one.
@@ -121,7 +121,7 @@ collection time.
 ![The console's front page: the upload bar, and the list of assessments with each host, its collection time, and its verdict](img/console-front-page-dark.jpg#only-dark)
 
 To redo an assessment from the stored archive, open the assessment, press
-Assess again, and confirm; the new result replaces the previous result.
+Assess again, and confirm. The new result replaces the previous result.
 Assessing again is useful after you configure a provider, or after a stop
 interrupts an assessment.
 
@@ -165,7 +165,7 @@ The `claude` and `gemini` providers always use the default model in the table.
 The `OPENAI_MODEL` setting selects the model for `openai`, and
 `RADAR_ANALYST_OLLAMA_MODEL` selects the model for `local`. Every provider
 other than `claude` also needs `RADAR_ANALYST_AI_PROVIDER` set to the
-provider's name; the following `.env` lines select Google AI Studio:
+provider's name. The following `.env` lines select Google AI Studio:
 
 ```bash
 RADAR_ANALYST_AI_PROVIDER=gemini
@@ -226,7 +226,7 @@ ollama pull gemma4:e4b
 ```
 
 The default model needs approximately 10 GB of GPU memory to run entirely on
-the GPU; the model runs more slowly on a GPU with less memory.
+the GPU. The model runs more slowly on a GPU with less memory.
 
 ## Using Your Own PostgreSQL Server
 
@@ -307,7 +307,7 @@ docker compose start
 
 Compose prefixes each volume name with the name of the directory that holds the
 compose file. These commands therefore assume a directory named
-`radar-analyst`; run `docker volume ls` to list the actual volume names.
+`radar-analyst`. Run `docker volume ls` to list the actual volume names.
 
 ### Deleting an Assessment
 

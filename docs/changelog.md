@@ -35,7 +35,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   planner statistics can cause poor row estimates.
 - A new finding reports a replication slot that retains a large amount of
   write-ahead log (WAL). The finding detects a slot whose consumer is connected
-  but falling behind; the earlier slot findings covered only a missing
+  but falling behind. The earlier slot findings covered only a missing
   consumer.
 - The assessment notes unlogged tables on hosts that replicate, because
   PostgreSQL truncates unlogged tables during crash recovery and never sends
@@ -75,7 +75,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   percentage sent, and an Uploading state on the button. A refused upload shows
   the analyst's reason beside the button.
 - The analyst requires version 1.x of the `anthropic` Python library.
-  Installing from source requires `anthropic>=1,<2`; the container image
+  Installing from source requires `anthropic>=1,<2`. The container image
   already includes the correct version.
 - The analyst keeps uploaded radar archives under `archives/` in the data
   directory, alongside the admin token.
@@ -105,4 +105,4 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Anthropic, Google Gemini, OpenAI, any OpenAI-compatible endpoint, and a local
   Ollama server can write the briefs.
 - The verdicts still return when no provider is reachable, because the
-  deterministic findings decide the verdicts; only the briefs are missing.
+  deterministic findings decide the verdicts. Only the briefs are missing.

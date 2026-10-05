@@ -61,7 +61,7 @@ recent assessments. On a new installation, the list of assessments is empty.
 ## Taking a Radar Collection
 
 A radar archive is the input that the analyst assesses. Radar collects the
-archive on the PostgreSQL host; the archive contains metadata about the machine
+archive on the PostgreSQL host. The archive contains metadata about the machine
 and the server, never table contents or query results.
 
 Download the radar binary for the host's platform from
@@ -132,7 +132,7 @@ databases and databases that accept no connections.
 
 The analyst derives the findings from the archive alone, so the findings and a
 verdict for every category always appear. A provider writes the briefs, and a
-provider is optional; without a provider, the briefs that a provider writes
+provider is optional. Without a provider, the briefs that a provider writes
 read as unavailable. The
 [examples/compose.env](https://github.com/pgEdge/radar-analyst/blob/main/examples/compose.env)
 file is a commented template for a `.env` file beside `docker-compose.yml`,
@@ -156,7 +156,7 @@ section describes the other providers, which also need
 `RADAR_ANALYST_AI_PROVIDER`.
 
 An assessment made before you add a provider keeps the findings and verdicts.
-To add the briefs, open the assessment, press Assess again, and confirm; the
+To add the briefs, open the assessment, press Assess again, and confirm. The
 analyst then writes the briefs from the stored archive.
 
 The console's front page lists the 50 most recent uploads, and you can open any
@@ -185,7 +185,7 @@ The following table describes the commands that stop or remove the analyst:
 
 | Command | Effect |
 |---|---|
-| `docker compose stop` | Stops the containers; `docker compose start` starts the containers again. |
+| `docker compose stop` | Stops the containers. `docker compose start` starts the containers again. |
 | `docker compose down` | Removes the containers and keeps every assessment. |
 | `docker compose down -v` | Removes the containers and permanently deletes every assessment and archive. |
 

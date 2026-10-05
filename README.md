@@ -76,7 +76,7 @@ for this database." Each database card shows a verdict of its own, which counts
 toward the overall verdict once the analyst has assessed the databases.
 
 Findings are the issues that the analyst detects in the archive. Findings are
-deterministic; the same archive always produces the same findings. A provider
+deterministic. The same archive always produces the same findings. A provider
 writes each brief and proposes a verdict along with the brief. The analyst
 keeps a proposed verdict only when that verdict is at least as severe as the
 worst finding. A provider can therefore raise a verdict but never lower one.
@@ -153,7 +153,7 @@ collection time.
 </picture>
 
 To redo an assessment from the stored archive, open the assessment, press
-Assess again, and confirm; the new result replaces the previous result.
+Assess again, and confirm. The new result replaces the previous result.
 Assessing again is useful after you configure a provider, or after a stop
 interrupts an assessment.
 
@@ -196,7 +196,7 @@ The `claude` and `gemini` providers always use the default model in the table.
 The `OPENAI_MODEL` setting selects the model for `openai`, and
 `RADAR_ANALYST_OLLAMA_MODEL` selects the model for `local`. Every provider
 other than `claude` also needs `RADAR_ANALYST_AI_PROVIDER` set to the
-provider's name; the following `.env` lines select Google AI Studio:
+provider's name. The following `.env` lines select Google AI Studio:
 
 ```bash
 RADAR_ANALYST_AI_PROVIDER=gemini
@@ -257,7 +257,7 @@ ollama pull gemma4:e4b
 ```
 
 The default model needs approximately 10 GB of GPU memory to run entirely on
-the GPU; the model runs more slowly on a GPU with less memory.
+the GPU. The model runs more slowly on a GPU with less memory.
 
 ## Using Your Own PostgreSQL Server
 
@@ -338,7 +338,7 @@ docker compose start
 
 Compose prefixes each volume name with the name of the directory that holds the
 compose file. These commands therefore assume a directory named
-`radar-analyst`; run `docker volume ls` to list the actual volume names.
+`radar-analyst`. Run `docker volume ls` to list the actual volume names.
 
 ### Deleting an Assessment
 
@@ -484,7 +484,7 @@ interface. The compose file keeps the analyst local by publishing the port on
 ### Running the Tests
 
 The tests run against the same pgEdge Postgres image as the deployment, in
-containers that [Testcontainers](https://testcontainers.com/) starts; the tests
+containers that [Testcontainers](https://testcontainers.com/) starts. The tests
 therefore require Docker. The `RADAR_ANALYST_PG_MAJOR` variable selects the
 PostgreSQL version and defaults to 18. The following commands run the tests at
 increasing depth:
@@ -564,7 +564,7 @@ assessment in the light and dark themes. At exit, the command removes the stack
 and the stack's volumes.
 
 The repository does not include the showcase, because the showcase comes from a
-real server. Any anonymized radar collection can replace the showcase; set
+real server. Any anonymized radar collection can replace the showcase. Set
 `SHOWCASE_ARCHIVE` to the path of that collection.
 
 The command requires Docker, curl, Node.js 22 or later, Chromium or Chrome, and
@@ -589,7 +589,7 @@ The [changelog](docs/changelog.md) lists the changes in each release.
 
 ## Contributing
 
-We welcome your project contributions; for more information, see
+We welcome your project contributions. For more information, see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Author

@@ -165,8 +165,8 @@ archive. The response contains the following fields:
 - `pg_version` and `pg_started` describe the PostgreSQL server, and
   `radar_version` and `radar_commit` describe the radar release that took the
   collection.
-- `databases` lists each database with the database's counters and findings;
-  each database's `brief_markdown` and `brief_verdict` appear once the analyst
+- `databases` lists each database with the database's counters and findings.
+  Each database's `brief_markdown` and `brief_verdict` appear once the analyst
   has assessed the databases.
 - `parsed_kinds` names the kinds of data that the analyst read from the
   archive.
@@ -184,7 +184,7 @@ analyst sends `.tsv` entries as `text/tab-separated-values` and `.out`,
 `.conf`, `.done`, and `.txt` entries as `text/plain`. Every other entry has the
 type `application/octet-stream`.
 
-The listing acts as an allowlist; the analyst refuses any path outside the
+The listing acts as an allowlist. The analyst refuses any path outside the
 listing with status 404, including any path traversal attempt.
 
 ## Deleting an Upload

@@ -5,7 +5,7 @@ interactive guide to the analyst. The following table describes each example:
 
 | Path | Purpose |
 |---|---|
-| `compose.env` | Provides a commented `.env` file for `docker compose up -d --wait`; every setting in the file is optional. |
+| `compose.env` | Provides a commented `.env` file for `docker compose up -d --wait`. Every setting in the file is optional. |
 | `walkthrough/guide.sh` | Runs a guided first look at the analyst, from starting the analyst to assessing a radar collection. |
 
 To use the settings template, copy `compose.env` to `.env` beside
