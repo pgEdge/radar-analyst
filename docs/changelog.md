@@ -14,6 +14,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   verdict. A critical finding in one database no longer leaves the overall
   verdict better than that database's verdict. Data-page checksum failures are
   one example of such a finding.
+- A progress stream opened as an assessment finished no longer stays open
+  forever. The stream now sends the final `done` or `error` event and closes.
 
 ## [0.2.0] - 2026-09-29
 

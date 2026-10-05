@@ -7,11 +7,13 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from psycopg_pool import AsyncConnectionPool
 from sse_starlette.sse import EventSourceResponse
 
 from radar_analyst.model import Job
-from radar_analyst.server.deps import get_sse_hub, require_job
+from radar_analyst.server.deps import get_pool, get_sse_hub, require_job
 from radar_analyst.server.sse import SSEHub
+from radar_analyst.store.jobs import get_job
 
 
 router = APIRouter(prefix="/api", tags=["jobs"])
@@ -46,29 +48,32 @@ async def get_job_status(
 async def stream_job_events(
     job: Job = Depends(require_job),
     hub: SSEHub = Depends(get_sse_hub),
+    pool: AsyncConnectionPool = Depends(get_pool),
 ) -> EventSourceResponse:
     """Progress-event stream for one job."""
     async def gen() -> AsyncIterator[dict[str, str]]:
-        # If the job already finished, emit one terminal event and
-        # close: there's no live stream to join and we don't want
-        # the client to hang.
         """Yield the job's events, replaying terminal states."""
-        if job.state == "done":
-            yield {"data": json.dumps({"type": "done"})}
-            return
-        if job.state == "failed":
-            yield {
-                "data": json.dumps(
-                    {
-                        "type": "error",
-                        "message": (
-                            job.error or "job failed"
-                        ),
-                    }
-                )
-            }
-            return
         async with hub.subscribe(job.id) as sub:
+            # Read the state only once subscribed. A job saves its
+            # final state before it publishes the final event, so a
+            # job that finished since the lookup is seen here, and
+            # one that finishes later reaches the subscription.
+            current = await get_job(pool, job.id)
+            if current is not None and current.state == "done":
+                yield {"data": json.dumps({"type": "done"})}
+                return
+            if current is None or current.state == "failed":
+                message = (
+                    current.error or "job failed"
+                    if current is not None
+                    else "job not found"
+                )
+                yield {
+                    "data": json.dumps(
+                        {"type": "error", "message": message}
+                    )
+                }
+                return
             async for event in sub.events():
                 yield {"data": json.dumps(event)}
 
