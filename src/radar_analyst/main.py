@@ -161,7 +161,6 @@ def build_production_app() -> FastAPI:
         _: FastAPI,
     ) -> AsyncGenerator[None, None]:
         """Open the pool, run migrations, and wire the job runner."""
-        _logger.info("connecting to %s", dsn)
         pool = await create_pool(dsn)
         await check_encoding(pool)
         await apply_migrations(pool)

@@ -174,6 +174,7 @@ async def create_pool(
     wait_seconds: float = DEFAULT_WAIT_SECONDS,
 ) -> AsyncConnectionPool:
     """Create and open an async connection pool against *dsn*."""
+    _logger.info("connecting to %s", _describe(dsn))
     await wait_for_server(dsn, timeout=wait_seconds)
     pool: AsyncConnectionPool = AsyncConnectionPool(
         dsn,

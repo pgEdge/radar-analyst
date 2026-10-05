@@ -44,6 +44,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `radar-analyst:local`. A later run without the build overlay therefore uses
   the published image again.
 
+### Security
+
+- The analyst no longer writes the database password to its log at startup. The
+  startup log names only the host and port of the database.
+
 ## [0.2.0] - 2026-09-29
 
 ### Added
