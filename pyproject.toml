@@ -33,7 +33,6 @@ dev = [
     "pytest-asyncio>=0.24",
     "flake8>=7.1",
     "mypy>=1.13",
-    "respx>=0.21",
     "ruff>=0.16",
     "pyright>=1.1.400",
     "pytest-cov>=6.0",
