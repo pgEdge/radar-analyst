@@ -13,13 +13,14 @@ serves the same description at `/openapi.json`, with interactive browsers at
 
 An assessment through the API takes the following steps:
 
-1. Upload the archive with `POST /api/uploads`. The request sends the radar
-   archive as a multipart form field named `file`. The analyst stores the
-   archive and returns `{upload_id, job_id}` with status 201.
+1. Upload the radar archive with a `POST /api/uploads` request. The request
+   sends the radar archive as a multipart form field named `file`. The analyst
+   stores the archive and returns `{upload_id, job_id}` with status 201.
 2. Follow the job with `GET /api/jobs/{id}` until the job's `state` is `done`
    or `failed`. The [Jobs](#jobs) section describes the fields of a job.
-3. Read the result with `GET /api/uploads/{id}/assessment`. The
-   [Assessments](#assessments) section describes the response.
+3. Read the finished result with a `GET /api/uploads/{id}/assessment` request.
+   The [Assessments](#assessments) section describes the fields of the
+   response.
 
 The following commands upload an archive, report the state of the job, and read
 the finished assessment:
@@ -65,20 +66,20 @@ The following table lists every endpoint:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/uploads` | Uploads an archive and starts the assessment. |
-| `GET` | `/api/uploads?limit=&offset=` | Lists the uploads, newest first. |
-| `GET` | `/api/uploads/{id}` | Returns one upload. |
-| `DELETE` | `/api/uploads/{id}` | Deletes an upload, the assessment, and the stored archive. |
-| `POST` | `/api/uploads/{id}/assess` | Assesses the upload again from the stored archive. |
-| `GET` | `/api/uploads/{id}/snapshot` | Returns the details that the analyst read from the archive. |
-| `GET` | `/api/uploads/{id}/assessment` | Returns the verdict and the briefs. |
-| `GET` | `/api/uploads/{id}/files` | Lists every entry in the archive. |
-| `GET` | `/api/uploads/{id}/files/{path}` | Streams one entry of the archive. |
-| `GET` | `/api/jobs/{id}` | Returns the state of a job. |
-| `GET` | `/api/jobs/{id}/events` | Streams the progress of a job. |
-| `GET` | `/api/config` | Lists the providers and their availability. |
-| `GET` | `/healthz` | Returns `{"status": "ok"}` while the analyst process runs. |
-| `GET` | `/readyz` | Returns `{"status": "ready"}` once the analyst has a database connection pool. The check does not query the database. |
+| `POST` | `/api/uploads` | This endpoint uploads an archive and starts the assessment. |
+| `GET` | `/api/uploads?limit=&offset=` | This endpoint lists the uploads, with the newest first. |
+| `GET` | `/api/uploads/{id}` | This endpoint returns a single upload by its ID. |
+| `DELETE` | `/api/uploads/{id}` | This endpoint deletes an upload, the assessment, and the stored archive. |
+| `POST` | `/api/uploads/{id}/assess` | This endpoint assesses the upload again from the stored archive. |
+| `GET` | `/api/uploads/{id}/snapshot` | This endpoint returns the details that the analyst read from the archive. |
+| `GET` | `/api/uploads/{id}/assessment` | This endpoint returns the overall verdict and the category briefs. |
+| `GET` | `/api/uploads/{id}/files` | This endpoint lists every entry in the uploaded archive. |
+| `GET` | `/api/uploads/{id}/files/{path}` | This endpoint streams one entry of the archive as an attachment. |
+| `GET` | `/api/jobs/{id}` | This endpoint returns the current state of a job. |
+| `GET` | `/api/jobs/{id}/events` | This endpoint streams the progress of a job as events. |
+| `GET` | `/api/config` | This endpoint lists the providers and whether each one is available. |
+| `GET` | `/healthz` | This endpoint returns `{"status": "ok"}` while the analyst process runs. |
+| `GET` | `/readyz` | This endpoint returns `{"status": "ready"}` once the analyst has a database connection pool. The check does not query the database. |
 
 ## Uploads
 
@@ -92,16 +93,16 @@ each upload. The following table describes the fields of an upload:
 
 | Field | Description |
 |---|---|
-| `id` | Identifies the upload. |
-| `filename` | Names the uploaded file. |
-| `storage_url` | Locates the stored archive. |
-| `size_bytes` | Records the size of the archive in bytes. |
-| `sha256` | Records the SHA-256 digest of the archive. |
-| `hostname` | Names the host that radar collected the archive on. |
-| `archive_timestamp` | Records the collection time from the archive's name. |
-| `created_at` | Records the upload time. |
-| `state` | Reports the state of the most recent job for the upload. |
-| `verdict` | Reports the roll-up verdict over the category briefs and the assessed databases. The verdict is `null` until the analyst stores the first brief. |
+| `id` | This field holds the unique ID of the upload. |
+| `filename` | This field holds the name of the uploaded file. |
+| `storage_url` | This field holds the location of the stored archive. |
+| `size_bytes` | This field holds the size of the archive in bytes. |
+| `sha256` | This field holds the SHA-256 digest of the archive. |
+| `hostname` | This field names the host that radar collected the archive on. |
+| `archive_timestamp` | This field holds the collection time from the archive's name. |
+| `created_at` | This field holds the time that the analyst received the upload. |
+| `state` | This field reports the state of the most recent job for the upload. |
+| `verdict` | This field reports the roll-up verdict over the category briefs and the assessed databases. The verdict is `null` until the analyst stores the first brief. |
 
 The analyst reads `hostname` and `archive_timestamp` from the archive's name at
 upload. Once the analyst has read the archive, the analyst replaces `hostname`
@@ -116,14 +117,14 @@ A job assesses an upload in the background. `GET /api/jobs/{id}` returns status
 
 | Field | Description |
 |---|---|
-| `id` | Identifies the job. |
-| `upload_id` | Identifies the upload that the job assesses. |
-| `state` | Reports the state of the job: `queued`, `parsing`, `analyzing`, `done`, or `failed`. |
-| `phase` | Describes the most recent stage of the job. The field is `null` before the first stage and for a job that a stop interrupted. |
-| `started_at` | Records the time that the job left the queue, or is `null` while the job waits. |
-| `finished_at` | Records the time that the job finished, or is `null` until then. |
-| `error` | Describes the failure when the job fails. |
-| `ai_provider` | Names the provider that the analyst configured for the job. |
+| `id` | This field holds the unique ID of the job. |
+| `upload_id` | This field holds the ID of the upload that the job assesses. |
+| `state` | This field reports the state of the job: `queued`, `parsing`, `analyzing`, `done`, or `failed`. |
+| `phase` | This field describes the most recent stage of the job. The field is `null` before the first stage and for a job that a stop interrupted. |
+| `started_at` | This field holds the time that the job left the queue. The field is `null` while the job waits in the queue. |
+| `finished_at` | This field holds the time that the job finished, or `null` until then. |
+| `error` | This field describes the failure when the job fails. |
+| `ai_provider` | This field names the provider that the analyst configured for the job. |
 
 ## Assessments
 
@@ -138,17 +139,17 @@ The following table describes the fields of a brief:
 
 | Field | Description |
 |---|---|
-| `id` | Identifies the brief. |
-| `category` | Names the diagnostic category. |
-| `verdict` | Reports the category verdict: `HEALTHY`, `WARNING`, `CRITICAL`, or `UNKNOWN`. |
-| `findings` | Lists the findings behind the verdict. |
-| `markdown` | Contains the text of the brief in Markdown. |
-| `provider` | Names the provider that the analyst had configured when the analyst stored the brief. |
-| `model` | Names the model that the analyst had configured when the analyst stored the brief. |
-| `prompt_tokens` | Records the input token count that the provider reported, or is `null`. |
-| `completion_tokens` | Records the output token count that the provider reported, or is `null`. |
-| `created_at` | Records the time that the analyst stored the brief. |
-| `sources` | Lists the archive files that the category covers. |
+| `id` | This field holds the unique ID of the brief. |
+| `category` | This field names the diagnostic category that the brief covers. |
+| `verdict` | This field reports the category verdict: `HEALTHY`, `WARNING`, `CRITICAL`, or `UNKNOWN`. |
+| `findings` | This field lists the findings behind the category verdict. |
+| `markdown` | This field holds the text of the brief in Markdown. |
+| `provider` | This field names the provider that the analyst had configured when the analyst stored the brief. |
+| `model` | This field names the model that the analyst had configured when the analyst stored the brief. |
+| `prompt_tokens` | This field holds the input token count that the provider reported, or `null`. |
+| `completion_tokens` | This field holds the output token count that the provider reported, or `null`. |
+| `created_at` | This field holds the time that the analyst stored the brief. |
+| `sources` | This field lists the archive files that the category covers. |
 
 Each finding has a `rule_id`, a `severity` of `critical`, `warning`, or `info`,
 a `title`, and a `detail`.

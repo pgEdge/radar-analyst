@@ -232,16 +232,16 @@ settings that the compose file reads from the `.env` file beside
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RADAR_ANALYST_AI_PROVIDER` | `claude` | Selects the provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`. Any other value stops the analyst at startup. |
-| `ANTHROPIC_API_KEY` | Unset | Sets the credential for `claude`. |
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Sets the credential for `gemini`. When both are set, `GOOGLE_API_KEY` takes precedence. |
-| `OPENAI_API_KEY` | Unset | Sets the credential for `openai`. The OpenAI client library requires a key, even for a server that ignores the key. |
-| `OPENAI_BASE_URL` | OpenAI's own endpoint | Sets the address of an OpenAI-compatible server. |
-| `OPENAI_MODEL` | `gpt-5.6-luna` | Selects the model for `openai`. A compatible server needs the name of a model that the server provides. |
-| `RADAR_ANALYST_OLLAMA_HOST` | `http://host.docker.internal:11434` | Sets the address of the Ollama server for `local`. |
-| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | Selects the model for `local`. |
-| `RADAR_ANALYST_ADMIN_TOKEN` | Generated | Sets the token that authorizes deletes. When the variable is unset, the analyst generates a token into `/data/admin-token` on first start. |
-| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | Sets the password of the bundled database when the `db` volume is first initialized. The database publishes no port. |
+| `RADAR_ANALYST_AI_PROVIDER` | `claude` | This setting selects the provider that writes the briefs: `claude`, `gemini`, `openai`, or `local`. Any other value stops the analyst at startup. |
+| `ANTHROPIC_API_KEY` | Unset | This variable sets the credential that the `claude` provider uses. |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Unset | Either variable sets the credential that the `gemini` provider uses. When both are set, `GOOGLE_API_KEY` takes precedence. |
+| `OPENAI_API_KEY` | Unset | This variable sets the credential that the `openai` provider uses. The OpenAI client library requires a key, even for a server that ignores the key. |
+| `OPENAI_BASE_URL` | OpenAI's own endpoint | This variable sets the address of an OpenAI-compatible server. |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | This variable selects the model that the `openai` provider uses. A compatible server needs the name of a model that the server provides. |
+| `RADAR_ANALYST_OLLAMA_HOST` | `http://host.docker.internal:11434` | This variable sets the address of the Ollama server for `local`. |
+| `RADAR_ANALYST_OLLAMA_MODEL` | `gemma4:e4b` | This variable selects the model that the `local` provider uses. |
+| `RADAR_ANALYST_ADMIN_TOKEN` | Generated | This variable sets the token that authorizes deletes. When the variable is unset, the analyst generates a token into `/data/admin-token` on first start. |
+| `RADAR_ANALYST_DB_PASSWORD` | `radar_analyst` | This variable sets the password of the bundled database when the `db` volume is first initialized. The bundled database publishes no port to the host. |
 
 The analyst also reads the following settings, which the compose file does not
 pass through from `.env`. To change one of these settings, add the variable to
@@ -250,9 +250,9 @@ following table describes these settings:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | Sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
-| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | Sets the maximum number of requests that `local` sends to Ollama at once, as a positive integer. The analyst ignores a value that is not an integer. |
-| `RADAR_ANALYST_LOG_LEVEL` | `INFO` | Sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
+| `RADAR_ANALYST_MAX_UPLOAD_BYTES` | `524288000` (500 MiB) | This variable sets the largest upload that the analyst accepts, in bytes. An invalid value logs a warning, and the analyst uses the default. |
+| `RADAR_ANALYST_OLLAMA_CONCURRENCY` | `3` | This variable sets how many requests `local` sends to Ollama at once, as a positive integer. The analyst ignores a value that is not an integer. |
+| `RADAR_ANALYST_LOG_LEVEL` | `INFO` | This variable sets the log level, such as `DEBUG`, `INFO`, `WARNING`, or `ERROR`, in any letter case. An unknown level stops the analyst at startup. |
 
 The compose file sets `RADAR_ANALYST_STATE_DB_URL` directly, as
 [Using Your Own PostgreSQL Server](#using-your-own-postgresql-server)
@@ -310,9 +310,9 @@ the contents of each volume:
 
 | Volume | Contents |
 |---|---|
-| `db` | Holds the state database, which stores every assessment. |
-| `archives` | Holds the uploaded radar archives and the admin token. |
-| `sock` | Holds the socket that the analyst uses to connect to the database. |
+| `db` | This volume holds the state database, which stores every assessment. |
+| `archives` | This volume holds the uploaded radar archives and the admin token. |
+| `sock` | This volume holds the socket that the analyst uses to connect to the database. |
 
 The volumes outlive the containers, so running `docker compose down` or pulling
 a newer image leaves the volumes in place. However, `docker compose down -v`
@@ -399,7 +399,7 @@ The [changelog](changelog.md) lists the changes in each release.
 
 ## Author
 
-Jimmy Angelakos created pgEdge Radar Analyst.
+Jimmy Angelakos created the pgEdge Radar Analyst project.
 
 ## License
 

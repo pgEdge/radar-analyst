@@ -24,10 +24,10 @@ environment variables that change how the guide runs:
 
 | Variable | Effect |
 |---|---|
-| `WALKTHROUGH_BUILD=1` | Builds the analyst from the checkout. The build takes the published image's name locally. Later runs therefore use the build until you pull the published image again. |
-| `WALKTHROUGH_NO_BROWSER=1` | Prints the console's address instead of opening a browser. |
-| `WALKTHROUGH_NONINTERACTIVE=1` | Skips every prompt and takes each default answer, except that `--down` then removes everything without asking. |
-| `BROWSER` | Names the command that opens the console, in place of the platform's default. |
+| `WALKTHROUGH_BUILD=1` | This setting makes the guide build the analyst from the checkout. The build takes the published image's name locally. Later runs therefore use the build until you pull the published image again. |
+| `WALKTHROUGH_NO_BROWSER=1` | This setting makes the guide print the console's address instead of opening a browser. |
+| `WALKTHROUGH_NONINTERACTIVE=1` | This setting skips every prompt and takes each default answer. With this setting, `--down` removes everything without asking first. |
+| `BROWSER` | This variable names the command that opens the console, in place of the platform's default. |
 
 If an analyst is already running, the guide uses the running analyst instead of
 starting another. The guide reads the `.env` file beside the clone's
@@ -187,9 +187,9 @@ The following table describes the commands that stop or remove the analyst:
 
 | Command | Effect |
 |---|---|
-| `docker compose stop` | Stops the containers. `docker compose start` starts the containers again. |
-| `docker compose down` | Removes the containers and keeps every assessment. |
-| `docker compose down -v` | Removes the containers and permanently deletes every assessment and archive. |
+| `docker compose stop` | This command stops the containers without removing them. The `docker compose start` command starts the containers again. |
+| `docker compose down` | This command removes the containers and keeps every assessment. |
+| `docker compose down -v` | This command removes the containers and permanently deletes every assessment and archive. |
 
 At startup, the analyst marks any assessment that was still running at the
 previous stop as failed. To redo such an assessment from the stored archive,

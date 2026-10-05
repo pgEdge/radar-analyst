@@ -9,12 +9,12 @@ an issue.
 To propose a change, complete the following steps:
 
 1. Fork the [pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst)
-   repository.
+   repository to your own GitHub account.
 2. Create a feature branch, such as `feat/your-feature` or `fix/your-fix`.
 3. Make your changes, starting each new function, class, or module with a
    failing test.
 4. Run the full local CI with `./run-ci-local.sh`, which must exit 0.
-5. Submit a pull request.
+5. Submit a pull request against the `main` branch.
 
 ## Development Setup
 
@@ -59,7 +59,8 @@ Every check must pass before you commit.
 
 To report an issue, use the template that matches the issue:
 
-- The [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) covers bugs.
+- The [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) covers bugs
+  in the analyst.
 - The [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
   covers new features.
 
