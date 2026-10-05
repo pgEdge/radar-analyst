@@ -59,6 +59,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The analyst no longer writes the database password to its log at startup. The
   startup log names only the host and port of the database.
+- The bundled database checks the password on every connection, including the
+  analyst's own over the shared socket.
 
 ## [0.2.0] - 2026-09-29
 

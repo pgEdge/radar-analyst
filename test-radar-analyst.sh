@@ -172,6 +172,17 @@ if rc == 0:
 print(f"  {ip}:5432 refused the host (errno {rc})")
 PYEOF
 
+echo -e "${YELLOW}Verifying the database checks the password...${NC}"
+# The analyst connects over the shared socket, so that is where a
+# wrong password has to be refused.
+if "${COMPOSE[@]}" exec -T -e PGPASSWORD=wrong-password db \
+        psql -h /run/postgresql -U radar_analyst -d radar_analyst \
+        -tAc 'SELECT 1' >/dev/null 2>&1; then
+    echo -e "${RED}The database accepted a wrong password${NC}"
+    exit 1
+fi
+echo -e "${GREEN}The database refuses a wrong password${NC}"
+
 echo -e "${YELLOW}Verifying the analyst does not run as root...${NC}"
 # PID 1 is the analyst: the entrypoint execs setpriv, which execs
 # the service, so nothing is served with privileges.

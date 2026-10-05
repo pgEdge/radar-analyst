@@ -70,6 +70,16 @@ def test_the_analyst_connects_over_the_shared_socket(
 
 
 @pytest.mark.parametrize("name", _COMPOSE_FILES)
+def test_the_database_checks_the_password(name: str) -> None:
+    """The image trusts its socket and loopback unless told otherwise."""
+    text = _read(name)
+    for flag in ("--auth-local=scram-sha-256", "--auth-host=scram-sha-256"):
+        assert flag in text, (
+            f"{name} lets a connection in without the password"
+        )
+
+
+@pytest.mark.parametrize("name", _COMPOSE_FILES)
 def test_the_console_is_published_on_loopback_only(
     name: str,
 ) -> None:

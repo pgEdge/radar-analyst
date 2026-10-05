@@ -357,7 +357,10 @@ docker compose up -d
 The database has no TCP listener that anything else can reach. The
 two containers share a volume holding the Unix socket, and nothing
 else mounts it. Leaving the port unpublished would not be enough,
-because a container's bridge address is routable from its host.
+because a container's bridge address is routable from its host. The
+server checks the password on the socket too: the image's `initdb`
+would trust the socket and loopback, so the compose file asks it for
+scram-sha-256 on both.
 
 The `app` service maps `host.docker.internal` to the host gateway.
 Docker Engine on Linux does not define that name, and the default
