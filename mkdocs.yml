@@ -1,4 +1,4 @@
-site_name: pgEdge Radar Analyst
+site_name: Radar Analyst
 site_description: >-
   Assesses a radar diagnostic archive against deterministic rules and
   writes a brief for each diagnostic category.
@@ -55,8 +55,9 @@ copyright: Copyright &copy; 2026 pgEdge, Inc
 repo_url: https://github.com/pgEdge/radar-analyst
 
 nav:
-  - Introduction: index.md
-  - Walkthrough: walkthrough.md
-  - API: api.md
+  - Getting Started:
+      - Introduction: index.md
+      - Guided Walkthrough: walkthrough.md
+  - API Reference: api.md
   - Changelog: changelog.md
-  - Licence: LICENCE.md
+  - License: LICENSE.md

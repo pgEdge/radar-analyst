@@ -77,12 +77,12 @@ needs the admin token as a bearer token. The analyst generates the
 token on first start and keeps it in its data directory, answers 503
 when it has none, and answers 401 when the token does not match.
 
-At startup, `main.py` opens the pool once the server answers, checks
-the encoding, applies the migrations, and marks any job a previous
-process left unfinished as failed
+At startup, before the server accepts connections, `main.py` opens the
+pool, checks the encoding, applies the migrations, and marks any job a
+previous process left unfinished as failed
 (`store.jobs.fail_interrupted_jobs`), because the task running it is
-gone. It then builds the provider named by
-`RADAR_ANALYST_AI_PROVIDER` and starts the job runner.
+gone. It then builds the provider named by `RADAR_ANALYST_AI_PROVIDER`
+and starts the job runner.
 
 ## Guarantees
 

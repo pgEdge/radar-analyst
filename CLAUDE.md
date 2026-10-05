@@ -80,9 +80,11 @@ rendered output is a **report**; the Astro GUI is **the console**.
 
 The product is *pgEdge Radar Analyst* or *radar-analyst*, and "the
 analyst" in running prose. Never *pgEdge Radar-Analyst*, never
-"Radar Analyst" standalone. The collector is *radar* or *pgEdge
-Radar*. Never "archive" as a verb: say *retained assessments* or
-*assessment history*. No AI vocabulary in customer-facing text.
+"Radar Analyst" standalone, except as `site_name` in `mkdocs.yml`,
+where the pgEdge logo beside it supplies "pgEdge". The collector is
+*radar* or *pgEdge Radar*. Never "archive" as a verb: say *retained
+assessments* or *assessment history*. No AI vocabulary in
+customer-facing text.
 
 Rules, rule modules, facts, parsers and snapshots are internal terms
 and stay out of that list. The ten rule modules are not the five

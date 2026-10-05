@@ -1,40 +1,62 @@
-# API
+# API Reference
 
-The console reads everything it shows from this API, and any other
-client can use the same endpoints. The machine-readable description
-is [openapi.json](openapi.json), generated from the routes
-themselves. A running analyst serves the same document at
-`/openapi.json`, with an interactive browser at
-[http://localhost:8080/docs](http://localhost:8080/docs).
+The console reads everything that it displays from the JSON API that this page
+describes, and any other client can use the same endpoints. The
+[openapi.json](openapi.json) file contains the machine-readable description,
+which the analyst generates from its routes. A running analyst serves the same
+description at `/openapi.json`, with interactive browsers at
+[http://localhost:8080/docs](http://localhost:8080/docs) and
+[http://localhost:8080/redoc](http://localhost:8080/redoc).
 
-## How an assessment is made
+## Making an Assessment
 
-Every assessment follows the same sequence of calls:
+An assessment through the API takes the following steps:
 
-1. `POST /api/uploads` takes the radar archive as a multipart form
-   field named `file`, stores it, and returns `{upload_id, job_id}`
-   with status 201. A body that is not a zip archive is refused with
-   415, and one larger than the upload limit with 413.
-2. The job assesses the archive in the background.
-   `GET /api/jobs/{id}` reports its `state`, which is `queued`,
-   `running`, `done`, or `failed`, the pipeline `phase` while it
-   runs, its timestamps, and the `error` when it failed.
-3. `GET /api/jobs/{id}/events` streams the job's progress as
-   Server-Sent Events: a `phase` event as each stage begins, a
-   `brief` event as each category's brief is written, and a final
-   `done` or `error` event, after which the stream closes. A job
-   that has already finished gets its final event at once.
-4. `GET /api/uploads/{id}/assessment` returns the result: the
-   roll-up `verdict`, and a `briefs` array with one entry per
-   category holding its `verdict`, its `findings` (each with
-   `rule_id`, `severity`, `title`, and `detail`), its `markdown`,
-   the `provider` and `model` that wrote it, and `sources`, the
-   archive files the category covers.
-5. `GET /api/uploads/{id}/snapshot` returns what the analyst read
-   from the archive: the host and its PostgreSQL version, the
-   `databases` list with each database's counters, findings, and
-   brief, the file kinds it parsed, and `unknown_entries`, the
-   archive paths it did not recognise.
+1. Upload the archive with `POST /api/uploads`. The request sends the radar
+   archive as a multipart form field named `file`. The analyst stores the
+   archive and returns `{upload_id, job_id}` with status 201.
+2. Follow the job with `GET /api/jobs/{id}` until the job's `state` is `done`
+   or `failed`. The [Jobs](#jobs) section describes the fields of a job.
+3. Read the result with `GET /api/uploads/{id}/assessment`. The
+   [Assessments](#assessments) section describes the response.
+
+The following commands upload an archive, report the state of the job, and read
+the finished assessment:
+
+```bash
+curl -F file=@radar-host-20260101-120000.zip http://localhost:8080/api/uploads
+curl http://localhost:8080/api/jobs/<job_id>
+curl http://localhost:8080/api/uploads/<upload_id>/assessment
+```
+
+The analyst returns status 415 for an upload that is empty or is not a zip
+archive. For an upload larger than the limit in
+`RADAR_ANALYST_MAX_UPLOAD_BYTES`, the analyst returns status 413.
+
+### Following the Progress Stream
+
+To follow a job without polling, read `GET /api/jobs/{id}/events`, which
+streams the job's progress as Server-Sent Events. The stream sends each event
+as an unnamed message whose `data` field holds a JSON object, and the object's
+`type` field names the event:
+
+- `phase` marks the start of a stage and describes the stage in a `phase`
+  field.
+- `brief` reports a finished brief with the `category` and the category's
+  `verdict`.
+- `done` reports that the assessment finished, and the stream then closes.
+- `error` reports in a `message` field that the assessment failed, and the
+  stream then closes.
+
+A client reads the `type` field of each message, because the stream does not
+use named Server-Sent Events. A job that has already finished sends the final
+`done` or `error` event at once. The following command follows the progress
+stream of a job:
+
+```bash
+curl -N -H 'Accept: text/event-stream' \
+    http://localhost:8080/api/jobs/<job_id>/events
+```
 
 ## Endpoints
 
@@ -42,60 +64,176 @@ The following table lists every endpoint:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/uploads` | Upload an archive and start its assessment |
-| `GET` | `/api/uploads?limit=&offset=` | List uploads, newest first |
-| `GET` | `/api/uploads/{id}` | One upload |
-| `DELETE` | `/api/uploads/{id}` | Delete an upload, its assessment, and its archive |
-| `POST` | `/api/uploads/{id}/assess` | Assess the upload again from its stored archive |
-| `GET` | `/api/uploads/{id}/snapshot` | What was read from the archive |
-| `GET` | `/api/uploads/{id}/assessment` | The verdict and the briefs |
-| `GET` | `/api/uploads/{id}/files` | Every entry in the archive |
-| `GET` | `/api/uploads/{id}/files/{path}` | One entry of the archive |
-| `GET` | `/api/jobs/{id}` | The state of a job |
-| `GET` | `/api/jobs/{id}/events` | The progress stream of a job |
-| `GET` | `/api/config` | The providers and their availability |
-| `GET` | `/healthz` | Liveness |
-| `GET` | `/readyz` | Readiness: the database pool is attached |
+| `POST` | `/api/uploads` | Uploads an archive and starts the assessment. |
+| `GET` | `/api/uploads?limit=&offset=` | Lists the uploads, newest first. |
+| `GET` | `/api/uploads/{id}` | Returns one upload. |
+| `DELETE` | `/api/uploads/{id}` | Deletes an upload, the assessment, and the stored archive. |
+| `POST` | `/api/uploads/{id}/assess` | Assesses the upload again from the stored archive. |
+| `GET` | `/api/uploads/{id}/snapshot` | Returns the details that the analyst read from the archive. |
+| `GET` | `/api/uploads/{id}/assessment` | Returns the verdict and the briefs. |
+| `GET` | `/api/uploads/{id}/files` | Lists every entry in the archive. |
+| `GET` | `/api/uploads/{id}/files/{path}` | Streams one entry of the archive. |
+| `GET` | `/api/jobs/{id}` | Returns the state of a job. |
+| `GET` | `/api/jobs/{id}/events` | Streams the progress of a job. |
+| `GET` | `/api/config` | Lists the providers and their availability. |
+| `GET` | `/healthz` | Returns `{"status": "ok"}` while the analyst process runs. |
+| `GET` | `/readyz` | Returns `{"status": "ready"}` once the analyst has a database connection pool. The check does not query the database. |
 
 ## Uploads
 
-Each upload in the list, and the single upload, has `hostname` and
-`archive_timestamp`, read from the archive's name at upload and
-confirmed from the archive once it has been read, the `state` of its
-most recent job, and its roll-up `verdict`, which is `null` until
-the first brief is written. `limit` defaults to 50 and is clamped to
-1-500.
+The list endpoint returns the uploads in `items`, newest first, together with
+the `limit` and `offset` that the analyst applied. The `limit` parameter
+defaults to 50, and the analyst clamps the value to the range 1 to 500. The
+`offset` parameter defaults to 0, and the analyst treats a negative value as 0.
 
-## Archive files
+The list endpoint and the single-upload endpoint return the same fields for
+each upload. The following table describes the fields of an upload:
 
-`GET /api/uploads/{id}/files` lists every entry of the uploaded
-archive, and `GET /api/uploads/{id}/files/{path}` streams one entry.
-The listing is the whitelist: a path that is not in it, including
-any traversal attempt, is refused with 404. The listing is empty
-until the archive has been read.
+| Field | Description |
+|---|---|
+| `id` | Identifies the upload. |
+| `filename` | Names the uploaded file. |
+| `storage_url` | Locates the stored archive. |
+| `size_bytes` | Records the size of the archive in bytes. |
+| `sha256` | Records the SHA-256 digest of the archive. |
+| `hostname` | Names the host that radar collected the archive on. |
+| `archive_timestamp` | Records the collection time from the archive's name. |
+| `created_at` | Records the upload time. |
+| `state` | Reports the state of the most recent job for the upload. |
+| `verdict` | Reports the roll-up verdict, which is `null` until the analyst stores the first brief. |
 
-## Deleting
+The analyst reads `hostname` and `archive_timestamp` from the archive's name at
+upload. Once the analyst has read the archive, the analyst replaces `hostname`
+with the host name that the archive records. Radar writes the host's local time
+into the archive's name without a time zone. The `archive_timestamp` field
+returns that local time with a UTC offset of zero.
 
-`DELETE /api/uploads/{id}` requires the admin token as a bearer
-credential in the `Authorization` header. It removes the upload, its
-assessment, and its stored archive, and returns 204. Without the
-token the request is refused with 401, and while the analyst has no
-token at all, with 503.
+## Jobs
 
-## Assessing again
+A job assesses an upload in the background. `GET /api/jobs/{id}` returns status
+404 for an unknown job. The following table describes the fields of a job:
 
-`POST /api/uploads/{id}/assess` assesses the upload again from its
-stored archive, for example once a provider has been configured. It
-removes the previous briefs and findings, creates a new job, and
-returns `{upload_id, job_id}` with status 202, to follow as after an
-upload. While an assessment of the upload is still running, the
-request is refused with 409.
+| Field | Description |
+|---|---|
+| `id` | Identifies the job. |
+| `upload_id` | Identifies the upload that the job assesses. |
+| `state` | Reports the state of the job: `queued`, `parsing`, `analyzing`, `done`, or `failed`. |
+| `phase` | Describes the most recent stage of the job. The field is `null` before the first stage and for a job that a stop interrupted. |
+| `started_at` | Records the time that the job left the queue, or is `null` while the job waits. |
+| `finished_at` | Records the time that the job finished, or is `null` until then. |
+| `error` | Describes the failure when the job fails. |
+| `ai_provider` | Names the provider that the analyst configured for the job. |
 
-A job that was running when the analyst stopped is marked `failed`
-at the next start, with an `error` that says so.
+## Assessments
+
+`GET /api/uploads/{id}/assessment` returns the roll-up `verdict` and a `briefs`
+array with one entry per category. Until the analyst stores the first brief,
+the response has a `null` verdict and an empty `briefs` array. The endpoint
+returns the same empty response for an upload ID that does not exist.
+
+The following table describes the fields of a brief:
+
+| Field | Description |
+|---|---|
+| `id` | Identifies the brief. |
+| `category` | Names the diagnostic category. |
+| `verdict` | Reports the category verdict: `HEALTHY`, `WARNING`, `CRITICAL`, or `UNKNOWN`. |
+| `findings` | Lists the findings behind the verdict. |
+| `markdown` | Contains the text of the brief in Markdown. |
+| `provider` | Names the provider that the analyst had configured when the analyst stored the brief. |
+| `model` | Names the model that the analyst had configured when the analyst stored the brief. |
+| `prompt_tokens` | Records the input token count that the provider reported, or is `null`. |
+| `completion_tokens` | Records the output token count that the provider reported, or is `null`. |
+| `created_at` | Records the time that the analyst stored the brief. |
+| `sources` | Lists the archive files that the category covers. |
+
+Each finding has a `rule_id`, a `severity` of `critical`, `warning`, or `info`,
+a `title`, and a `detail`.
+
+## Archive Details
+
+`GET /api/uploads/{id}/snapshot` returns the details that the analyst read from
+the archive. The endpoint returns status 404 until the analyst has read the
+archive. The response contains the following fields:
+
+- `hostname`, `os`, `kernel`, `cpu_count`, `cpu_model`, `total_ram`, and
+  `host_uptime` describe the host.
+- `is_container`, `hypervisor`, `runtime`, and `cloud_provider` describe where
+  the host runs.
+- `pg_version` and `pg_started` describe the PostgreSQL server, and
+  `radar_version` and `radar_commit` describe the radar release that took the
+  collection.
+- `databases` lists each database with the database's counters and findings;
+  each database's brief appears once the analyst has assessed the databases.
+- `parsed_kinds` names the kinds of data that the analyst read from the
+  archive.
+- `unknown_entries` lists the archive paths that the analyst did not recognize.
+
+## Archive Files
+
+`GET /api/uploads/{id}/files` lists every entry in the uploaded archive in
+`items`. Each entry has a `path`, a `kind`, a `dbname`, and a `size`. An entry
+that the analyst does not recognize has `null` for all but the `path`. The
+listing stays empty until the analyst has read the archive.
+
+`GET /api/uploads/{id}/files/{path}` streams one entry as an attachment. The
+analyst sends `.tsv` entries as `text/tab-separated-values` and `.out`,
+`.conf`, `.done`, and `.txt` entries as `text/plain`. Every other entry has the
+type `application/octet-stream`.
+
+The listing acts as an allowlist; the analyst refuses any path outside the
+listing with status 404, including any path traversal attempt.
+
+## Deleting an Upload
+
+`DELETE /api/uploads/{id}` requires the admin token as a bearer credential in
+the `Authorization` header. The request removes the upload, the assessment, and
+the stored archive, and returns status 204. The analyst refuses a request
+without a valid token with status 401. When the analyst has no admin token, for
+example because the data directory is not writable, the analyst refuses every
+delete with status 503. The
+[Deleting an Assessment](index.md#deleting-an-assessment) section describes
+where the admin token comes from. The following command deletes an upload with
+the token in `TOKEN`:
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+    http://localhost:8080/api/uploads/<upload_id>
+```
+
+## Assessing an Upload Again
+
+`POST /api/uploads/{id}/assess` assesses the upload again from the stored
+archive, for example after you configure a provider. The request removes the
+previous briefs and findings, creates a new job, and returns
+`{upload_id, job_id}` with status 202. Follow the new job in the same way as a
+job that an upload starts. While a job for the upload is queued or in progress,
+the analyst refuses the request with status 409.
+
+At startup, the analyst marks every job that had not finished at the previous
+stop as `failed`, with an `error` that explains the interruption.
 
 ## Providers
 
-`GET /api/config` lists the providers. Each entry has `name`,
-`label`, `available`, and `model`, and an unavailable provider also
-has a `reason` naming the setting it lacks.
+`GET /api/config` lists the providers in `providers` and returns `default`, the
+provider that the analyst uses when `RADAR_ANALYST_AI_PROVIDER` is unset. Each
+provider entry has a `name`, a `label`, an `available` flag, and a `model`. The
+provider names are `claude`, `gemini`, `openai`, and `local`. An unavailable
+provider also has a `reason`, which names the missing setting. The `local`
+provider has no setting to check, so the `local` provider always reports as
+available. When `RADAR_ANALYST_TEST` is `1`, the list also includes the `mock`
+provider that the end-to-end tests use.
+
+## Errors
+
+The following table describes the error statuses that the API returns:
+
+| Status | Meaning |
+|---|---|
+| 401 | The delete request has no valid admin token. |
+| 404 | The upload, job, archive details, or archive entry does not exist, or no route matches the path. |
+| 409 | A job for the upload is still queued or in progress. |
+| 413 | The upload is larger than the upload limit. |
+| 415 | The upload is empty or is not a zip archive. |
+| 422 | The request is malformed, for example with a missing `file` field or an invalid ID. |
+| 503 | The analyst has no admin token and refuses every delete. |

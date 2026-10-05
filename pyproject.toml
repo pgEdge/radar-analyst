@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Assesses the health of a PostgreSQL host from a pgEdge Radar diagnostic archive: deterministic findings, a verdict per diagnostic category, and a written brief for each."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENCE" }
+license = { file = "LICENSE.md" }
 authors = [{ name = "Jimmy Angelakos", email = "jimmy.angelakos@pgedge.com" }]
 # AI SDKs are required runtime dependencies: the briefing step is
 # the core value proposition.

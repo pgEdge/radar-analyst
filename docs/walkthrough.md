@@ -1,146 +1,212 @@
-# Guided walkthrough
+# Guided Walkthrough
 
-This page takes you from nothing to an assessment of one of your
-PostgreSQL hosts: start the analyst, take a radar collection on the
-host, upload it to the console, and read the result.
+This walkthrough takes you from an empty directory to an assessment of one of
+your own PostgreSQL hosts. You start the analyst, take a radar collection on
+the host, upload the collection to the console, and read the result.
 
-From a checkout of the repository, the interactive guide starts the
-analyst, opens the console in your browser, and explains the rest as
-it goes:
+## Running the Interactive Guide
+
+The repository includes an interactive guide that starts the analyst, opens the
+console in your browser, and explains each remaining step. The guide requires
+only Docker with the Compose plugin. From a clone of the
+[pgEdge/radar-analyst](https://github.com/pgEdge/radar-analyst) repository, the
+following command starts the guide:
 
 ```bash
 bash examples/walkthrough/guide.sh
 ```
 
-It needs only Docker with the Compose plugin. Set
-`WALKTHROUGH_NO_BROWSER=1` to have it print the console's address
-instead of opening it. It runs the published image; from a checkout
-with changes of your own, `WALKTHROUGH_BUILD=1` builds the analyst
-from that checkout instead. The rest of this page is the same tour
-by hand, in a directory holding `docker-compose.yml` from the
-repository.
+By default, the guide runs the published image of the analyst, which Docker
+pulls when the image is not present locally. The following table describes the
+environment variables that change how the guide runs:
 
-## 1. Start the analyst
+| Variable | Effect |
+|---|---|
+| `WALKTHROUGH_BUILD=1` | Builds the analyst from the checkout. The build takes the published image's name locally, so later runs use the build until you pull the published image again. |
+| `WALKTHROUGH_NO_BROWSER=1` | Prints the console's address instead of opening a browser. |
+| `WALKTHROUGH_NONINTERACTIVE=1` | Skips every prompt and takes each default answer, except that `--down` then removes everything without asking. |
+| `BROWSER` | Names the command that opens the console, in place of the platform's default. |
+
+If an analyst is already running, the guide uses the running analyst instead of
+starting another. The guide reads the `.env` file beside the clone's
+`docker-compose.yml` and offers to write a sample archive, `radar-sample.zip`,
+to the current directory. On Linux, the guide opens a browser only in a
+graphical session and otherwise prints the console's address.
+
+The rest of this page follows the same tour by hand, in a directory that
+contains
+[docker-compose.yml](https://github.com/pgEdge/radar-analyst/blob/main/docker-compose.yml)
+from the repository.
+
+## Starting the Analyst
+
+The following command starts the analyst from the directory that contains
+`docker-compose.yml`:
 
 ```bash
 docker compose up -d --wait
 ```
 
-That starts two containers and returns once they are ready: the
-analyst, and a PostgreSQL it keeps its results in. The console is
-reachable only from your own machine, and the database only from the
-analyst.
+The command starts two containers and returns once both containers are ready.
+One container runs the analyst, and the other runs the PostgreSQL database that
+stores the results. Only your own machine can reach the console, and only the
+analyst can reach the database.
 
-## 2. Open the console
+## Opening the Console
 
-Open [http://localhost:8080/](http://localhost:8080/). The console
-has an upload area for radar archives and, below it, the most recent
-assessments. On a fresh install that list is empty.
+Open [http://localhost:8080/](http://localhost:8080/) in a browser. The console
+shows an upload area for radar archives and, below the upload area, the most
+recent assessments. On a new installation, the list of assessments is empty.
 
-## 3. Take a radar collection
+## Taking a Radar Collection
 
-A radar archive is what the analyst assesses. Radar collects it on
-the PostgreSQL host: metadata about the machine and the server, never
-table contents or query results.
+A radar archive is the input that the analyst assesses. Radar collects the
+archive on the PostgreSQL host; the archive contains metadata about the machine
+and the server, never table contents or query results.
 
-Download the binary for the host's platform from
-[github.com/pgEdge/radar/releases](https://github.com/pgEdge/radar/releases),
-`radar-linux-amd64`, `radar-linux-arm64`, `radar-darwin-amd64` or
-`radar-darwin-arm64`, make it executable, and run it on the host as
-root, connecting as a superuser or as a role with `pg_monitor`:
+Download the radar binary for the host's platform from
+[github.com/pgEdge/radar/releases](https://github.com/pgEdge/radar/releases).
+Current releases include the following binaries:
+
+- `radar-linux-amd64`
+- `radar-linux-arm64`
+- `radar-darwin-amd64`
+- `radar-darwin-arm64`
+
+Make the binary executable, then run the binary on the host as root. Connect to
+PostgreSQL as a superuser or as a role with the privileges of `pg_monitor`. The
+following commands prepare the Linux binary for x86-64 and take a collection,
+connecting to the `mydb` database as `postgres`:
 
 ```bash
 chmod +x radar-linux-amd64 && mv radar-linux-amd64 radar
 sudo PGPASSWORD='...' ./radar -d mydb -U postgres
 ```
 
-Add `-h` and `-p` if the server is not on the default local socket.
-The collection takes a minute or two and writes one file beside you,
-`radar-<hostname>-<timestamp>.zip`. Copy it to the machine running
-the analyst.
+Add the `-h` and `-p` options when the server does not listen on `localhost`
+port 5432. The collection writes a file named
+`radar-<hostname>-<timestamp>.zip` to the current directory. Copy the file to
+the machine that runs the analyst.
 
-No PostgreSQL to hand yet? The analyst can write a small sample
-archive to try with: one database and a handful of settings, enough
-to see an assessment happen. A real collection gives a real
-assessment.
+### Using a Sample Archive
+
+If no PostgreSQL host is available, the analyst can write a synthetic sample
+archive instead. The sample is enough to demonstrate an assessment, but only a
+real collection produces a meaningful assessment. The sample's name does not
+follow radar's naming, so the console lists the sample as "Unknown host" with
+no collection time. The following commands write the sample inside the
+analyst's container and copy the sample to the current directory:
 
 ```bash
-docker compose exec -T app python -m radar_analyst.tests.make_sample_zip /tmp/radar-sample.zip
+docker compose exec -T app \
+    python -m radar_analyst.tests.make_sample_zip /tmp/radar-sample.zip
 docker compose cp app:/tmp/radar-sample.zip ./radar-sample.zip
 ```
 
-## 4. Upload it
+## Uploading the Archive
 
-Drag the archive onto the console's upload area, or click the area
-and choose it, and press Upload. The console moves to a progress page
-while the archive is read and each category is assessed, then to the
-finished assessment on its own. A sample takes seconds; a real
-collection, up to a minute or two.
+To upload the archive, perform the following steps in the console:
 
-## 5. Read the assessment
+1. Drag the archive onto the upload area, or click the upload area and choose
+   the archive.
+2. Press Upload to send the archive to the analyst.
 
-The assessment covers five categories: Host & OS, PostgreSQL
-Configuration, Workload, Internals & I/O Health, and Replication.
-Each has a verdict, and the host's own verdict is the worst of the
-five. A category the archive holds no data for reads `UNKNOWN`, and
-never makes the host look worse than what was measured. Open a
-category to read its brief, the findings behind its verdict, and the
-list of archive files the category covers. Below the categories,
-each database on the server has a card of its own.
+The console moves to a progress page while the analyst reads the archive and
+assesses each category. When the assessment finishes, the console opens the
+result automatically. A sample takes seconds to assess, and a real collection
+can take one to two minutes.
 
-The findings are worked out from the archive alone and always come
-back, and so does a verdict for every category. The written briefs
-come from a provider, which is optional: without one, each brief
-reads as unavailable. To add a provider, put a credential in a
-`.env` file beside `docker-compose.yml` and start the analyst again;
-`examples/compose.env` in the repository is a commented `.env` file
-to start from.
+## Reading the Assessment
+
+The assessment covers five categories: Host & OS, PostgreSQL Configuration,
+Workload, Internals & I/O Health, and Replication. Each category has a verdict,
+and the host's overall verdict is the worst of the five. A category for which
+the archive holds no data reads `UNKNOWN`. An `UNKNOWN` category never makes
+the host look worse than the measured evidence.
+
+Open a category to read the brief, the findings behind the verdict, and the
+list of archive files that the category covers. Below the categories, the
+assessment includes a card for each database on the server, except template
+databases and databases that accept no connections.
+
+The analyst derives the findings from the archive alone, so the findings and a
+verdict for every category always appear. A provider writes the briefs, and a
+provider is optional; without a provider, the briefs that a provider writes
+read as unavailable. The
+[examples/compose.env](https://github.com/pgEdge/radar-analyst/blob/main/examples/compose.env)
+file is a commented template for a `.env` file beside `docker-compose.yml`,
+which holds the provider settings. The default provider, `claude`, needs only a
+credential. Add the following line to the `.env` file, and create the file if
+the file does not exist:
 
 ```bash
-echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+The following command recreates the analyst's container with the new setting:
+
+```bash
 docker compose up -d --wait
 ```
 
-An assessment made before that keeps its findings and verdicts. Open
-it and press Assess again to have the briefs written from the stored
-archive.
+The
+[Adding a Provider for the Briefs](index.md#adding-a-provider-for-the-briefs)
+section describes the other providers, which also need
+`RADAR_ANALYST_AI_PROVIDER`.
 
-Every assessment you make is added to the list on the console's
-front page, and can be opened again from there.
+An assessment made before you add a provider keeps the findings and verdicts.
+To add the briefs, open the assessment, press Assess again, and confirm; the
+analyst then writes the briefs from the stored archive.
 
-## 6. Your assessments stay
+The console's front page lists the 50 most recent uploads, and you can open any
+listed assessment again from there.
 
-Assessments, and the archives behind them, are kept in Docker
-volumes. They survive `docker compose down`, and they survive
-pulling a newer image.
+## Keeping and Deleting Assessments
 
-Each entry in the list has a delete button. It asks you to confirm,
-then asks for the admin token, which the analyst wrote for you on
-first start:
+Docker volumes hold the assessments and the archives behind the assessments.
+The volumes survive `docker compose down` and survive pulling a newer image.
+
+Each entry in the list has a delete button. The button asks for confirmation
+and then for the admin token, which the console remembers until you close the
+browser tab. The analyst generates the admin token on first start. The
+following command prints the admin token:
 
 ```bash
 docker compose exec app cat /data/admin-token
 ```
 
-Set `RADAR_ANALYST_ADMIN_TOKEN` in `.env` to choose the token
-yourself.
+To choose the token yourself, set `RADAR_ANALYST_ADMIN_TOKEN` in `.env` and run
+`docker compose up -d --wait` again.
 
-## 7. Stop, or remove
+## Stopping or Removing the Analyst
 
-```bash
-docker compose stop       # pause; docker compose start brings it back
-docker compose down       # remove the containers, keep every assessment
-docker compose down -v    # remove the containers AND delete every
-                          # assessment and archive. There is no undo.
-```
+The following table describes the commands that stop or remove the analyst:
 
-An assessment that was running when the analyst stopped is marked
-failed when it starts again. Open it and press Assess again to redo
-it from the stored archive.
+| Command | Effect |
+|---|---|
+| `docker compose stop` | Stops the containers; `docker compose start` starts the containers again. |
+| `docker compose down` | Removes the containers and keeps every assessment. |
+| `docker compose down -v` | Removes the containers and permanently deletes every assessment and archive. |
 
-From a checkout, `bash examples/walkthrough/guide.sh --down` is the
-last of those with a confirmation first, and it removes the sample
-archive as well.
+At startup, the analyst marks any assessment that was still running at the
+previous stop as failed. To redo such an assessment from the stored archive,
+open the assessment, press Assess again, and confirm.
 
-The [introduction](index.md) covers providers, backups, and using a
-PostgreSQL you already run.
+From a clone of the repository, the `bash examples/walkthrough/guide.sh --down`
+command asks for confirmation. The command then runs `docker compose down -v`
+for the stack that the clone's `docker-compose.yml` defines, and removes
+`radar-sample.zip` from the current directory.
+
+## Next Steps
+
+The following pages describe the analyst in more detail:
+
+- The [pgEdge Radar Analyst](index.md) introduction describes how an assessment
+  works and how to configure the analyst.
+- The
+  [Adding a Provider for the Briefs](index.md#adding-a-provider-for-the-briefs)
+  section describes each provider and the provider's settings.
+- The [Managing Your Data](index.md#managing-your-data) section describes the
+  volumes, backups, and deleting an assessment.
+- The [API Reference](api.md) document describes the JSON API that the console
+  uses.

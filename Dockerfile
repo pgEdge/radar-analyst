@@ -23,7 +23,7 @@ RUN npm run build
 FROM python:3.14-slim AS py-build
 ENV PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
-COPY pyproject.toml hatch_build.py README.md LICENCE ./
+COPY pyproject.toml hatch_build.py README.md LICENSE.md ./
 COPY src/ ./src/
 COPY --from=web-build /w/dist/ ./web/dist/
 RUN pip install --upgrade pip build && \

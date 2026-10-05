@@ -1,14 +1,22 @@
 # Examples
 
-`compose.env` is a commented `.env` file for `docker compose up -d`.
-Copy it to `.env` beside `docker-compose.yml` and uncomment what you
-need. Every setting in it is optional.
+This directory contains a template for the analyst's settings and an
+interactive guide to the analyst. The following table describes each example:
 
-`walkthrough/guide.sh` is a guided first look. It starts the analyst
-with the `docker-compose.yml` at the repository root, opens the
-console in the browser, and walks through taking a radar collection
-and assessing it. It never stops an analyst it finds already running;
-`guide.sh --down` is the one way it removes anything, and that takes
-the volumes too, after asking. It needs only Docker. It pulls the
-published image; set `WALKTHROUGH_BUILD=1` to build the analyst from
-the checkout instead. `docs/walkthrough.md` is the same tour by hand.
+| Path | Purpose |
+|---|---|
+| `compose.env` | Provides a commented `.env` file for `docker compose up -d --wait`; every setting in the file is optional. |
+| `walkthrough/guide.sh` | Runs a guided first look at the analyst, from starting the analyst to assessing a radar collection. |
+
+To use the settings template, copy `compose.env` to `.env` beside
+`docker-compose.yml` and uncomment the settings that you need.
+
+The guide starts the analyst with the `docker-compose.yml` at the repository
+root, opens the console in a browser, and explains how to take and assess a
+radar collection. The guide needs only Docker with the Compose plugin. The
+guide runs the published image, unless `WALKTHROUGH_BUILD=1` asks for a build
+from the checkout. The guide never stops an analyst that is already running.
+The `guide.sh --down` command is the only way that the guide removes anything,
+and the command removes the volumes too. The command asks for confirmation
+first, unless `WALKTHROUGH_NONINTERACTIVE=1` is set. The
+[walkthrough page](../docs/walkthrough.md) describes the same tour by hand.
