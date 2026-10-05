@@ -200,8 +200,6 @@ and before adding parser or rule support for an archive entry.
 - Commit messages are short, one line, imperative, prefixed with
   `fix:`, `feat:`, `build:`, `deps:`, `refactor:`, `test:`, `docs:`
   or a plain verb. No `chore:`, no multi-paragraph bodies.
-- No `Co-Authored-By`, and no Claude or AI attribution anywhere in a
-  commit.
 - Add specific files by name, never `git add -A` or `git add .`, so
   a secret or a large binary is never staged by accident.
 - When splitting a commit, land dependency declarations after the
