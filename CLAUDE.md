@@ -119,7 +119,7 @@ Change the value in the file that owns it. Do not restate it here.
 | Type checking | `[tool.mypy]`, `[tool.pyright]` |
 | Test discovery, coverage floor, docstring floor | `[tool.pytest.ini_options]`, `[tool.coverage]`, `[tool.interrogate]` |
 | What CI runs, and in what order | `run-ci-local.sh` |
-| PostgreSQL versions under test | `.github/workflows/ci.yml`, `tests/conftest.py` |
+| PostgreSQL versions under test | `.github/workflows/ci.yml`, `src/radar_analyst/tests/conftest.py` |
 | Deployment topology and exposure | `docker-compose.yml` |
 | Pre-commit hooks | `.pre-commit-config.yaml` |
 | Common commands | `Makefile` |
