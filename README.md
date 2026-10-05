@@ -23,6 +23,7 @@ The pgEdge Radar Analyst documentation covers the following topics:
 - [Configuring the Analyst](#configuring-the-analyst)
 - [Using the API](#using-the-api)
     - [API Reference](docs/api.md)
+    - [API Browser](docs/api/browser.md)
 - [Developing the Analyst](#developing-the-analyst)
 - [Support & Resources](#support--resources)
 - [Contributing](#contributing)
@@ -400,9 +401,11 @@ describes.
 
 The console reads everything that it displays from a JSON API, and any other
 client can use the same endpoints. The [API reference](docs/api.md) describes
-each endpoint that the API provides. A running analyst serves an interactive
-API browser at [http://localhost:8080/docs](http://localhost:8080/docs) and the
-OpenAPI description at `/openapi.json`.
+each endpoint that the API provides. The [API browser](docs/api/browser.md)
+page renders the OpenAPI description of the API for browsing. A running analyst
+also serves an interactive browser at
+[http://localhost:8080/docs](http://localhost:8080/docs) and the description
+itself at `/openapi.json`.
 
 ## Developing the Analyst
 
@@ -544,10 +547,12 @@ Without an argument, the script looks for the radar clone in `../radar`.
 
 ### Regenerating the API Description
 
-The `make openapi` command regenerates [docs/openapi.json](docs/openapi.json)
-from the routes. The `test_openapi_spec.py` test compares the committed file
-with the running application. After a route change, the tests fail until you
-regenerate the description.
+The `make openapi` command regenerates
+[docs/api/openapi.json](docs/api/openapi.json) from the routes. The
+[API browser](docs/api/browser.md) page in the documentation renders that file.
+The `test_openapi_spec.py` test compares the committed file with the running
+application. After a route change, the tests fail until you regenerate the
+description.
 
 ### Building the Documentation
 

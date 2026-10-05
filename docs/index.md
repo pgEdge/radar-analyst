@@ -369,9 +369,11 @@ describes.
 
 The console reads everything that it displays from a JSON API, and any other
 client can use the same endpoints. The [API reference](api.md) describes each
-endpoint that the API provides. A running analyst serves an interactive API
-browser at [http://localhost:8080/docs](http://localhost:8080/docs) and the
-OpenAPI description at `/openapi.json`.
+endpoint that the API provides. The [API browser](api/browser.md) page renders
+the OpenAPI description of the API for browsing. A running analyst also serves
+an interactive browser at
+[http://localhost:8080/docs](http://localhost:8080/docs) and the description
+itself at `/openapi.json`.
 
 ## Support & Resources
 

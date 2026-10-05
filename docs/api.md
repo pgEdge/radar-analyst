@@ -2,9 +2,10 @@
 
 The console reads everything that it displays from the JSON API that this page
 describes. Any other client can use the same endpoints. The
-[openapi.json](openapi.json) file contains the machine-readable description,
-which the analyst generates from its routes. A running analyst serves the same
-description at `/openapi.json`, with interactive browsers at
+[openapi.json](api/openapi.json) file contains the machine-readable
+description, which the analyst generates from its routes. The
+[API browser](api/browser.md) page renders that description. A running analyst
+serves the same description at `/openapi.json`, with interactive browsers at
 [http://localhost:8080/docs](http://localhost:8080/docs) and
 [http://localhost:8080/redoc](http://localhost:8080/redoc).
 

@@ -15,6 +15,7 @@ markdown_extensions:
 
 plugins:
   - search
+  - redoc-tag
 
 theme:
   name: material
@@ -58,6 +59,8 @@ nav:
   - Getting Started:
       - Introduction: index.md
       - Guided Walkthrough: walkthrough.md
-  - API Reference: api.md
+  - For Developers:
+      - API Reference: api.md
+      - API Browser: api/browser.md
   - Changelog: changelog.md
   - License: LICENSE.md

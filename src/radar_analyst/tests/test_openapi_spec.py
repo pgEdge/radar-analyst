@@ -18,7 +18,7 @@ from radar_analyst.server.app import create_app
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_SPEC = _REPO_ROOT / "docs" / "openapi.json"
+_SPEC = _REPO_ROOT / "docs" / "api" / "openapi.json"
 
 pytestmark = pytest.mark.skipif(
     not (_REPO_ROOT / "docs").is_dir(),
@@ -39,7 +39,7 @@ def test_the_committed_spec_is_current() -> None:
 
     committed = json.loads(_SPEC.read_text())
     assert committed == current_spec(), (
-        "docs/openapi.json no longer matches the routes; run "
+        "docs/api/openapi.json no longer matches the routes; run "
         "`make openapi` and commit the result"
     )
 

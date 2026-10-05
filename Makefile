@@ -19,7 +19,7 @@ help:
 	@echo "make ci          everything, the way CI runs it"
 	@echo "make matrix      the tests and the e2e suite on PostgreSQL 16, 17, and 18"
 	@echo "make docs        build the documentation site"
-	@echo "make openapi     regenerate docs/openapi.json from the routes"
+	@echo "make openapi     regenerate docs/api/openapi.json from the routes"
 	@echo "make notice      regenerate NOTICE.txt from the dependencies"
 	@echo "make walkthrough guided tour: start the stack, open the console, assess an archive"
 	@echo "make screenshots regenerate the console screenshots in docs/img/"
@@ -74,7 +74,7 @@ matrix: $(VENV)
 	@echo "matrix passed on 16, 17, and 18"
 
 docs: $(VENV)
-	$(PIP) install -q mkdocs-material
+	$(PIP) install -q mkdocs-material mkdocs-redoc-tag
 	$(VENV)/bin/mkdocs build --strict
 
 # The spec is generated, not hand-written. test_openapi_spec.py
@@ -83,10 +83,10 @@ docs: $(VENV)
 openapi: $(VENV)
 	$(PY) -c "import json, pathlib; \
 from radar_analyst.server.app import create_app; \
-pathlib.Path('docs/openapi.json').write_text( \
+pathlib.Path('docs/api/openapi.json').write_text( \
 json.dumps(create_app(serve_static=False).openapi(), indent=2, \
 sort_keys=True) + chr(10))"
-	@echo "wrote docs/openapi.json"
+	@echo "wrote docs/api/openapi.json"
 
 # The tour needs only docker, curl, and python3, so no venv.
 walkthrough:
