@@ -17,12 +17,13 @@ help:
 	@echo "make lint        flake8 and ruff"
 	@echo "make typecheck   mypy and pyright, both strict"
 	@echo "make ci          everything, the way CI runs it"
-	@echo "make matrix      the database tests on PostgreSQL 16, 17, and 18"
+	@echo "make matrix      the tests and the e2e suite on PostgreSQL 16, 17, and 18"
 	@echo "make docs        build the documentation site"
 	@echo "make openapi     regenerate docs/openapi.json from the routes"
 	@echo "make notice      regenerate NOTICE.txt from the dependencies"
 	@echo "make walkthrough guided tour: start the stack, open the console, assess an archive"
 	@echo "make screenshots regenerate the console screenshots in docs/img/"
+	@echo "make archive-coverage RADAR=<radar checkout>  radar archive paths the analyst does not recognize"
 	@echo "make clean       remove build output and caches"
 
 $(VENV):
@@ -59,11 +60,11 @@ typecheck: $(VENV)
 ci:
 	./run-ci-local.sh
 
-# What CI iterates over. Locally this is opt-in: a single version
-# is enough while writing code, and all three before a PR.
 archive-coverage:
 	./check-archive-coverage.py $(RADAR)
 
+# What CI iterates over. Locally this is opt-in: a single version
+# is enough while writing code, and all three before a PR.
 matrix: $(VENV)
 	@for v in 16 17 18; do \
 		echo "=== PostgreSQL $$v ==="; \

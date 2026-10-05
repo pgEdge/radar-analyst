@@ -41,8 +41,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      # The pgEdge images are not public, and both the test
-      # containers and the compose stack pull them.
+      # Both the test containers and the compose stack pull the
+      # pgEdge PostgreSQL image from ghcr.io.
       - name: Log in to the registry
         uses: docker/login-action@v4
         with:

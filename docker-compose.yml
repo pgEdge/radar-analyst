@@ -1,15 +1,17 @@
 # pgEdge Radar Analyst. Bring it up with:
 #
-#     docker compose up -d
+#     docker compose up -d --wait
 #
 # then open http://localhost:8080/ and upload a radar archive.
 #
-# A provider credential is optional. Without one the findings and
-# verdicts still come back and the briefs are omitted. Set one of
-# ANTHROPIC_API_KEY, GOOGLE_API_KEY (or GEMINI_API_KEY),
-# OPENAI_API_KEY (with OPENAI_BASE_URL for an OpenAI-compatible
-# server), or point RADAR_ANALYST_OLLAMA_HOST at a local Ollama, in
-# a .env file beside this one or in the environment.
+# A provider is optional. Without one the findings and verdicts still
+# come back and the briefs are omitted. RADAR_ANALYST_AI_PROVIDER
+# names the provider: claude (the default), gemini, openai, or local.
+# Each needs its own setting: ANTHROPIC_API_KEY, GOOGLE_API_KEY (or
+# GEMINI_API_KEY), OPENAI_API_KEY (with OPENAI_BASE_URL for an
+# OpenAI-compatible server), or, for local, an Ollama server at
+# RADAR_ANALYST_OLLAMA_HOST. Put them in a .env file beside this one
+# or in the environment.
 #
 # To build the analyst from a checkout instead of pulling it:
 #     docker compose -f docker-compose.yml -f docker-compose.build.yml \
@@ -24,18 +26,14 @@ services:
     # `docker compose logs db`.
     #
     # listen_addresses is NOT set here: it stays at the image default
-    # of localhost, so the only TCP socket is on this container's own
-    # loopback and the analyst reaches the server over the shared
-    # unix socket instead.
+    # of localhost, so the only TCP socket is on the database
+    # container's own loopback, and the analyst reaches the server
+    # over the unix socket in the shared `sock` volume. Opening it to
+    # the compose network would also open it to every process on the
+    # host: container bridge addresses are routable from there,
+    # published port or not.
     command: ["postgres", "-c", "logging_collector=off"]
     image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
-    # listen_addresses stays at the image default of localhost, so
-    # the only TCP socket is on the database container's own
-    # loopback. The analyst reaches it over the unix socket in the
-    # shared `sock` volume instead. Opening this to the compose
-    # network would also open it to every process on the host:
-    # container bridge addresses are routable from there, published
-    # port or not.
     environment:
       POSTGRES_USER: radar_analyst
       POSTGRES_PASSWORD: ${RADAR_ANALYST_DB_PASSWORD:-radar_analyst}
@@ -53,8 +51,8 @@ services:
       timeout: 3s
       retries: 15
     # No published port: this database holds only the analyst's own
-    # state and is reachable from the analyst alone, over the
-    # compose network. Publishing 5432 would put it on the host.
+    # state and is reachable from the analyst alone, over the shared
+    # unix socket. Publishing 5432 would put it on the host.
     # Docker's json-file driver keeps everything forever unless
     # told otherwise, so cap it. Three files of 10 MB is the most
     # this service can ever occupy on the host.
@@ -102,8 +100,6 @@ services:
     # 127.0.0.1 prefix would expose it on every interface.
     ports:
       - "127.0.0.1:8080:8080"
-    # Uploaded radar archives and the generated admin token. The
-    # assessments themselves live in the db volume.
     # Docker's json-file driver keeps everything forever unless
     # told otherwise, so cap it. Three files of 10 MB is the most
     # this service can ever occupy on the host.
@@ -112,6 +108,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Uploaded radar archives and the generated admin token. The
+    # assessments themselves live in the db volume.
     volumes:
       - archives:/data
       - sock:/run/postgresql

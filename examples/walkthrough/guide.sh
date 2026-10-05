@@ -11,19 +11,20 @@
 # docker-compose.yml at the repository root, so a .env beside that
 # file applies. The tour itself never stops anything; --down is the
 # one way it removes the containers, and with them every assessment
-# and archive, after asking.
+# and archive, after asking unless WALKTHROUGH_NONINTERACTIVE=1.
 #
 # Environment:
 #   WALKTHROUGH_BUILD=1           build the analyst from this checkout
 #                                 (docker-compose.build.yml) instead of
-#                                 pulling the published image, so the
+#                                 running the published image, so the
 #                                 tour shows the code you have, not the
-#                                 last release
+#                                 last release; the build takes the
+#                                 published image's name locally
 #   WALKTHROUGH_NO_BROWSER=1      print the console's address instead
 #                                 of opening it
 #   WALKTHROUGH_NONINTERACTIVE=1  no prompts: every question takes
-#                                 its default, and any failure exits
-#                                 non-zero
+#                                 its default, and --down removes
+#                                 everything without asking
 #   BROWSER                       the command to open URLs with, when
 #                                 the platform's own is not wanted
 
@@ -192,12 +193,12 @@ explain "     ${BOLD}$RELEASES${RESET}"
 explain "     ${DIM}radar-linux-amd64, radar-linux-arm64, radar-darwin-amd64, radar-darwin-arm64${RESET}"
 explain ""
 explain "  2. On the host, as root, connecting as a superuser or as a role with"
-explain "     pg_monitor. Add -h and -p if the server is not on the local socket."
+explain "     pg_monitor. Add -h and -p if the server is not on localhost:5432."
 explain ""
 explain "       ${ORANGE}chmod +x radar-linux-amd64 && mv radar-linux-amd64 radar${RESET}"
 explain "       ${ORANGE}sudo PGPASSWORD='...' ./radar -d mydb -U postgres${RESET}"
 explain ""
-explain "  3. A minute or two later it has written one file beside you,"
+explain "  3. When it finishes, it has written one file beside you,"
 explain "     ${BOLD}radar-<hostname>-<timestamp>.zip${RESET}. Copy it to this machine."
 pause
 
@@ -213,15 +214,16 @@ explain "An assessment is five categories, each with a verdict, the findings"
 explain "behind it, and a brief, and one verdict for the host: the worst of the"
 explain "five. The findings are worked out from the archive alone and always"
 explain "come back. The written briefs come from a provider, which is optional:"
-explain "without one, each brief reads as unavailable. To add one, put a"
-explain "credential in a .env file beside docker-compose.yml and start the"
-explain "analyst again; examples/compose.env is a commented .env file to start"
-explain "from. Then press Assess again on an assessment made before, and its"
-explain "briefs are written from the stored archive."
+explain "without one, the briefs read as unavailable. To add one, set"
+explain "RADAR_ANALYST_AI_PROVIDER and its credential in a .env file beside"
+explain "docker-compose.yml (claude, the default, needs only ANTHROPIC_API_KEY)"
+explain "and start the analyst again; examples/compose.env is a commented .env"
+explain "file to start from. Then press Assess again on an assessment made"
+explain "before, and its briefs are written from the stored archive."
 echo ""
-explain "No PostgreSQL to hand yet? The analyst can write a small sample archive"
-explain "to try with: one database and a handful of settings, enough to see an"
-explain "assessment happen. A real collection gives a real assessment."
+explain "No PostgreSQL to hand yet? The analyst can write a synthetic sample"
+explain "archive to try with, enough to see an assessment happen. A real"
+explain "collection gives a real assessment."
 if ask_yes "Write a sample archive to try with?"; then
     "${COMPOSE[@]}" exec -T app python -m radar_analyst.tests.make_sample_zip \
         /tmp/radar-sample.zip >/dev/null 2>&1 \

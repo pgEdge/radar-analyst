@@ -92,11 +92,14 @@ COMMENT ON COLUMN radar.uploads.sha256 IS
     'Hex sha256 of the stored archive, computed in the same '
     'streaming pass as size_bytes.';
 COMMENT ON COLUMN radar.uploads.hostname IS
-    'Host the archive was collected from, as reported inside the '
-    'archive. Null when the archive does not say.';
+    'Host the archive was collected from: read from the archive name '
+    'at upload, then from the archive itself once it has been read. '
+    'Null when neither says.';
 COMMENT ON COLUMN radar.uploads.archive_timestamp IS
-    'When radar collected the archive, as reported inside it. Null '
-    'when the archive does not say.';
+    'When radar collected the archive, as the archive name records '
+    'it: the local clock time of the host, which the name gives '
+    'without a zone, stored as UTC. Null when the name is not in '
+    'radar form.';
 COMMENT ON COLUMN radar.uploads.created_at IS
     'When the upload was accepted by the service.';
 COMMENT ON COLUMN radar.uploads.archive_files IS
@@ -113,10 +116,12 @@ COMMENT ON COLUMN radar.jobs.id IS
 COMMENT ON COLUMN radar.jobs.upload_id IS
     'Archive this job assessed.';
 COMMENT ON COLUMN radar.jobs.state IS
-    'queued, running, done, or failed.';
+    'queued, parsing, analyzing, done, or failed.';
 COMMENT ON COLUMN radar.jobs.phase IS
-    'Pipeline stage currently running, for the progress stream. '
-    'Null before the job starts and after it ends.';
+    'Most recent pipeline stage, for the progress stream: complete '
+    'after a successful run, the last stage after a failure. Null '
+    'before the first stage and for a job that a restart marked '
+    'failed.';
 COMMENT ON COLUMN radar.jobs.started_at IS
     'When the job began, or null while it is still queued.';
 COMMENT ON COLUMN radar.jobs.finished_at IS
