@@ -243,9 +243,9 @@ async def test_the_mock_transport_really_closes_the_network(
 ) -> None:
     """The mock must intercept, not merely fail to be reached.
 
-    The respx setup this replaced could miss silently and let the
-    call out to the live API, so the replacement asserts that the
-    request was captured rather than trusting that it was.
+    A mock that misses silently lets the call out to the live API,
+    so this test asserts that the request was captured rather than
+    trusting that it was.
     """
     recorder = anthropic_transport()
     adapter = ClaudeAdapter(api_key="sk-fake")
