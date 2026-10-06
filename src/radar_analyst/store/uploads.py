@@ -91,26 +91,18 @@ async def list_uploads(
     )
 
 
-async def set_upload_context(
-    pool: AsyncConnectionPool,
-    upload_id: UUID,
-    *,
-    hostname: str | None = None,
-    archive_timestamp: datetime | None = None,
+async def set_upload_hostname(
+    pool: AsyncConnectionPool, upload_id: UUID, hostname: str
 ) -> None:
-    """Record what is now known about the upload's origin.
+    """Replace the host name read from the archive's file name.
 
-    Only the values given are written; a value not given keeps what
-    the row already holds, so the hostname read from the archive can
-    replace the one read from its name without touching the time.
+    The archive records the host's own name, which the orchestrator
+    writes here once it has read the archive.
     """
     await execute(
         pool,
-        "UPDATE radar.uploads SET "
-        "  hostname = COALESCE(%s, hostname), "
-        "  archive_timestamp = COALESCE(%s, archive_timestamp) "
-        "WHERE id = %s",
-        (hostname, archive_timestamp, upload_id),
+        "UPDATE radar.uploads SET hostname = %s WHERE id = %s",
+        (hostname, upload_id),
     )
 
 
