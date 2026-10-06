@@ -197,6 +197,12 @@ command asks for confirmation. The command then runs `docker compose down -v`
 for the stack that the clone's `docker-compose.yml` defines. The command also
 removes `radar-sample.zip` from the current directory.
 
+!!! warning
+    With `WALKTHROUGH_NONINTERACTIVE=1` set, the `--down` command does not ask
+    for confirmation. The command deletes every assessment and every uploaded
+    archive at once, and nothing can undo the deletion. To keep the data, unset
+    the variable before you run the command.
+
 ## Next Steps
 
 The following pages describe the analyst in more detail:
