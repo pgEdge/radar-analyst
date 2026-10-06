@@ -1,0 +1,123 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="pgEdge Radar Analyst: running">
+  <div class="pg-live">
+    <nav class="pg-live__crumb">
+      <a href="/">&larr; Home</a>
+    </nav>
+    <section class="pg-card pg-live__card">
+      <h2 class="pg-live__title">Assessment in progress</h2>
+      <div id="pg-live-phase" class="pg-live__phase">
+        Starting…
+      </div>
+      <ul id="pg-live-events" class="pg-live__events"></ul>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { followJob } from '../lib/follow';
+
+  const phaseEl = document.getElementById('pg-live-phase');
+  const listEl = document.getElementById('pg-live-events');
+  const qs = new URLSearchParams(window.location.search);
+  const uploadId = qs.get('upload');
+  const jobId = qs.get('job');
+
+  if (phaseEl && listEl) {
+    if (!uploadId || !jobId) {
+      phaseEl.textContent =
+        'Missing upload or job parameter: returning home.';
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1500);
+    } else {
+      const append = (label: string, tone: string): void => {
+        const li = document.createElement('li');
+        li.className = `pg-live__event pg-live__event--${tone}`;
+        li.textContent = label;
+        listEl.appendChild(li);
+      };
+      const toneFor = (verdict: string): string => {
+        if (verdict === 'HEALTHY') return 'healthy';
+        if (verdict === 'CRITICAL') return 'critical';
+        return 'warning';
+      };
+
+      followJob(
+        { jobId },
+        {
+          onPhase: (phase) => {
+            phaseEl.textContent = phase;
+            append(phase, 'neutral');
+          },
+          onBrief: (category, verdict) => {
+            append(`${category}: ${verdict}`, toneFor(verdict));
+          },
+          onStatus: (text) => {
+            phaseEl.textContent = text;
+          },
+          onDone: () => {
+            phaseEl.textContent = 'Assessment complete.';
+            window.location.href = `/upload?id=${uploadId}`;
+          },
+          onError: (message) => {
+            phaseEl.textContent = `Failed: ${message}`;
+            append(`error: ${message}`, 'critical');
+          },
+        },
+      );
+    }
+  }
+</script>
+
+<style>
+  .pg-live {
+    display: grid;
+    gap: 1rem;
+  }
+  .pg-live__crumb {
+    font-size: 0.95rem;
+  }
+  .pg-live__card {
+    padding: 1.5rem;
+  }
+  .pg-live__title {
+    margin-top: 0;
+    font-size: 1.25rem;
+  }
+  .pg-live__phase {
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+    background: var(--pg-input-border);
+    border-radius: var(--pg-radius-card);
+    margin-bottom: 1rem;
+  }
+  .pg-live__events {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.25rem;
+    font-family: var(--pg-font-mono);
+    font-size: 0.9rem;
+  }
+  .pg-live__event {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+  .pg-live__event--healthy {
+    color: var(--pg-status-healthy-fg);
+  }
+  .pg-live__event--warning {
+    color: var(--pg-status-warning-fg);
+  }
+  .pg-live__event--critical {
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-live__event--neutral {
+    color: var(--pg-text-muted);
+  }
+</style>

@@ -1,0 +1,650 @@
+"""End-to-end tests for the orchestrator (using the mock AI provider)."""
+
+import asyncio
+import contextlib
+import zipfile
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
+
+import pytest
+from psycopg_pool import AsyncConnectionPool
+
+from radar_analyst.ai.mock import MockAdapter
+from radar_analyst.analyze import orchestrator
+from radar_analyst.analyze.categories import CATEGORIES
+from radar_analyst.analyze.orchestrator import (
+    _build_database_summaries,
+    orchestrate,
+)
+from radar_analyst.analyze.parsing import read_and_parse
+from radar_analyst.parse.databases import DatabaseInfo
+from radar_analyst.server.sse import SSEHub
+from radar_analyst.store.briefs import list_briefs
+from radar_analyst.store.db import apply_migrations
+from radar_analyst.store.findings import list_findings
+from radar_analyst.store.jobs import (
+    JOB_STATES,
+    get_job,
+    insert_job,
+    update_job_state,
+)
+from radar_analyst.store.snapshots import get_snapshot
+from radar_analyst.store.uploads import get_upload, insert_upload
+
+
+_PG_VERSION = (
+    "version\nPostgreSQL 17.2 on x86_64-pc-linux-gnu, "
+    "compiled by gcc 13.2.0, 64-bit\n"
+)
+
+_PG_CONFIG = (
+    "name\tsetting\tunit\tcategory\tshort_desc\n"
+    "shared_buffers\t16384\t8kB\tResource Usage / Memory\t"
+    "Sets shared memory buffer count.\n"
+    "max_connections\t100\t\tConnections\t"
+    "Sets max concurrent connections.\n"
+)
+
+_SYSCTL = (
+    "abi.vsyscall32 = 1\n"
+    "vm.swappiness = 10\n"
+    "vm.overcommit_memory = 2\n"
+    "kernel.shmmax = 18446744073692774399\n"
+    "net.core.somaxconn = 4096\n"
+)
+
+_MEMINFO = (
+    "MemTotal:       16384000 kB\n"
+    "MemFree:         1024000 kB\n"
+    "MemAvailable:    8192000 kB\n"
+    "Buffers:          128000 kB\n"
+    "Cached:          4096000 kB\n"
+    "SwapTotal:       0 kB\n"
+    "SwapFree:        0 kB\n"
+)
+
+
+def _make_radar_zip(tmp_path: Path) -> Path:
+    """Build a minimal but realistic radar-style zip fixture."""
+    z = tmp_path / "radar-test.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("postgresql/configuration.tsv", _PG_CONFIG)
+        zf.writestr("system/sysctl.out", _SYSCTL)
+        zf.writestr("system/proc/meminfo.out", _MEMINFO)
+        # One file with no registered parser, to exercise the
+        # coverage canary.
+        zf.writestr("something/unknown.bin", b"xxxx")
+    return z
+
+
+async def _seed(
+    pool: AsyncConnectionPool, zip_path: Path
+) -> tuple[UUID, UUID]:
+    upload_id = uuid4()
+    job_id = uuid4()
+    await insert_upload(
+        pool,
+        upload_id=upload_id,
+        filename=zip_path.name,
+        storage_url=f"file://{zip_path}",
+        size_bytes=zip_path.stat().st_size,
+        sha256="a" * 64,
+        hostname=None,
+        archive_timestamp=None,
+    )
+    await insert_job(
+        pool,
+        job_id=job_id,
+        upload_id=upload_id,
+        ai_provider="mock",
+    )
+    return upload_id, job_id
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_produces_briefs_for_all_categories(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    hub = SSEHub()
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=hub,
+    )
+    rows = await list_briefs(fresh_pool, upload_id)
+    categories_persisted = {r.category for r in rows}
+    categories_expected = {c.name for c in CATEGORIES}
+    assert categories_persisted == categories_expected
+    # Host & OS: mock LLM returns HEALTHY and no rule fires.
+    # PostgreSQL Configuration: the fixture's shared_buffers
+    # (128 MiB on 16 GiB RAM) triggers
+    # pg.config.shared_buffers_low (warning), which floors the
+    # tag to WARNING even though the mock returns HEALTHY.
+    # Other four categories: short-circuited to UNKNOWN without
+    # an LLM call (no parser data).
+    by_cat = {r.category: r for r in rows}
+    assert by_cat["Host & OS"].verdict == "HEALTHY"
+    assert by_cat["Host & OS"].provider == "mock"
+    assert (
+        by_cat["PostgreSQL Configuration"].verdict
+        == "WARNING"
+    )
+    for cat_name in (
+        "Workload",
+        "Internals & I/O Health",
+        "Replication",
+    ):
+        assert by_cat[cat_name].verdict == "UNKNOWN"
+        assert by_cat[cat_name].prompt_tokens is None
+        assert by_cat[cat_name].provider is None
+        assert by_cat[cat_name].model is None
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_marks_job_done(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    job = await get_job(fresh_pool, job_id)
+    assert job is not None
+    assert job.state == "done"
+    assert job.finished_at is not None
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_persists_snapshot_with_coverage_canary(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    snap = await get_snapshot(fresh_pool, upload_id)
+    assert snap is not None
+    assert snap["unknown_entries"] == [
+        "something/unknown.bin"
+    ]
+    assert "pg.version" in snap["parsed_kinds"]
+    assert "pg.settings" in snap["parsed_kinds"]
+    assert "sys.sysctl" in snap["parsed_kinds"]
+    assert "sys.proc.meminfo" in snap["parsed_kinds"]
+    assert "PostgreSQL 17.2" in snap["pg_version"]
+    # No radar.out in the fixture → pre-0.5.0 zip behaviour:
+    # snapshot reports None instead of crashing.
+    assert snap["radar_version"] is None
+    assert snap["radar_commit"] is None
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_captures_radar_meta_when_present(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    # Inject radar.out into the existing fixture zip: same
+    # format radar 0.5.0+ writes.
+    with zipfile.ZipFile(z, "a") as zf:
+        zf.writestr(
+            "radar.out", b"version: v0.5.0\ncommit: abc1234\n"
+        )
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    snap = await get_snapshot(fresh_pool, upload_id)
+    assert snap is not None
+    assert snap["radar_version"] == "v0.5.0"
+    assert snap["radar_commit"] == "abc1234"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_emits_expected_sse_events(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    hub = SSEHub()
+
+    events: list[dict[str, object]] = []
+
+    async def consume() -> None:
+        async with hub.subscribe(job_id) as sub:
+            async for ev in sub.events():
+                events.append(ev)
+
+    consumer = asyncio.create_task(consume())
+    await asyncio.sleep(0.01)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=hub,
+    )
+    await asyncio.wait_for(consumer, timeout=2.0)
+
+    types = [e["type"] for e in events]
+    assert types[0] == "phase"
+    assert types[-1] == "done"
+    analysis_events = [
+        e for e in events if e["type"] == "brief"
+    ]
+    assert len(analysis_events) == len(CATEGORIES)
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_marks_job_failed_on_error(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    # A path that doesn't exist: orchestrate must catch and record.
+    bogus = tmp_path / "does-not-exist.zip"
+    upload_id = uuid4()
+    job_id = uuid4()
+    await insert_upload(
+        fresh_pool,
+        upload_id=upload_id,
+        filename="x.zip",
+        storage_url=f"file://{bogus}",
+        size_bytes=0,
+        sha256="0" * 64,
+        hostname=None,
+        archive_timestamp=None,
+    )
+    await insert_job(
+        fresh_pool,
+        job_id=job_id,
+        upload_id=upload_id,
+        ai_provider="mock",
+    )
+    with pytest.raises(OSError):
+        await orchestrate(
+            upload_id=upload_id,
+            job_id=job_id,
+            zip_path=bogus,
+            pool=fresh_pool,
+            analyzer=MockAdapter(),
+            hub=SSEHub(),
+        )
+    job = await get_job(fresh_pool, job_id)
+    assert job is not None
+    assert job.state == "failed"
+    assert job.error
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_marks_job_failed_on_corrupt_zip(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    corrupt = tmp_path / "corrupt.zip"
+    corrupt.write_bytes(b"PK\x03\x04" + b"\x00" * 64)
+    upload_id, job_id = await _seed(fresh_pool, corrupt)
+    with pytest.raises(zipfile.BadZipFile):
+        await orchestrate(
+            upload_id=upload_id,
+            job_id=job_id,
+            zip_path=corrupt,
+            pool=fresh_pool,
+            analyzer=MockAdapter(),
+            hub=SSEHub(),
+        )
+    job = await get_job(fresh_pool, job_id)
+    assert job is not None
+    assert job.state == "failed"
+    assert job.error is not None
+    assert "zip" in job.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_every_job_state_is_one_a_job_reaches(
+    fresh_pool: AsyncConnectionPool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The store allows the states a job passes through, and no more."""
+    seen = {"queued"}
+
+    async def recording(
+        pool: AsyncConnectionPool, job_id: UUID, *, state: str, **kw: Any
+    ) -> None:
+        seen.add(state)
+        await update_job_state(pool, job_id, state=state, **kw)
+
+    monkeypatch.setattr(orchestrator, "update_job_state", recording)
+    await apply_migrations(fresh_pool)
+    corrupt = tmp_path / "corrupt.zip"
+    corrupt.write_bytes(b"PK\x03\x04" + b"\x00" * 64)
+    for z in (_make_radar_zip(tmp_path), corrupt):
+        upload_id, job_id = await _seed(fresh_pool, z)
+        with contextlib.suppress(zipfile.BadZipFile):
+            await orchestrate(
+                upload_id=upload_id,
+                job_id=job_id,
+                zip_path=z,
+                pool=fresh_pool,
+                analyzer=MockAdapter(),
+                hub=SSEHub(),
+            )
+    assert seen == JOB_STATES
+
+
+async def test_the_job_record_names_each_stage_as_the_stream_does(
+    fresh_pool: AsyncConnectionPool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /api/jobs/{id} and the progress stream use one wording."""
+    persisted: list[str] = []
+
+    async def recording(
+        pool: AsyncConnectionPool, job_id: UUID, *, state: str, **kw: Any
+    ) -> None:
+        if kw.get("phase") is not None:
+            persisted.append(kw["phase"])
+        await update_job_state(pool, job_id, state=state, **kw)
+
+    monkeypatch.setattr(orchestrator, "update_job_state", recording)
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip_with_dbs(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    hub = SSEHub()
+    published: list[str] = []
+    publish = hub.publish
+
+    def recording_publish(jid: UUID, event: dict[str, Any]) -> None:
+        if event["type"] == "phase":
+            published.append(event["phase"])
+        publish(jid, event)
+
+    monkeypatch.setattr(hub, "publish", recording_publish)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=hub,
+    )
+    assert "analyzing databases" in published
+    assert persisted == [*published, "complete"]
+
+
+def test_read_and_parse_sets_container_flag(tmp_path: Path) -> None:
+    z = tmp_path / "container.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("system/container/dockerenv.out", "")
+    parsed, _, _, _, _ = read_and_parse(z)
+    assert parsed["sys.is_container"] is True
+
+
+def test_read_and_parse_container_flag_false_on_bare_host(
+    tmp_path: Path,
+) -> None:
+    z = tmp_path / "bare.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+    parsed, _, _, _, _ = read_and_parse(z)
+    assert parsed["sys.is_container"] is False
+
+
+def test_read_and_parse_lists_only_the_kinds_the_archive_held(
+    tmp_path: Path,
+) -> None:
+    # The container flag and the cloud provider are derived from
+    # other entries rather than read from an entry of their own.
+    z = tmp_path / "container.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("system/container/dockerenv.out", "")
+    parsed, _, parsed_kinds, _, _ = read_and_parse(z)
+    derived = {"sys.is_container", "sys.cloud_provider"}
+    assert derived <= parsed.keys()
+    assert "pg.version" in parsed_kinds
+    assert not derived & set(parsed_kinds)
+
+
+# ---------------------------------------------------------------------------
+# Per-db conditional LLM analysis tests
+# ---------------------------------------------------------------------------
+
+_DATABASES_TSV = (
+    "oid\tdatname\tdatdba\tencoding\tdatcollate\tdatctype\n"
+    "5\tpostgres\t10\t6\ten_US.UTF-8\ten_US.UTF-8\n"
+    "4\ttemplate0\t10\t6\ten_US.UTF-8\ten_US.UTF-8\n"
+    "1\ttemplate1\t10\t6\ten_US.UTF-8\ten_US.UTF-8\n"
+    "17028\tactivedb\t10\t6\ten_US.UTF-8\ten_US.UTF-8\n"
+    "17029\tidledb\t10\t6\ten_US.UTF-8\ten_US.UTF-8\n"
+)
+
+# activedb: 500 commits + 10 rollbacks = 510 > 100 → qualifies for LLM
+# idledb: 0 activity → static "no issues" card
+_DATABASES_XACT_TSV = (
+    "datname\txact_commit\txact_rollback\n"
+    "postgres\t0\t0\n"
+    "activedb\t500\t10\n"
+    "idledb\t0\t0\n"
+)
+
+
+def _make_radar_zip_with_dbs(tmp_path: Path) -> Path:
+    z = tmp_path / "radar-dbs.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("postgresql/configuration.tsv", _PG_CONFIG)
+        zf.writestr("system/sysctl.out", _SYSCTL)
+        zf.writestr("system/proc/meminfo.out", _MEMINFO)
+        zf.writestr(
+            "postgresql/databases.tsv", _DATABASES_TSV
+        )
+        zf.writestr(
+            "postgresql/databases_xact.tsv",
+            _DATABASES_XACT_TSV,
+        )
+    return z
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_active_db_gets_brief_markdown(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """Activedb (commits+rollbacks > 100) triggers an LLM call."""
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip_with_dbs(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    snap = await get_snapshot(fresh_pool, upload_id)
+    assert snap is not None
+    dbs_by_name = {d["datname"]: d for d in snap["databases"]}
+    assert "activedb" in dbs_by_name
+    active = dbs_by_name["activedb"]
+    # The mock LLM returns HEALTHY; no rule fires, so tag stays HEALTHY.
+    assert active.get("brief_markdown") is not None
+    assert "HEALTHY" in (active.get("brief_markdown") or "")
+    assert active.get("brief_verdict") == "HEALTHY"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_idle_db_gets_static_no_issues(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """An idle database gets a static card and no LLM call.
+
+    Idle meaning no commits, no rollbacks, no backends, and no
+    findings.
+    """
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip_with_dbs(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    snap = await get_snapshot(fresh_pool, upload_id)
+    assert snap is not None
+    dbs_by_name = {d["datname"]: d for d in snap["databases"]}
+    assert "idledb" in dbs_by_name
+    idle = dbs_by_name["idledb"]
+    # Static card: no LLM call fired, deterministic text.
+    assert "no issues" in (idle.get("brief_markdown") or "").lower()
+    assert idle.get("brief_verdict") == "HEALTHY"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_per_db_severity_floor_applied(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """A critical finding outranks what the provider says.
+
+    The database is tagged CRITICAL even though the mock provider
+    answers HEALTHY.
+    """
+    await apply_migrations(fresh_pool)
+    # Build a zip where activedb has a checksum failure (critical
+    # rule). We use the checksums file; the rule fires when
+    # checksum_failures > 0.
+    _checksums_tsv = (
+        "datname\tchecksum_failures\tchecksum_last_failure\n"
+        "activedb\t3\t2024-01-01 00:00:00+00\n"
+    )
+    z = tmp_path / "radar-cf.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("postgresql/version.tsv", _PG_VERSION)
+        zf.writestr("postgresql/configuration.tsv", _PG_CONFIG)
+        zf.writestr("system/sysctl.out", _SYSCTL)
+        zf.writestr("system/proc/meminfo.out", _MEMINFO)
+        zf.writestr(
+            "postgresql/databases.tsv", _DATABASES_TSV
+        )
+        zf.writestr(
+            "postgresql/databases_checksums.tsv",
+            _checksums_tsv,
+        )
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    snap = await get_snapshot(fresh_pool, upload_id)
+    assert snap is not None
+    dbs_by_name = {d["datname"]: d for d in snap["databases"]}
+    active = dbs_by_name["activedb"]
+    # checksum_failures finding is critical; severity floor must
+    # upgrade the mock's HEALTHY to CRITICAL.
+    assert active.get("brief_verdict") == "CRITICAL"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_writes_the_parsed_hostname_to_the_upload(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    """The upload row learns the host once the archive is read."""
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    with zipfile.ZipFile(z, "a") as zf:
+        zf.writestr("system/hostname.out", "db1\n")
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    row = await get_upload(fresh_pool, upload_id)
+    assert row is not None
+    assert row.hostname == "db1"
+
+
+def test_database_summaries_skip_templates_and_no_connect() -> None:
+    parsed = {
+        "pg.databases": [
+            DatabaseInfo(datname="app", datistemplate=False),
+            DatabaseInfo(datname="template1", datistemplate=True),
+            DatabaseInfo(
+                datname="locked",
+                datistemplate=False,
+                datallowconn=False,
+            ),
+        ]
+    }
+    names = [
+        d["datname"] for d in _build_database_summaries(parsed)
+    ]
+    assert names == ["app"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_persists_the_findings_behind_each_verdict(
+    fresh_pool: AsyncConnectionPool, tmp_path: Path
+) -> None:
+    await apply_migrations(fresh_pool)
+    z = _make_radar_zip(tmp_path)
+    upload_id, job_id = await _seed(fresh_pool, z)
+    await orchestrate(
+        upload_id=upload_id,
+        job_id=job_id,
+        zip_path=z,
+        pool=fresh_pool,
+        analyzer=MockAdapter(),
+        hub=SSEHub(),
+    )
+    rows = await list_findings(fresh_pool, upload_id)
+    by_cat: dict[str, list[str]] = {}
+    for r in rows:
+        by_cat.setdefault(r.category, []).append(r.rule_id)
+    # The fixture's shared_buffers is 128 MiB on 16 GiB of RAM.
+    assert "pg.config.shared_buffers_low" in by_cat[
+        "PostgreSQL Configuration"
+    ]
+    # No rule fires on the fixture's host facts.
+    assert "Host & OS" not in by_cat

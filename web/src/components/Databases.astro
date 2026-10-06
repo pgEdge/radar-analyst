@@ -1,0 +1,303 @@
+---
+// Per-database summary tree. Each database is a row in the same
+// tree style as the category list: [+]/[-] toggle, severity chip,
+// name on the summary; expansion shows facts + per-db findings.
+// Data comes from the snapshot JSONB under `databases`.
+---
+
+<section id="pg-databases">
+  <p class="pg-text-muted">Loading databases…</p>
+</section>
+
+<script is:inline>
+  (function () {
+    var container = document.getElementById('pg-databases');
+    if (!container) return;
+    var id = new URLSearchParams(window.location.search).get('id');
+    if (!id) return;
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c;
+      });
+    }
+
+    function chip(tag) {
+      var t = (tag || 'UNKNOWN').toUpperCase();
+      var cls =
+        t === 'HEALTHY'
+          ? 'healthy'
+          : t === 'CRITICAL'
+            ? 'critical'
+            : t === 'WARNING'
+              ? 'warning'
+              : 'unknown';
+      return (
+        '<span class="pg-chip pg-chip--' + cls + '">' + t + '</span>'
+      );
+    }
+
+    function num(n) {
+      // Locale-formatted integer with thousands separator;
+      // returns '-' for null/undefined.
+      if (n == null) return '-';
+      try {
+        return Number(n).toLocaleString('en-US');
+      } catch (_) {
+        return String(n);
+      }
+    }
+
+    function pct(ratio, fractionDigits) {
+      // ratio is 0..1 or null. Render as e.g. "98.4%" or "-".
+      if (ratio == null) return '-';
+      var d = fractionDigits == null ? 1 : fractionDigits;
+      return (ratio * 100).toFixed(d) + '%';
+    }
+
+    function schemaLine(d) {
+      var parts = [];
+      parts.push(num(d.table_count) + ' tables');
+      parts.push(num(d.index_count) + ' indexes');
+      if (d.partitioned_tables_count != null) {
+        parts.push(num(d.partitioned_tables_count) + ' partitioned');
+      }
+      if (d.partitions_count != null) {
+        parts.push(num(d.partitions_count) + ' partitions');
+      }
+      if (d.trigger_count != null) {
+        parts.push(num(d.trigger_count) + ' triggers');
+      }
+      if (d.function_count != null) {
+        parts.push(num(d.function_count) + ' funcs');
+      }
+      if (d.procedure_count != null) {
+        parts.push(num(d.procedure_count) + ' procs');
+      }
+      if (d.type_count != null) {
+        parts.push(num(d.type_count) + ' types');
+      }
+      return esc(parts.join(' · '));
+    }
+
+    function replicationLine(d) {
+      // Only render when at least one of pubs/subs is present.
+      if (d.publication_count == null && d.subscription_count == null) {
+        return '';
+      }
+      var parts = [];
+      parts.push(num(d.publication_count) + ' publications');
+      parts.push(num(d.subscription_count) + ' subscriptions');
+      return (
+        '<div class="pg-kv__row">' +
+        '<dt class="pg-kv__label">Logical repl.</dt>' +
+        '<dd class="pg-kv__value">' +
+        esc(parts.join(' · ')) +
+        '</dd></div>'
+      );
+    }
+
+    var VERDICT_RE =
+      /^\s*\*{0,2}\[\s*(HEALTHY|WARNING|CRITICAL|UNKNOWN)\s*\]\*{0,2}\s*\n+/i;
+
+    function inlineFormat(s) {
+      return s
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="pg-mono">$1</code>');
+    }
+
+    function renderBlock(block) {
+      var lines = block.split('\n');
+      var isBullets = lines.every(function (ln) {
+        return /^\s*-\s+/.test(ln);
+      });
+      if (isBullets) {
+        return (
+          '<ul>' +
+          lines
+            .map(function (ln) {
+              return (
+                '<li>' +
+                inlineFormat(esc(ln.replace(/^\s*-\s+/, ''))) +
+                '</li>'
+              );
+            })
+            .join('') +
+          '</ul>'
+        );
+      }
+      return (
+        '<p>' +
+        inlineFormat(esc(block)).replace(/\n/g, '<br/>') +
+        '</p>'
+      );
+    }
+
+    function renderMarkdown(md) {
+      if (!md) return '';
+      // Strip the leading status tag line before rendering.
+      var body = md.replace(VERDICT_RE, '');
+      return body
+        .split(/\n{2,}/)
+        .map(renderBlock)
+        .join('');
+    }
+
+    function activityLine(d) {
+      var cacheHit =
+        d.cache_hit_ratio != null ? pct(d.cache_hit_ratio, 1) : '-';
+      var parts = [];
+      parts.push(
+        (d.active_sessions || 0) +
+          ' session' +
+          (d.active_sessions === 1 ? '' : 's'),
+      );
+      parts.push('cache-hit ' + cacheHit);
+      parts.push((d.deadlocks || 0) + ' deadlocks');
+      parts.push((d.temp_files || 0) + ' temp files');
+      if (d.checksum_failures) {
+        parts.push(d.checksum_failures + ' checksum failures');
+      }
+      return esc(parts.join(' · '));
+    }
+
+    fetch('/api/uploads/' + id + '/snapshot')
+      .then(function (r) {
+        return r.ok ? r.json() : Promise.reject(r.status);
+      })
+      .then(function (snap) {
+        var dbs = (snap && snap.databases) || [];
+        if (!dbs.length) {
+          container.outerHTML = '';
+          return;
+        }
+
+        var head =
+          '<h2 class="pg-section__title">Databases</h2>' +
+          '<p class="pg-text-muted pg-section__sub">' +
+          dbs.length +
+          ' user database' +
+          (dbs.length === 1 ? '' : 's') +
+          ' in this snapshot. Templates and ' +
+          'no-connect databases are excluded.' +
+          '</p>';
+
+        var rows = dbs
+          .map(function (d) {
+            var findings = (d.findings || [])
+              .map(function (f) {
+                return (
+                  '<li><strong>' +
+                  esc(f.title) +
+                  '</strong>: ' +
+                  esc(f.detail) +
+                  ' <span class="pg-text-muted pg-mono">' +
+                  esc(f.rule_id) +
+                  '</span></li>'
+                );
+              })
+              .join('');
+            var findingsBlock = findings
+              ? '<div class="pg-findings">' +
+                '<div class="pg-kv__label">Findings</div>' +
+                '<ul>' +
+                findings +
+                '</ul></div>'
+              : '';
+            var briefBlock = d.brief_markdown
+              ? renderMarkdown(d.brief_markdown)
+              : '';
+            // Use brief_verdict (LLM + severity floor) if
+            // present; otherwise fall back to the rule-only severity.
+            var displayVerdict = d.brief_verdict || d.severity;
+            var exts = (d.extensions || []).join(', ') || '-';
+            return (
+              '<details class="pg-category">' +
+              '<summary class="pg-category__summary">' +
+              '<span class="pg-category__toggle" aria-hidden="true"></span>' +
+              chip(displayVerdict) +
+              '<span class="pg-category__title pg-mono">' +
+              esc(d.datname) +
+              '</span>' +
+              '<span class="pg-text-muted pg-db__meta">' +
+              esc(d.size || '-') +
+              ' · ' +
+              (d.table_count != null
+                ? num(d.table_count) + ' tables'
+                : '? tables') +
+              ' · ' +
+              (d.active_sessions || 0) +
+              ' session' +
+              (d.active_sessions === 1 ? '' : 's') +
+              '</span>' +
+              '</summary>' +
+              '<div class="pg-category__body">' +
+              '<dl class="pg-kv">' +
+              '<div class="pg-kv__row">' +
+              '<dt class="pg-kv__label">Size</dt>' +
+              '<dd class="pg-kv__value">' +
+              esc(d.size || '-') +
+              '</dd></div>' +
+              '<div class="pg-kv__row">' +
+              '<dt class="pg-kv__label">Schema</dt>' +
+              '<dd class="pg-kv__value">' +
+              schemaLine(d) +
+              '</dd></div>' +
+              replicationLine(d) +
+              '<div class="pg-kv__row">' +
+              '<dt class="pg-kv__label">Extensions</dt>' +
+              '<dd class="pg-kv__value pg-mono">' +
+              esc(exts) +
+              '</dd></div>' +
+              '<div class="pg-kv__row">' +
+              '<dt class="pg-kv__label">Activity</dt>' +
+              '<dd class="pg-kv__value">' +
+              activityLine(d) +
+              '</dd></div>' +
+              '</dl>' +
+              briefBlock +
+              findingsBlock +
+              '</div>' +
+              '</details>'
+            );
+          })
+          .join('');
+
+        container.outerHTML =
+          '<section>' +
+          head +
+          '<div class="pg-categories pg-databases-tree">' +
+          rows +
+          '</div>' +
+          '</section>';
+      })
+      .catch(function () {
+        container.outerHTML = '';
+      });
+  })();
+</script>
+
+<style is:global>
+  .pg-db__meta {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+  }
+  /* On narrow viewports, drop the meta to its own line so the
+   * db name keeps a sensible width. */
+  @media (max-width: 600px) {
+    .pg-db__meta {
+      flex-basis: 100%;
+      margin-left: 0;
+      padding-left: calc(18px + 0.75rem);
+    }
+  }
+  .pg-section__title {
+    margin: 2rem 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  .pg-section__sub {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+  }
+</style>

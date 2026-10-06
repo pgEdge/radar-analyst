@@ -1,0 +1,97 @@
+# docker-compose used by test-radar-analyst.sh in CI and locally.
+# Uses the built-in `mock` AI provider so no API keys are needed.
+#
+# Mirrors docker-compose.yml, with the analyst built from this
+# checkout and a named volume for the archives so the e2e can stop
+# the stack, start it again, and check that the work survived.
+
+services:
+  db:
+    # Logs go to stdout, not into PGDATA. The collector's defaults
+    # bound the file count, one per weekday truncated on reuse, but
+    # log_rotation_size is 0, so one heavy day grows a single file
+    # until the volume is full. It also hides everything from
+    # `docker compose logs db`.
+    #
+    # listen_addresses is NOT set here: it stays at the image default
+    # of localhost, so the only TCP socket is on this container's own
+    # loopback and the analyst reaches the server over the shared
+    # unix socket instead.
+    command: ["postgres", "-c", "logging_collector=off"]
+    image: ghcr.io/pgedge/pgedge-postgres:${RADAR_ANALYST_PG_MAJOR:-18}-spock5-minimal
+    # listen_addresses stays at the image default of localhost, so
+    # the only TCP socket is on the database container's own
+    # loopback. The analyst reaches it over the unix socket in the
+    # shared `sock` volume instead. Opening this to the compose
+    # network would also open it to every process on the host:
+    # container bridge addresses are routable from there, published
+    # port or not.
+    environment:
+      POSTGRES_USER: radar_analyst
+      # Characters that a URL would need encoded, so the run proves
+      # that the password reaches the analyst intact.
+      POSTGRES_PASSWORD: "e2e@pass/w%rd"
+      POSTGRES_DB: radar_analyst
+      # This image's initdb defaults to SQL_ASCII, under which
+      # psycopg returns every text column as raw bytes. UTF8 is
+      # what the analyst needs to read back its own rows. It also
+      # trusts every connection over the socket and loopback, so
+      # without the scram-sha-256 flags no password is checked.
+      POSTGRES_INITDB_ARGS: >-
+        --encoding=UTF8 --locale=C.UTF-8
+        --auth-local=scram-sha-256 --auth-host=scram-sha-256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U radar_analyst -d radar_analyst"]
+      # -h forces a TCP probe. Over the unix socket the temporary
+      # server that runs during initdb answers too, so the service
+      # would be called healthy before it is reachable.
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      # PGDATA is versioned in this image, so the mount point
+      # has to follow the tag.
+      - db:/var/lib/pgsql/${RADAR_ANALYST_PG_MAJOR:-18}/data
+      - sock:/run/postgresql
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RADAR_ANALYST_STATE_DB_URL: >-
+        postgresql://radar_analyst@/radar_analyst?host=/run/postgresql
+      PGPASSWORD: "e2e@pass/w%rd"
+      RADAR_ANALYST_LISTEN: "0.0.0.0:8080"
+      RADAR_ANALYST_AI_PROVIDER: mock
+      RADAR_ANALYST_TEST: "1"
+    # Host port comes from $RADAR_ANALYST_E2E_PORT (default 28080) so
+    # the e2e stack doesn't collide with whatever the developer
+    # already has bound on 8080. Container always listens on 8080.
+    ports:
+      - "127.0.0.1:${RADAR_ANALYST_E2E_PORT:-28080}:8080"
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - archives:/data
+      - sock:/run/postgresql
+
+volumes:
+  db:
+  archives:
+  sock:

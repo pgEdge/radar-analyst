@@ -1,0 +1,266 @@
+---
+// Every assessment so far, newest first: the host, when the archive
+// was collected, where the assessment stands, and a way to remove it.
+// Rows are built with DOM calls so nothing from the archive is ever
+// treated as markup.
+---
+
+<section class="pg-card pg-list">
+  <div class="pg-list__scroller">
+    <table
+      class="pg-table"
+      id="pg-uploads-table"
+      aria-label="Assessments"
+    >
+      <thead>
+        <tr>
+          <th scope="col">Host</th>
+          <th scope="col" class="pg-col-collected">
+            Collected
+          </th>
+          <th scope="col">Status</th>
+          <th scope="col" class="pg-col-uploaded">
+            Uploaded
+          </th>
+          <th scope="col">
+            <span class="pg-visually-hidden">Actions</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="pg-uploads-tbody">
+        <tr>
+          <td colspan="5" class="pg-text-muted">
+            Loading…
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p id="pg-list-error" class="pg-list__error" role="alert"></p>
+</section>
+
+<script>
+  import { api, type UploadSummary } from '../lib/api';
+  import {
+    formatClock,
+    formatSize,
+    formatWhen,
+    statusChip,
+  } from '../lib/format';
+
+  const TOKEN_KEY = 'radar_analyst_admin_token';
+  const DELETE_ICON =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 ' +
+    '1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5' +
+    'l-1 1H5v2h14V4z"></path></svg>';
+
+  const tbody = document.getElementById(
+    'pg-uploads-tbody',
+  ) as HTMLTableSectionElement | null;
+  const errorEl = document.getElementById('pg-list-error');
+
+  const cell = (
+    row: HTMLTableRowElement,
+    className?: string,
+  ): HTMLTableCellElement => {
+    const td = document.createElement('td');
+    if (className) td.className = className;
+    row.appendChild(td);
+    return td;
+  };
+
+  const message = (text: string): void => {
+    if (!tbody) return;
+    tbody.replaceChildren();
+    const row = tbody.insertRow();
+    const td = cell(row, 'pg-text-muted pg-list__empty');
+    td.colSpan = 5;
+    td.textContent = text;
+  };
+
+  const askToken = (again: boolean): string | null => {
+    const kept = again ? null : sessionStorage.getItem(TOKEN_KEY);
+    if (kept) return kept;
+    const entered = window.prompt(
+      'Admin token. It is in the archives volume as admin-token, or ' +
+        'set as RADAR_ANALYST_ADMIN_TOKEN.',
+    );
+    if (entered) sessionStorage.setItem(TOKEN_KEY, entered);
+    return entered;
+  };
+
+  const remove = async (
+    item: UploadSummary,
+    row: HTMLTableRowElement,
+    button: HTMLButtonElement,
+  ): Promise<void> => {
+    const host = item.hostname ?? item.filename;
+    if (!window.confirm(`Delete the assessment for ${host}?`)) return;
+    const token = askToken(false);
+    if (!token) return;
+    if (errorEl) errorEl.textContent = '';
+    button.disabled = true;
+    try {
+      await api.deleteUpload(item.id, token);
+      row.remove();
+      if (tbody && tbody.rows.length === 0) {
+        message(
+          'No assessments yet. Upload a radar archive to see the first.',
+        );
+      }
+    } catch (err) {
+      const text = err instanceof Error ? err.message : String(err);
+      if (/not accepted/.test(text))
+        sessionStorage.removeItem(TOKEN_KEY);
+      if (errorEl) errorEl.textContent = text;
+      button.disabled = false;
+    }
+  };
+
+  const render = (items: UploadSummary[]): void => {
+    if (!tbody) return;
+    tbody.replaceChildren();
+    if (items.length === 0) {
+      message(
+        'No assessments yet. Upload a radar archive to see the first.',
+      );
+      return;
+    }
+    for (const item of items) {
+      const row = tbody.insertRow();
+
+      const hostCell = cell(row);
+      const link = document.createElement('a');
+      link.className = 'pg-list__host';
+      link.href = `/upload?id=${encodeURIComponent(item.id)}`;
+      link.textContent = item.hostname ?? 'Unknown host';
+      hostCell.appendChild(link);
+      const file = document.createElement('div');
+      file.className = 'pg-list__file pg-text-muted';
+      file.textContent = `${item.filename} · ${formatSize(item.size_bytes)}`;
+      hostCell.appendChild(file);
+
+      // The collection time is the host's own clock, read from the
+      // archive name.
+      cell(row, 'pg-col-collected pg-list__when').textContent =
+        formatClock(item.archive_timestamp) || '–';
+
+      const chip = statusChip(item.state, item.verdict);
+      const chipEl = document.createElement('span');
+      chipEl.className = `pg-chip pg-chip--${chip.tone}`;
+      chipEl.textContent = chip.label;
+      cell(row).appendChild(chipEl);
+
+      cell(row, 'pg-col-uploaded pg-list__when').textContent =
+        formatWhen(item.created_at);
+
+      const actions = cell(row, 'pg-list__actions');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pg-icon-button pg-icon-button--danger';
+      button.setAttribute(
+        'aria-label',
+        `Delete the assessment for ${item.hostname ?? item.filename}`,
+      );
+      button.title = 'Delete';
+      button.innerHTML = DELETE_ICON;
+      button.addEventListener('click', () => {
+        void remove(item, row, button);
+      });
+      actions.appendChild(button);
+    }
+  };
+
+  api
+    .listUploads(50)
+    .then((body) => render(body.items))
+    .catch((err: unknown) => {
+      message(
+        `Could not load the assessments: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    });
+</script>
+
+<style is:global>
+  .pg-list {
+    padding: 0;
+    overflow: hidden;
+  }
+  .pg-list__scroller {
+    overflow-x: auto;
+  }
+  .pg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1rem;
+  }
+  .pg-table th,
+  .pg-table td {
+    text-align: left;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--pg-divider);
+    vertical-align: middle;
+  }
+  .pg-table th {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pg-text-muted);
+    white-space: nowrap;
+  }
+  .pg-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .pg-table tbody tr:hover td {
+    background: rgba(21, 170, 191, 0.06);
+  }
+  .pg-list__host {
+    font-weight: 500;
+  }
+  .pg-list__file {
+    font-size: 0.875rem;
+    margin-top: 0.125rem;
+    word-break: break-all;
+  }
+  .pg-list__when {
+    white-space: nowrap;
+  }
+  .pg-list__actions {
+    text-align: right;
+    width: 3.25rem;
+  }
+  .pg-list__empty {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  .pg-list__error {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-list__error:empty {
+    display: none;
+  }
+  .pg-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  @media (max-width: 720px) {
+    .pg-col-uploaded {
+      display: none;
+    }
+  }
+  @media (max-width: 520px) {
+    .pg-col-collected {
+      display: none;
+    }
+  }
+</style>

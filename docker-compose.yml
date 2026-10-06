@@ -1,0 +1,128 @@
+# pgEdge Radar Analyst. Bring it up with:
+#
+#     docker compose up -d --wait
+#
+# then open http://localhost:8080/ and upload a radar archive.
+#
+# A provider is optional. Without one the findings and verdicts still
+# come back and the briefs are omitted. RADAR_ANALYST_AI_PROVIDER
+# names the provider: claude (the default), gemini, openai, or local.
+# Each needs its own setting: ANTHROPIC_API_KEY, GOOGLE_API_KEY (or
+# GEMINI_API_KEY), OPENAI_API_KEY (with OPENAI_BASE_URL for an
+# OpenAI-compatible server), or, for local, an Ollama server at
+# RADAR_ANALYST_OLLAMA_HOST. Put them in a .env file beside this one
+# or in the environment.
+#
+# To build the analyst from a checkout instead of pulling it:
+#     docker compose -f docker-compose.yml -f docker-compose.build.yml \
+#         up -d --build
+
+services:
+  db:
+    # Logs go to stdout, not into PGDATA. The collector's defaults
+    # bound the file count, one per weekday truncated on reuse, but
+    # log_rotation_size is 0, so one heavy day grows a single file
+    # until the volume is full. It also hides everything from
+    # `docker compose logs db`.
+    #
+    # listen_addresses is NOT set here: it stays at the image default
+    # of localhost, so the only TCP socket is on the database
+    # container's own loopback, and the analyst reaches the server
+    # over the unix socket in the shared `sock` volume. Opening it to
+    # the compose network would also open it to every process on the
+    # host: container bridge addresses are routable from there,
+    # published port or not.
+    command: ["postgres", "-c", "logging_collector=off"]
+    image: ghcr.io/pgedge/pgedge-postgres:18-spock5-minimal
+    environment:
+      POSTGRES_USER: radar_analyst
+      POSTGRES_PASSWORD: ${RADAR_ANALYST_DB_PASSWORD:-radar_analyst}
+      POSTGRES_DB: radar_analyst
+      # This image's initdb defaults to SQL_ASCII, under which
+      # psycopg returns every text column as raw bytes. UTF8 is
+      # what the analyst needs to read back its own rows. It also
+      # trusts every connection over the socket and loopback, so
+      # without the scram-sha-256 flags no password is checked.
+      POSTGRES_INITDB_ARGS: >-
+        --encoding=UTF8 --locale=C.UTF-8
+        --auth-local=scram-sha-256 --auth-host=scram-sha-256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U radar_analyst -d radar_analyst"]
+      # -h forces a TCP probe. Over the unix socket the temporary
+      # server that runs during initdb answers too, so the service
+      # would be called healthy before it is reachable.
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    # No published port: this database holds only the analyst's own
+    # state and is reachable from the analyst alone, over the shared
+    # unix socket. Publishing 5432 would put it on the host.
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - db:/var/lib/pgsql/18/data
+      - sock:/run/postgresql
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/pgedge/radar-analyst
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Connected over the shared unix socket, so the database
+      # never needs a TCP listener anything else could reach. libpq
+      # reads the password from PGPASSWORD, which takes any value
+      # as it is, where a URL needs reserved characters encoded.
+      RADAR_ANALYST_STATE_DB_URL: >-
+        postgresql://radar_analyst@/radar_analyst?host=/run/postgresql
+      PGPASSWORD: ${RADAR_ANALYST_DB_PASSWORD:-radar_analyst}
+      RADAR_ANALYST_AI_PROVIDER: ${RADAR_ANALYST_AI_PROVIDER:-claude}
+      RADAR_ANALYST_ADMIN_TOKEN: ${RADAR_ANALYST_ADMIN_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # No default value here, so compose leaves these unset in the
+      # container when they are unset on the host, and the adapter
+      # uses OpenAI's own endpoint and default model.
+      OPENAI_BASE_URL:
+      OPENAI_MODEL:
+      RADAR_ANALYST_OLLAMA_HOST: ${RADAR_ANALYST_OLLAMA_HOST:-http://host.docker.internal:11434}
+      RADAR_ANALYST_OLLAMA_MODEL: ${RADAR_ANALYST_OLLAMA_MODEL:-}
+    # host.docker.internal is Docker Desktop's name for the machine
+    # running Docker, and the default Ollama address above uses it.
+    # Docker Engine on Linux does not define the name, so map it to
+    # the host gateway here.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Published on loopback only: the analyst is a local tool and
+    # must not be reachable from other hosts. Dropping the
+    # 127.0.0.1 prefix would expose it on every interface.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # Docker's json-file driver keeps everything forever unless
+    # told otherwise, so cap it. Three files of 10 MB is the most
+    # this service can ever occupy on the host.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Uploaded radar archives and the generated admin token. The
+    # assessments themselves live in the db volume.
+    volumes:
+      - archives:/data
+      - sock:/run/postgresql
+    restart: unless-stopped
+
+volumes:
+  db:
+  archives:
+  sock:

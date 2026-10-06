@@ -1,0 +1,320 @@
+/*
+ * Global styles for the console: the palette, typography, and
+ * radius tokens as CSS variables, and the utility classes built on
+ * them.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
+
+:root {
+  /* Brand */
+  --pg-primary: #15aabf;
+  --pg-primary-hover: #22b8cf;
+  --pg-primary-pressed: #0c8599;
+  --pg-secondary: #6366f1;
+
+  /* Feedback */
+  --pg-success: #22c55e;
+  --pg-warning: #f59e0b;
+  --pg-error: #ef4444;
+  --pg-info: #3b82f6;
+
+  /* Typography */
+  --pg-font-sans:
+    'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --pg-font-mono:
+    'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+  --pg-fs-body: 1.125rem;
+  --pg-lh-body: 1.6;
+
+  /* System */
+  --pg-radius-button: 4px;
+  --pg-radius-chip: 6px;
+  --pg-radius-card: 8px;
+  --pg-focus-ring: 0 0 0 2px #15aabf;
+}
+
+/* Light mode (default) */
+:root,
+:root[data-theme='light'] {
+  --pg-bg-canvas: #f9fafb;
+  --pg-bg-surface: #ffffff;
+  --pg-text: #1f2937;
+  --pg-text-muted: #6b7280;
+  --pg-text-disabled: #9ca3af;
+  --pg-divider: #d1d5db;
+  --pg-input-border: #e5e7eb;
+  --pg-border-strong: #9ca3af;
+  --pg-disabled-bg: #e5e7eb;
+  --pg-disabled-fg: #9ca3af;
+  --pg-elev-1:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --pg-elev-2:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  color-scheme: light;
+}
+
+/* Dark mode */
+:root[data-theme='dark'] {
+  --pg-primary: #22b8cf;
+  --pg-bg-canvas: #0f172a;
+  --pg-bg-surface: #1e293b;
+  --pg-text: #f1f5f9;
+  --pg-text-muted: #cbd5e1;
+  --pg-text-disabled: #94a3b8;
+  --pg-divider: #334155;
+  --pg-input-border: #334155;
+  --pg-border-strong: #475569;
+  --pg-disabled-bg: #334155;
+  --pg-disabled-fg: #94a3b8;
+  --pg-elev-1:
+    0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --pg-elev-2:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  color-scheme: dark;
+}
+
+/* Status palette: same semantic keys as theme.palette.custom.status */
+:root,
+:root[data-theme='light'] {
+  --pg-status-critical-bg: rgba(239, 68, 68, 0.15);
+  --pg-status-critical-fg: #dc2626;
+  --pg-status-warning-bg: rgba(245, 158, 11, 0.15);
+  --pg-status-warning-fg: #d97706;
+  --pg-status-healthy-bg: rgba(34, 197, 94, 0.15);
+  --pg-status-healthy-fg: #16a34a;
+  --pg-status-info-bg: rgba(59, 130, 246, 0.15);
+  --pg-status-info-fg: #2563eb;
+}
+
+:root[data-theme='dark'] {
+  --pg-status-critical-fg: #f87171;
+  --pg-status-warning-fg: #fbbf24;
+  --pg-status-healthy-fg: #4ade80;
+  --pg-status-info-fg: #60a5fa;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  color: var(--pg-text);
+  background: var(--pg-bg-canvas);
+  font: var(--pg-fs-body) / var(--pg-lh-body) var(--pg-font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--pg-text);
+  margin: 0 0 0.5em 0;
+  letter-spacing: -0.01em;
+}
+
+/* Fluid heading sizes: clamp() scales the desktop sizes down on
+ * narrow viewports so a 5-word H1 doesn't wrap to five lines on a
+ * 360px phone. */
+h1 {
+  font-size: clamp(1.75rem, 5vw + 0.5rem, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-size: clamp(1.375rem, 4vw + 0.4rem, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: clamp(1.25rem, 3vw + 0.4rem, 1.875rem);
+  font-weight: 600;
+}
+h4 {
+  font-size: clamp(1.125rem, 2vw + 0.4rem, 1.5rem);
+  font-weight: 600;
+}
+h5 {
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+h6 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Long words / URLs / filenames must wrap on narrow viewports
+ * instead of forcing horizontal scroll on the whole page. */
+@media (max-width: 600px) {
+  body {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}
+
+a {
+  color: var(--pg-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--pg-focus-ring);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--pg-font-mono);
+  font-size: 0.95em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+/* Utility surfaces: cards raised by a shadow and a hairline border. */
+.pg-card {
+  background: var(--pg-bg-surface);
+  border-radius: var(--pg-radius-card);
+  box-shadow: var(--pg-elev-1);
+  border: 1px solid var(--pg-divider);
+  padding: 1rem 1.25rem;
+}
+
+.pg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--pg-radius-button);
+  border: 0;
+  padding: 0.5rem 1.25rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  background: var(--pg-primary);
+  color: #fff;
+  transition: background-color 150ms ease;
+  text-transform: none;
+}
+.pg-button:hover {
+  background: var(--pg-primary-pressed);
+}
+.pg-button:disabled {
+  background: var(--pg-disabled-bg);
+  color: var(--pg-disabled-fg);
+  cursor: not-allowed;
+}
+.pg-button--ghost {
+  background: transparent;
+  color: var(--pg-text);
+  border: 1px solid var(--pg-divider);
+}
+.pg-button--ghost:hover {
+  background: var(--pg-input-border);
+}
+
+.pg-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--pg-radius-button);
+  background: transparent;
+  color: var(--pg-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.pg-icon-button:hover {
+  background: rgba(21, 170, 191, 0.08);
+  color: var(--pg-primary);
+}
+.pg-icon-button--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--pg-status-critical-fg);
+}
+.pg-icon-button:disabled {
+  color: var(--pg-disabled-fg);
+  cursor: progress;
+}
+.pg-icon-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: currentColor;
+}
+
+.pg-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--pg-radius-chip);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.pg-chip--healthy {
+  background: var(--pg-status-healthy-bg);
+  color: var(--pg-status-healthy-fg);
+}
+.pg-chip--warning {
+  background: var(--pg-status-warning-bg);
+  color: var(--pg-status-warning-fg);
+}
+.pg-chip--critical {
+  background: var(--pg-status-critical-bg);
+  color: var(--pg-status-critical-fg);
+}
+.pg-chip--info {
+  background: var(--pg-status-info-bg);
+  color: var(--pg-status-info-fg);
+}
+.pg-chip--unknown {
+  background: var(--pg-input-border);
+  color: var(--pg-text-muted);
+}
+
+.pg-text-muted {
+  color: var(--pg-text-muted);
+}
+.pg-mono {
+  font-family: var(--pg-font-mono);
+}
+
+/* Findings: the deterministic issues behind a verdict, listed under
+ * a category's brief and under a database's card. */
+.pg-findings {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--pg-status-warning-fg);
+  background: var(--pg-status-warning-bg);
+  border-radius: 3px;
+}
+.pg-findings ul {
+  margin: 0.4rem 0 0 0;
+  padding-left: 1.25rem;
+}
+.pg-findings li {
+  margin: 0.25rem 0;
+}

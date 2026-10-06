@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import UploadForm from '../components/UploadForm.astro';
+import UploadsList from '../components/UploadsList.astro';
+---
+
+<Base title="pgEdge Radar Analyst">
+  <div class="pg-home">
+    <div class="pg-home__head">
+      <h1 class="pg-home__title">Assessments</h1>
+      <p class="pg-text-muted pg-home__lede">
+        Upload a radar archive from a PostgreSQL host to get a verdict
+        and a brief for each of five categories.
+      </p>
+    </div>
+    <UploadForm />
+    <UploadsList />
+  </div>
+</Base>
+
+<style>
+  .pg-home {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .pg-home__head {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .pg-home__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .pg-home__lede {
+    margin: 0;
+    max-width: 64ch;
+  }
+</style>

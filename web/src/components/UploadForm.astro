@@ -1,0 +1,210 @@
+---
+// One row: drop zone, then the Upload button. While the archive is
+// sent the row shows how much has gone, then the page moves to the
+// progress of the assessment itself.
+---
+
+<section class="pg-card pg-upload" aria-labelledby="pg-upload-title">
+  <h2 id="pg-upload-title" class="pg-upload__title">
+    Upload a radar archive
+  </h2>
+  <form id="pg-upload-form" class="pg-upload__row">
+    <label class="pg-upload__drop" id="pg-upload-drop">
+      <input
+        id="pg-upload-file"
+        type="file"
+        name="file"
+        accept=".zip,application/zip"
+        required
+        hidden
+      />
+      <span id="pg-upload-label">
+        Drop a radar archive here, or choose one
+      </span>
+    </label>
+    <button
+      id="pg-upload-submit"
+      type="submit"
+      class="pg-button"
+      disabled
+    >
+      Upload
+    </button>
+  </form>
+  <div class="pg-upload__progress" id="pg-upload-progress-row" hidden>
+    <progress id="pg-upload-progress" max="100" value="0"></progress>
+    <span id="pg-upload-status" class="pg-text-muted"></span>
+  </div>
+  <p id="pg-upload-error" class="pg-upload__error" role="alert"></p>
+</section>
+
+<script>
+  import { api } from '../lib/api';
+  import { formatSize } from '../lib/format';
+
+  const form = document.getElementById(
+    'pg-upload-form',
+  ) as HTMLFormElement | null;
+  const input = document.getElementById(
+    'pg-upload-file',
+  ) as HTMLInputElement | null;
+  const drop = document.getElementById('pg-upload-drop');
+  const label = document.getElementById('pg-upload-label');
+  const submit = document.getElementById(
+    'pg-upload-submit',
+  ) as HTMLButtonElement | null;
+  const error = document.getElementById('pg-upload-error');
+  const row = document.getElementById('pg-upload-progress-row');
+  const bar = document.getElementById(
+    'pg-upload-progress',
+  ) as HTMLProgressElement | null;
+  const status = document.getElementById('pg-upload-status');
+
+  if (
+    form &&
+    input &&
+    drop &&
+    label &&
+    submit &&
+    error &&
+    row &&
+    bar &&
+    status
+  ) {
+    const idle = 'Drop a radar archive here, or choose one';
+
+    const setFile = (file: File | undefined): void => {
+      if (!file) {
+        label.textContent = idle;
+        submit.disabled = true;
+        return;
+      }
+      label.textContent = `${file.name} (${formatSize(file.size)})`;
+      submit.disabled = false;
+    };
+
+    const showProgress = (fraction: number): void => {
+      const pct = Math.round(fraction * 100);
+      bar.value = pct;
+      status.textContent = `Uploading… ${pct}%`;
+    };
+
+    input.addEventListener('change', () => {
+      setFile(input.files?.[0]);
+    });
+
+    drop.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      drop.classList.add('is-dragover');
+    });
+    drop.addEventListener('dragleave', () => {
+      drop.classList.remove('is-dragover');
+    });
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('is-dragover');
+      const files = e.dataTransfer?.files;
+      if (files && files[0]) {
+        input.files = files;
+        setFile(files[0]);
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = input.files?.[0];
+      if (!file) return;
+      error.textContent = '';
+      submit.disabled = true;
+      submit.textContent = 'Uploading…';
+      row.hidden = false;
+      showProgress(0);
+      try {
+        const receipt = await api.postUpload(file, showProgress);
+        status.textContent = 'Uploaded. Starting the assessment…';
+        window.location.href =
+          `/live?upload=${receipt.upload_id}` +
+          `&job=${receipt.job_id}`;
+      } catch (err) {
+        error.textContent =
+          err instanceof Error ? err.message : String(err);
+        submit.disabled = false;
+        submit.textContent = 'Upload';
+        row.hidden = true;
+      }
+    });
+  }
+</script>
+
+<style>
+  .pg-upload {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+  }
+  .pg-upload__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  .pg-upload__row {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .pg-upload__drop {
+    flex: 1 1 20rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.5rem;
+    padding: 0.75rem 1rem;
+    border: 2px dashed var(--pg-border-strong);
+    border-radius: var(--pg-radius-button);
+    text-align: center;
+    cursor: pointer;
+    color: var(--pg-text-muted);
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease;
+    word-break: break-word;
+  }
+  .pg-upload__drop:hover,
+  .pg-upload__drop.is-dragover {
+    border-color: var(--pg-primary);
+    background: rgba(21, 170, 191, 0.08);
+    color: var(--pg-text);
+  }
+  .pg-upload__row .pg-button {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 0.75rem 1.75rem;
+    font-size: 1.125rem;
+  }
+  .pg-upload__progress {
+    display: grid;
+    gap: 0.375rem;
+  }
+  /* The class's display would otherwise outrank the hidden attribute. */
+  .pg-upload__progress[hidden] {
+    display: none;
+  }
+  .pg-upload__progress progress {
+    width: 100%;
+    height: 0.5rem;
+    accent-color: var(--pg-primary);
+  }
+  .pg-upload__progress span,
+  .pg-upload__error {
+    font-size: 0.95rem;
+  }
+  .pg-upload__error {
+    margin: 0;
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-upload__error:empty {
+    display: none;
+  }
+</style>

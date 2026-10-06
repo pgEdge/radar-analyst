@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # So a run can be started by hand. A push event lost to a GitHub
+  # incident is not recreated, and without this the only way to
+  # re-run CI is an empty commit.
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: CI (PostgreSQL ${{ matrix.pg }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      # Every version is reported, rather than the run stopping at
+      # the first that breaks: knowing it fails on 16 and passes on
+      # 17 and 18 is the useful answer.
+      fail-fast: false
+      matrix:
+        pg: ["16", "17", "18"]
+    env:
+      RADAR_ANALYST_PG_MAJOR: ${{ matrix.pg }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          # Matches the Dockerfile's base image, so CI exercises the
+          # interpreter the service ships on.
+          python-version: "3.14"
+
+      - uses: actions/setup-node@v7
+        with:
+          # lts/* resolves to the current LTS, matching the
+          # node:lts-slim tag the console is built with in the image.
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # Both the test containers and the compose stack pull the
+      # pgEdge Postgres image from ghcr.io.
+      - name: Log in to the registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create venv + install dev deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip build
+          .venv/bin/pip install -e '.[dev]'
+
+      - name: Run full local CI
+        run: ./run-ci-local.sh

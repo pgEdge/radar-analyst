@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+import SnapshotHeader from '../components/SnapshotHeader.astro';
+import CategoryCard from '../components/CategoryCard.astro';
+import Databases from '../components/Databases.astro';
+---
+
+<Base title="pgEdge Radar Analyst: assessment">
+  <div class="pg-result">
+    <nav class="pg-result__crumb">
+      <a href="/">&larr; Back</a>
+      <button id="pg-assess-again" type="button" class="pg-button">
+        Assess again
+      </button>
+    </nav>
+    <p id="pg-assess-error" class="pg-result__error" hidden></p>
+    <SnapshotHeader />
+    <h2 class="pg-result__heading">Assessment by category</h2>
+    <CategoryCard />
+    <Databases />
+  </div>
+</Base>
+
+<script>
+  import { api } from '../lib/api';
+  import { failureNote } from '../lib/format';
+
+  // Assess the same archive again: the stored result is replaced,
+  // and the page moves to the progress page as an upload does.
+  const button = document.getElementById('pg-assess-again');
+  const errorEl = document.getElementById('pg-assess-error');
+  const id = new URLSearchParams(window.location.search).get('id');
+
+  // A failed assessment says why, above what it left behind. The
+  // header reports an upload that cannot be read.
+  if (errorEl && id) {
+    api
+      .getUpload(id)
+      .then((upload) => {
+        const note = failureNote(upload.state, upload.error);
+        if (note) {
+          errorEl.textContent = note;
+          errorEl.hidden = false;
+        }
+      })
+      .catch(() => {});
+  }
+
+  if (button instanceof HTMLButtonElement && id) {
+    button.addEventListener('click', async () => {
+      const sure = window.confirm(
+        'Assess this archive again? The current result is replaced.',
+      );
+      if (!sure) return;
+      button.disabled = true;
+      if (errorEl) errorEl.hidden = true;
+      try {
+        const receipt = await api.assessAgain(id);
+        window.location.href = `/live?upload=${receipt.upload_id}&job=${receipt.job_id}`;
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent =
+            err instanceof Error ? err.message : String(err);
+          errorEl.hidden = false;
+        }
+        button.disabled = false;
+      }
+    });
+  }
+</script>
+
+<style>
+  .pg-result {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .pg-result__crumb {
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .pg-result__error {
+    margin: 0;
+    color: var(--pg-status-critical-fg);
+  }
+  .pg-result__heading {
+    margin: 0.5rem 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+</style>

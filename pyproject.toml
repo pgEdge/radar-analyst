@@ -1,0 +1,167 @@
+[project]
+name = "radar-analyst"
+version = "0.2.0"
+description = "Assesses the health of a PostgreSQL host from a pgEdge Radar diagnostic archive: deterministic findings, a verdict per diagnostic category, and a written brief for each."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE.md" }
+authors = [{ name = "Jimmy Angelakos", email = "jimmy.angelakos@pgedge.com" }]
+# AI SDKs are required runtime dependencies: the briefing step is
+# the core value proposition.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "sse-starlette>=2.1",
+    "psycopg[binary,pool]>=3.2",
+    "python-multipart>=0.0.19",
+    # 1.x moved the SDK's HTTP stack from httpx to httpx2. The
+    # adapter tests mock at the transport rather than with respx,
+    # which patches httpx only, so the floor stays on 1.0.
+    "anthropic>=1,<2",
+    "google-genai>=0.3",
+    "ollama>=0.4",
+    "openai>=3.0",
+]
+
+[project.urls]
+Repository = "https://github.com/pgEdge/radar-analyst"
+Documentation = "https://github.com/pgEdge/radar-analyst/blob/main/docs/index.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "flake8>=7.1",
+    "mypy>=1.13",
+    "ruff>=0.16",
+    "pyright>=1.1.400",
+    "pytest-cov>=6.0",
+    "interrogate>=1.7",
+    "testcontainers[postgres]>=4.8",
+    "build>=1.2",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/radar_analyst"]
+exclude = ["src/radar_analyst/webdist"]
+
+# Bundle the built Astro GUI into the wheel so `pip install .` ships
+# a self-contained service. The custom build hook syncs ``web/dist``
+# into ``src/radar_analyst/webdist`` and force-includes it from there.
+# The include is registered by the hook rather than declared here so
+# that a tree with no ``web/dist`` still builds, API-only.
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+# flake8 stays the gate that code is written to comply with, and ruff
+# runs alongside it for the rules flake8 has no equivalent for
+# (import order, docstring convention, modernisation, bugbear). Lint
+# only: `ruff format` is never run, because the project has no
+# auto-formatter.
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "D"]
+ignore = [
+    # Matches the flake8 invocation in src/radar_analyst/flake.sh.
+    "F722",
+    # FastAPI reads dependencies out of argument defaults, so
+    # Depends(...) there is the framework's interface, not a shared
+    # mutable default.
+    "B008",
+    # En dashes and typographic quotes in prose are deliberate.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.isort]
+# flake8 wants two blank lines before the first definition (E302).
+# Left to its default, ruff's import sorting leaves one and the two
+# linters undo each other's work.
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+# Test names and their docstrings carry the intent; requiring a
+# docstring on all 900-odd of them would add noise, not meaning.
+"src/radar_analyst/tests/*" = ["D100", "D101", "D102", "D103", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# pyright runs strict alongside mypy strict. The rules turned off
+# below fire on idioms this codebase uses on purpose, not on defects;
+# everything else is left on, and both checkers must pass.
+[tool.pyright]
+include = ["src/radar_analyst"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+# Name the environment explicitly. Left to discovery, pyright found
+# the right site-packages on a developer machine and the wrong one on
+# a clean runner, where every third-party import came back
+# unresolved and strict mode turned that into hundreds of errors.
+venvPath = "."
+venv = ".venv"
+# The AI SDKs, psycopg row factories, and the Google client ship
+# incomplete type information, so values crossing those boundaries
+# are Unknown no matter what this code does.
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+# FastAPI route handlers and pytest fixtures are called through
+# their decorators, which no static checker can see.
+reportUnusedFunction = false
+# Tests exercise private helpers deliberately, and SSEHub and
+# SSESubscription are one mechanism split across two classes.
+reportPrivateUsage = false
+# psycopg types its query parameter as LiteralString to discourage
+# interpolation. Every statement here is a module-level constant and
+# every value is bound with a placeholder; mypy checks the same code
+# without objecting.
+reportArgumentType = false
+reportCallIssue = false
+
+# Coverage measures the production package only: including the test
+# modules would count them against themselves and inflate the
+# number past anything meaningful.
+[tool.coverage.run]
+source = ["radar_analyst"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+# The suite currently covers 90% of the package. 85 leaves room to
+# move without letting coverage quietly fall away.
+fail_under = 85
+
+# Docstring coverage. Test names and their bodies carry the intent,
+# so the suite is excluded here for the same reason ruff's D103 is.
+[tool.interrogate]
+exclude = ["src/radar_analyst/tests"]
+fail-under = 80
+ignore-init-module = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/radar_analyst/tests"]
+asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end tests that require Docker Compose + PostgreSQL",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+packages = ["radar_analyst"]
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*"]
+ignore_missing_imports = true

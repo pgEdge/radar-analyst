@@ -1,0 +1,72 @@
+site_name: Radar Analyst
+site_description: >-
+  Assesses a radar diagnostic archive against deterministic rules and
+  writes a brief for each diagnostic category.
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - def_list
+
+plugins:
+  - search
+  - redoc-tag
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  favicon: img/favicon.ico
+
+  logo_dark_mode: 'img/logo-dark.png'
+  logo_light_mode: 'img/logo-light.png'
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.prune
+    - navigation.top
+    - toc.follow
+
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+extra:
+  generator: false
+
+copyright: Copyright &copy; 2026 pgEdge, Inc
+repo_url: https://github.com/pgEdge/radar-analyst
+
+nav:
+  - Getting Started:
+      - Introduction: index.md
+      - Guided Walkthrough: walkthrough.md
+  - Installing the Analyst: installing.md
+  - Configuring the Analyst: configuring.md
+  - Using the Analyst: using.md
+  - Managing an Installation: managing.md
+  - Troubleshooting: troubleshooting.md
+  - For Developers:
+      - API Reference: api.md
+      - API Browser: api/browser.md
+      - Developer Resources: developers.md
+  - Changelog: changelog.md
+  - License: LICENSE.md
