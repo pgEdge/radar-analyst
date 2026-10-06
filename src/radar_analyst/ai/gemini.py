@@ -21,6 +21,7 @@ from google import genai
 from google.genai import types as genai_types
 
 from radar_analyst.ai.base import (
+    CALL_TIMEOUT_SECONDS,
     AIError,
     Request,
     Result,
@@ -68,11 +69,12 @@ class GeminiAdapter:
                 "GOOGLE_API_KEY / GEMINI_API_KEY is not set; "
                 "Gemini adapter cannot make API calls."
             )
-        key = self.api_key or self._env_key()
-        client = (
-            genai.Client(api_key=key)
-            if key is not None
-            else genai.Client()
+        client = genai.Client(
+            api_key=self.api_key or self._env_key(),
+            # The SDK sets no timeout of its own, and counts in ms.
+            http_options=genai_types.HttpOptions(
+                timeout=int(CALL_TIMEOUT_SECONDS * 1000)
+            ),
         )
         config = genai_types.GenerateContentConfig(
             system_instruction=req.system_prompt,

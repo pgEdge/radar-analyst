@@ -91,6 +91,13 @@ _VERDICT_RE = re.compile(
 )
 
 
+# How long one provider call may wait for its answer: the ten minutes
+# that the anthropic and openai SDKs allow a call by default. A
+# provider that takes a request and never answers then costs one
+# unavailable brief rather than an assessment that never finishes.
+CALL_TIMEOUT_SECONDS = 600.0
+
+
 # Message markers shared by every provider's error strings. The
 # typed-SDK adapters (openai) check their exception classes first
 # and fall back here.
@@ -119,6 +126,7 @@ _ERROR_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     ("connection", ("connection", "refused")),
+    ("timeout", ("timed out", "timeout")),
 )
 
 
@@ -126,7 +134,7 @@ def categorize_error(exc: BaseException) -> str:
     """Bucket *exc* by message into a coarse failure kind.
 
     Returns ``auth``, ``rate_limit``, ``model_missing``,
-    ``connection`` or ``generic``, for log lines and AIError
+    ``connection``, ``timeout`` or ``generic``, for log lines and AIError
     text that an operator can act on without reading the whole
     provider traceback.
     """

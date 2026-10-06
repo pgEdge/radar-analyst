@@ -1,11 +1,15 @@
 """Tests for the Gemini adapter."""
 
+import asyncio
+import socket
 from dataclasses import dataclass
 from typing import Any
 
 import pytest
 from google import genai
+from google.genai import types as genai_types
 
+from radar_analyst.ai import gemini as gemini_adapter
 from radar_analyst.ai.base import AIError, Request
 from radar_analyst.ai.gemini import GeminiAdapter
 
@@ -177,6 +181,41 @@ async def test_analyze_wraps_sdk_errors(
                 cache_static=False,
             )
         )
+
+
+async def test_a_server_that_never_answers_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stalled call leaves an unavailable brief, not a stalled job."""
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    real_client = genai.Client
+
+    def silent_client(**kwargs: Any) -> genai.Client:
+        # The real client, with the adapter's own HTTP options, sent to
+        # a server that takes the request and never answers.
+        options = kwargs.get("http_options") or genai_types.HttpOptions()
+        kwargs["http_options"] = options.model_copy(
+            update={"base_url": f"http://127.0.0.1:{server.getsockname()[1]}"}
+        )
+        return real_client(**kwargs)
+
+    monkeypatch.setattr(genai, "Client", silent_client)
+    monkeypatch.setattr(gemini_adapter, "CALL_TIMEOUT_SECONDS", 0.5)
+    req = Request(
+        category="X",
+        system_prompt="s",
+        user_prompt="u",
+        cache_static=False,
+    )
+    try:
+        with pytest.raises(AIError, match=r"\(timeout\)"):
+            await asyncio.wait_for(
+                GeminiAdapter(api_key="k").analyze(req), timeout=10.0
+            )
+    finally:
+        server.close()
 
 
 def test_unavailable_reason_names_the_env_vars(

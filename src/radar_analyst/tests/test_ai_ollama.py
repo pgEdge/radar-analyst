@@ -224,7 +224,7 @@ async def test_a_server_that_never_answers_times_out(
     server = await asyncio.start_server(silent, "127.0.0.1", 0)
     port = server.sockets[0].getsockname()[1]
     monkeypatch.delenv("RADAR_ANALYST_OLLAMA_HOST", raising=False)
-    monkeypatch.setattr(ollama_adapter, "_TIMEOUT_SECONDS", 0.5)
+    monkeypatch.setattr(ollama_adapter, "CALL_TIMEOUT_SECONDS", 0.5)
     adapter = OllamaAdapter(model="m", host=f"http://127.0.0.1:{port}")
     req = Request(
         category="X",

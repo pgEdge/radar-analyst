@@ -75,7 +75,7 @@ database" instead. The following table describes the common reasons:
 | `call failed (model_missing)` | The provider does not offer the model that the analyst requested. Set `OPENAI_MODEL` or `RADAR_ANALYST_OLLAMA_MODEL` to a model that the server provides. |
 | `call failed (connection)` | The analyst could not reach the provider's service over the network. Check the network and, for `openai`, the address in `OPENAI_BASE_URL`. |
 | `Failed to connect to Ollama` | The analyst could not reach the Ollama server for the `local` provider. The [Local Provider Cannot Reach Ollama](#the-local-provider-cannot-reach-ollama) section describes the fix. |
-| `call failed (timeout)` | The Ollama server did not answer within 10 minutes. Check that the server runs. On slow hardware, lower `RADAR_ANALYST_OLLAMA_CONCURRENCY` so that fewer requests wait in the server's queue. |
+| `call failed (timeout)` | The provider did not answer in time. For `local`, check that the Ollama server runs. On slow hardware, lower `RADAR_ANALYST_OLLAMA_CONCURRENCY` so that fewer requests wait in the server's queue. |
 
 The `GET /api/config` endpoint shows which providers have a credential set. The
 endpoint does not test the credential, and always reports `local` as available.
@@ -136,12 +136,13 @@ then press Assess again.
 
 ### An Assessment Takes a Long Time
 
-The analyst waits up to 10 minutes for each answer from the Ollama server. When
-the server stalls, each brief reads as unavailable only after that wait. The
-waits add up over the briefs of an assessment. To end the wait sooner, fix the
-Ollama server, then restart the analyst with `docker compose restart app`. The
-analyst marks the interrupted assessment failed, and Assess again redoes the
-assessment.
+A call to the provider ends after 10 minutes without an answer. The Claude and
+OpenAI client libraries try such a call up to three times. When the provider
+stalls, each brief reads as unavailable only after those waits. The waits add
+up over the briefs of an assessment. To end the wait sooner, restart the
+analyst with `docker compose restart app`. For `local`, fix the Ollama server
+first. The analyst marks the interrupted assessment failed, and Assess again
+redoes the assessment.
 
 ## Deleting Assessments
 

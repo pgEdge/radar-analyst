@@ -150,6 +150,17 @@ def test_categorize_error_buckets() -> None:
     assert categorize_error(Exception("boom")) == "generic"
 
 
+def test_categorize_error_names_a_timeout() -> None:
+    from radar_analyst.ai.base import categorize_error
+
+    assert categorize_error(Exception("timed out")) == "timeout"
+    # A connection attempt that timed out is a connection problem.
+    assert (
+        categorize_error(Exception("connection timed out"))
+        == "connection"
+    )
+
+
 def test_raise_ai_error_formats_provider_and_kind() -> None:
     import logging
 

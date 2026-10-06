@@ -20,6 +20,7 @@ from typing import Any
 import ollama
 
 from radar_analyst.ai.base import (
+    CALL_TIMEOUT_SECONDS,
     Request,
     Result,
     raise_ai_error,
@@ -34,11 +35,6 @@ _DEFAULT_HOST = "http://localhost:11434"
 # RADAR_ANALYST_OLLAMA_MODEL overrides it per host.
 _DEFAULT_MODEL = "gemma4:e4b"
 _DEFAULT_CONCURRENCY = 3
-# How long one call waits for the server's answer: the ten minutes
-# that the anthropic and openai SDKs allow a call by default. A
-# server that takes a request and never answers then costs one
-# unavailable brief rather than an assessment that never finishes.
-_TIMEOUT_SECONDS = 600.0
 
 _logger = logging.getLogger(__name__)
 
@@ -98,7 +94,7 @@ class OllamaAdapter:
         ]
         async with self._semaphore():
             try:
-                async with asyncio.timeout(_TIMEOUT_SECONDS):
+                async with asyncio.timeout(CALL_TIMEOUT_SECONDS):
                     response = await client.chat(
                         model=self.model, messages=messages
                     )
@@ -106,7 +102,7 @@ class OllamaAdapter:
                 raise_ai_error(
                     "Ollama",
                     TimeoutError(
-                        f"no answer within {_TIMEOUT_SECONDS:.0f}s"
+                        f"no answer within {CALL_TIMEOUT_SECONDS:.0f}s"
                     ),
                     _logger,
                     kind="timeout",
