@@ -336,3 +336,27 @@ def test_a_statement_list_over_a_mebibyte_is_read(
     assert _slow_statement_ids(parsed) == [
         "pg.workload.slow_query_count_high",
     ]
+
+
+def test_a_query_text_over_the_csv_field_limit_is_cut_short(
+    tmp_path: Path,
+) -> None:
+    # Python's csv refuses a field over 128 KiB unless told otherwise.
+    long_query = "SELECT * FROM tab1 WHERE id IN (" + "1, " * 70000 + "1)"
+    statements = _tsv(
+        _STATEMENT_COLUMNS,
+        _statement(long_query, 2000.0),
+        *(_statement(f"SELECT {i} FROM tab1", 1500.0) for i in range(10)),
+    )
+    assert len(long_query) > 128 * 1024
+    assert len(statements) < 1024 * 1024
+    z = _archive(tmp_path, {
+        "postgresql/stat_statements_calls.tsv": statements,
+    })
+    parsed = read_and_parse(z)[0]
+    rows = parsed["pg.stat_statements.calls"]
+    assert len(rows) == 11
+    assert rows[0].query == long_query[:1024]
+    assert _slow_statement_ids(parsed) == [
+        "pg.workload.slow_query_count_high",
+    ]

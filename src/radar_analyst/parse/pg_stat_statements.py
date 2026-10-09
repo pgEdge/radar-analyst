@@ -22,9 +22,15 @@ from radar_analyst.parse.coerce import (
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
 
+# Statements built from literal lists run to megabytes of text. 1024
+# is the default track_activity_query_size, how much of a query's
+# text pg_stat_activity keeps.
+_QUERY_TEXT_CHARS = 1024
+
+
 @dataclass(frozen=True)
 class StatementRow:
-    """One pg_stat_statements row."""
+    """One pg_stat_statements row, its query text cut short."""
     userid: str
     dbid: str
     query: str
@@ -45,7 +51,7 @@ def parse_stat_statements(data: bytes) -> list[StatementRow]:
             StatementRow(
                 userid=r.get("userid", "") or "",
                 dbid=r.get("dbid", "") or "",
-                query=r.get("query", "") or "",
+                query=(r.get("query", "") or "")[:_QUERY_TEXT_CHARS],
                 calls=row_int(r, "calls"),
                 total_exec_time=row_float(r, "total_exec_time"),
                 mean_exec_time=row_float(r, "mean_exec_time"),

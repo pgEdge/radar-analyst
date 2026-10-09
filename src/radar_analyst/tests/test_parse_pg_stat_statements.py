@@ -39,3 +39,10 @@ def test_silent_on_missing_columns() -> None:
     assert len(out) == 1
     assert out[0].calls == 0
     assert out[0].mean_exec_time == 0.0
+
+
+def test_query_text_is_cut_to_1024_characters() -> None:
+    query = "SELECT " + "1, " * 1000 + "1"
+    tsv = _HEADER + f"10\t16400\t{query}\t1\t1.0\t1.0\t1.0\t1\n"
+    out = parse_stat_statements(tsv.encode())
+    assert out[0].query == query[:1024]

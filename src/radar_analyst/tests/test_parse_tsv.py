@@ -101,3 +101,10 @@ def test_parse_tsv_bytes_replaces_invalid_utf8() -> None:
     table = parse_tsv_bytes(b"col\nva\xffl\n")
     assert table.columns == ["col"]
     assert table.rows == [{"col": "va�l"}]
+
+
+def test_a_field_over_the_csv_default_limit_is_read() -> None:
+    # csv's own default field limit is 128 KiB.
+    value = "x" * (200 * 1024)
+    t = parse_tsv(f"q\tn\n{value}\t1\n")
+    assert t.rows == [{"q": value, "n": "1"}]
