@@ -19,6 +19,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from radar_analyst.parse.coerce import as_datetime_or_none
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
 
@@ -291,26 +292,6 @@ class PreparedXacts:
     oldest_gid: str | None = None
 
 
-def _parse_pg_timestamptz(value: str) -> datetime | None:
-    """Parse Postgres ``timestamptz`` text output to ``datetime``.
-
-    Examples:
-        ``2026-04-15 09:00:00+00``
-        ``2026-04-15 09:00:00.123456+01``
-        ``2026-04-15 09:00:00+0100``
-
-    Returns ``None`` if the value can't be parsed.
-    ``fromisoformat`` on Python 3.11+ accepts every listed shape
-    directly, including the space separator and short tz offsets.
-    """
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.strip())
-    except ValueError:
-        return None
-
-
 def parse_prepared_xacts(
     data: bytes, now_iso: str | None
 ) -> PreparedXacts:
@@ -325,11 +306,11 @@ def parse_prepared_xacts(
     if not t.rows:
         return PreparedXacts()
     total = len(t.rows)
-    now = _parse_pg_timestamptz(now_iso) if now_iso else None
+    now = as_datetime_or_none(now_iso) if now_iso else None
     oldest_dt: datetime | None = None
     oldest_gid: str | None = None
     for row in t.rows:
-        prep = _parse_pg_timestamptz(row.get("prepared", ""))
+        prep = as_datetime_or_none(row.get("prepared", ""))
         if prep is None:
             continue
         if oldest_dt is None or prep < oldest_dt:
