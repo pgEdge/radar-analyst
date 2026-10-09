@@ -527,6 +527,7 @@ def _stmt(mean_ms: float, calls: int = 100, query: str = "q") -> object:
         userid="10",
         dbid="16400",
         query=query,
+        text_hash=query,
         calls=calls,
         total_exec_time=mean_ms * calls,
         mean_exec_time=mean_ms,
@@ -568,6 +569,26 @@ def test_slow_query_warns_above_eleven_slow() -> None:
     assert len(findings) == 1
     assert findings[0].severity == "warning"
     assert "15" in findings[0].title
+
+
+def test_slow_query_counts_each_statement_once_across_lists() -> None:
+    from radar_analyst.rules.pg_workload import slow_query_count_high
+
+    slow = [_stmt(mean_ms=1500, query=f"q{i}") for i in range(11)]
+    parsed = {
+        "pg.stat_statements.calls": slow[:1],
+        "pg.stat_statements.max_time": slow[:8],
+        "pg.stat_statements.total_time": slow[5:],
+    }
+    findings = slow_query_count_high(parsed)
+    assert [f.title for f in findings] == [
+        "11 statements with mean exec time > 1 s",
+    ]
+    parsed = {
+        "pg.stat_statements.max_time": slow[:6],
+        "pg.stat_statements.total_time": slow[:10],
+    }
+    assert slow_query_count_high(parsed) == []
 
 
 def test_slow_query_silent_when_all_fast() -> None:

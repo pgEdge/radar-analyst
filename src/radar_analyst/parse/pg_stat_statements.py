@@ -13,6 +13,7 @@ empty list as "no data, don't fire".
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 from radar_analyst.parse.coerce import (
@@ -34,6 +35,9 @@ class StatementRow:
     userid: str
     dbid: str
     query: str
+    # SHA-256 of the whole text: two statements can share far more
+    # than the part kept in ``query``.
+    text_hash: str
     calls: int
     total_exec_time: float
     mean_exec_time: float
@@ -47,11 +51,13 @@ def parse_stat_statements(data: bytes) -> list[StatementRow]:
     out: list[StatementRow] = []
 
     for r in table.rows:
+        text = r.get("query", "") or ""
         out.append(
             StatementRow(
                 userid=r.get("userid", "") or "",
                 dbid=r.get("dbid", "") or "",
-                query=(r.get("query", "") or "")[:_QUERY_TEXT_CHARS],
+                query=text[:_QUERY_TEXT_CHARS],
+                text_hash=hashlib.sha256(text.encode()).hexdigest(),
                 calls=row_int(r, "calls"),
                 total_exec_time=row_float(r, "total_exec_time"),
                 mean_exec_time=row_float(r, "mean_exec_time"),

@@ -322,9 +322,12 @@ def test_a_statement_list_over_a_mebibyte_is_read(
 ) -> None:
     # radar keeps the top 100 statements, each with its full text;
     # literal-heavy statements make the file large.
-    query = "SELECT * FROM tab1 WHERE id IN (" + "1, " * 4000 + "1)"
+    in_list = "1, " * 4000 + "1)"
     statements = _tsv(_STATEMENT_COLUMNS, *(
-        _statement(query, 1500.0 if i < 11 else 5.0)
+        _statement(
+            f"SELECT * FROM tab1 WHERE c{i} IN ({in_list}",
+            1500.0 if i < 11 else 5.0,
+        )
         for i in range(100)
     ))
     assert len(statements) > 1024 * 1024
@@ -436,3 +439,62 @@ def test_no_rate_without_a_database_reset_on_record(
         line for line in facts.splitlines()
         if line.startswith("Cluster transactions")
     )
+
+
+def test_slow_statements_are_counted_across_all_three_lists(
+    tmp_path: Path,
+) -> None:
+    # The list by calls ranks frequent statements; slow ones rank by
+    # maximum and by total time. Each statement counts once.
+    slow = [
+        _statement(f"SELECT * FROM tab2 WHERE c = {i}", 1500.0)
+        for i in range(11)
+    ]
+    fast = [_statement(f"SELECT {i} FROM tab1", 2.0) for i in range(99)]
+    z = _archive(tmp_path, {
+        "postgresql/stat_statements_calls.tsv": _tsv(
+            _STATEMENT_COLUMNS, slow[0], *fast
+        ),
+        "postgresql/stat_statements_max_time.tsv": _tsv(
+            _STATEMENT_COLUMNS, *slow[:8]
+        ),
+        "postgresql/stat_statements_total_time.tsv": _tsv(
+            _STATEMENT_COLUMNS, *slow[5:]
+        ),
+    })
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Workload", parsed)
+        if f.rule_id == "pg.workload.slow_query_count_high"
+    ]
+    assert [f.title for f in found] == [
+        "11 statements with mean exec time > 1 s",
+    ]
+
+
+def test_slow_statements_that_differ_past_the_cut_count_apart(
+    tmp_path: Path,
+) -> None:
+    # Eleven IN-list lengths of one statement, each its own entry in
+    # pg_stat_statements, all alike in their first 1024 characters.
+    head = "SELECT * FROM tab1 WHERE id IN (" + "$1, " * 300
+    z = _archive(tmp_path, {
+        "postgresql/stat_statements_max_time.tsv": _tsv(
+            _STATEMENT_COLUMNS, *(
+                _statement(
+                    head + ", ".join(f"${n}" for n in range(301, 302 + i))
+                    + ")",
+                    1500.0,
+                )
+                for i in range(11)
+            ),
+        ),
+    })
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Workload", parsed)
+        if f.rule_id == "pg.workload.slow_query_count_high"
+    ]
+    assert [f.title for f in found] == [
+        "11 statements with mean exec time > 1 s",
+    ]

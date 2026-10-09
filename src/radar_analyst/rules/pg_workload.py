@@ -407,17 +407,26 @@ def slow_query_count_high(
 ) -> list[Finding]:
     """Warn when many distinct statements run slowly.
 
-    Counts statements in ``pg_stat_statements`` whose
-    ``mean_exec_time`` exceeds 1 s and warns above 10 of them.
+    Counts statements whose ``mean_exec_time`` exceeds 1 s and
+    warns above 10 of them. radar keeps three top-100 lists from
+    ``pg_stat_statements``, by calls, by maximum and by total time;
+    slow statements rank in the last two, so all three are read.
+    The lists have no queryid, so a statement is its user,
+    database and whole query text, and one in several lists counts
+    once.
     Silently does nothing if the extension isn't installed
     (radar's stat_statements TSVs are absent).
     """
-    rows: list[StatementRow] | None = parsed.get(
-        "pg.stat_statements.calls"
-    )
-    if not rows:
-        return []
-    slow = [r for r in rows if r.mean_exec_time > _SLOW_QUERY_MEAN_MS]
+    statements: dict[tuple[str, str, str], StatementRow] = {}
+    for kind, rows in parsed.items():
+        if kind.startswith("pg.stat_statements."):
+            for r in rows:
+                key = (r.userid, r.dbid, r.text_hash)
+                statements.setdefault(key, r)
+    slow = [
+        r for r in statements.values()
+        if r.mean_exec_time > _SLOW_QUERY_MEAN_MS
+    ]
     if len(slow) <= _SLOW_QUERY_COUNT_WARN:
         return []
     slow.sort(key=lambda r: -r.mean_exec_time)
