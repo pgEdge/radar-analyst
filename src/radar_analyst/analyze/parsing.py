@@ -14,7 +14,6 @@ from typing import Any
 
 from radar_analyst.archive.reader import (
     ClassifiedEntry,
-    ZipSafetyError,
     open_entry,
     walk,
 )
@@ -38,6 +37,7 @@ from radar_analyst.parse.extensions import (
 )
 from radar_analyst.parse.host_os import (
     parse_cgroup_memory_bytes,
+    parse_cgroup_memory_stat,
     parse_dmesg,
     parse_iostat,
     parse_pressure,
@@ -124,9 +124,6 @@ from radar_analyst.parse.thp import parse_thp
 _logger = logging.getLogger(__name__)
 
 
-_SMALL_ENTRY_BYTES: int = 1 * 1024 * 1024  # 1 MiB
-
-
 def _strip_text(data: bytes) -> str | None:
     s = data.decode("utf-8", errors="replace").strip()
     return s or None
@@ -160,6 +157,7 @@ _PARSERS: dict[str, Callable[[bytes], Any]] = {
     # cgroup v2 memory limits (single-line byte values).
     "sys.cgroup.memory_current": parse_cgroup_memory_bytes,
     "sys.cgroup.memory_max": parse_cgroup_memory_bytes,
+    "sys.cgroup.memory_stat": parse_cgroup_memory_stat,
     # dmesg: kernel log for OOM and I/O errors.
     "sys.dmesg": parse_dmesg,
     "sys.dmesg_t": parse_dmesg,
@@ -349,37 +347,21 @@ def _build_inventory(
     return inventory
 
 
-def _read_small_entry(
-    zip_path: Path, path: str
-) -> bytes | None:
-    """Read one entry under the small-entry cap, or None.
+def _read_entry(zip_path: Path, path: str) -> bytes | None:
+    """Read one whole entry, or None when it cannot be read.
 
-    Oversize and unreadable entries are logged and skipped, so
-    their kinds simply stay absent from ``parsed``.
+    ``list_entries`` has already refused an archive with an entry
+    declared over ``MAX_ENTRY_SIZE_BYTES``; ``open_entry`` raises
+    when a zip's directory understates the size. Unreadable entries
+    are logged and skipped, so their kinds stay absent from
+    ``parsed``.
     """
     try:
-        with open_entry(
-            zip_path, path, max_bytes=_SMALL_ENTRY_BYTES
-        ) as fh:
-            data = fh.read(_SMALL_ENTRY_BYTES + 1)
-    except ZipSafetyError:
-        _logger.warning(
-            "entry %s exceeds small-entry cap (%d), skipping; "
-            "use a streaming parser if this is expected",
-            path,
-            _SMALL_ENTRY_BYTES,
-        )
-        return None
+        with open_entry(zip_path, path) as fh:
+            return fh.read()
     except Exception as e:
         _logger.warning("failed to read %s: %s", path, e)
         return None
-    if len(data) > _SMALL_ENTRY_BYTES:
-        _logger.warning(
-            "entry %s larger than small-entry cap, skipping",
-            path,
-        )
-        return None
-    return data
 
 
 def _is_per_db(entry: ClassifiedEntry) -> bool:
@@ -440,7 +422,7 @@ def _parse_fixed_entry(
     parser = _PARSERS.get(entry.kind)
     if parser is None:
         return
-    data = _read_small_entry(zip_path, entry.path)
+    data = _read_entry(zip_path, entry.path)
     if data is None:
         return
     try:
@@ -515,7 +497,7 @@ def read_and_parse(zip_path: Path) -> tuple[
     deferred: list[tuple[str, str, bytes]] = []
     for entry in classified:
         if _is_per_db(entry):
-            data = _read_small_entry(zip_path, entry.path)
+            data = _read_entry(zip_path, entry.path)
             if data is not None:
                 _parse_per_db_entry(
                     entry, data, parsed, schema_maps, deferred

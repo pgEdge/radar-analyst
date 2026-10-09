@@ -16,8 +16,15 @@ case transparently.
 from __future__ import annotations
 
 import csv
+import sys
 from dataclasses import dataclass, field
 from io import StringIO
+
+
+# csv refuses a field over 128 KiB by default, which drops the whole
+# file. A field is never longer than the entry it comes from, and
+# archive/reader.py has bounded every entry before it is read.
+csv.field_size_limit(sys.maxsize)
 
 
 @dataclass(frozen=True)

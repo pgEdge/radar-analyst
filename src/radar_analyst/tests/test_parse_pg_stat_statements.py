@@ -39,3 +39,24 @@ def test_silent_on_missing_columns() -> None:
     assert len(out) == 1
     assert out[0].calls == 0
     assert out[0].mean_exec_time == 0.0
+
+
+def test_query_text_is_cut_to_1024_characters() -> None:
+    query = "SELECT " + "1, " * 1000 + "1"
+    tsv = _HEADER + f"10\t16400\t{query}\t1\t1.0\t1.0\t1.0\t1\n"
+    out = parse_stat_statements(tsv.encode())
+    assert out[0].query == query[:1024]
+
+
+def test_texts_cut_to_the_same_start_keep_their_own_identity() -> None:
+    # pg_stat_statements keeps an entry per IN-list length, and the
+    # texts match well past the first 1024 characters.
+    head = "SELECT * FROM t WHERE id IN (" + "$1, " * 300
+    tsv = (
+        _HEADER
+        + f"10\t16400\t{head}$301)\t1\t1.0\t1.0\t1.0\t1\n"
+        + f"10\t16400\t{head}$301, $302)\t1\t1.0\t1.0\t1.0\t1\n"
+    )
+    out = parse_stat_statements(tsv.encode())
+    assert out[0].query == out[1].query
+    assert out[0].text_hash != out[1].text_hash

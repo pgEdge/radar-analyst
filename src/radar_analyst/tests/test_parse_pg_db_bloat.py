@@ -69,3 +69,17 @@ def test_bloat_skips_rows_without_schema_or_table() -> None:
     out = parse_db_bloat(tsv.encode())
     assert len(out) == 1
     assert out.rows[0].tablename == "ok"
+
+
+def test_bloat_keeps_one_row_per_table() -> None:
+    # One row per index, the table's figures repeated on each.
+    tsv = (
+        "schemaname\ttablename\ttable_bloat_ratio\twastedbytes\t"
+        "iname\n"
+        "public\tt1\t3.0\t500000000\tt1_pkey\n"
+        "public\tt1\t3.0\t500000000\tt1_name_idx\n"
+        "public\tt2\t2.5\t300000000\t?\n"
+        "public\tt1\t3.0\t500000000\tt1_uuid_key\n"
+    )
+    out = parse_db_bloat(tsv.encode())
+    assert [r.fqname for r in out.rows] == ["public.t1", "public.t2"]

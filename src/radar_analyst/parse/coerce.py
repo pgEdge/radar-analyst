@@ -8,10 +8,21 @@ so a single odd cell never discards a row.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
+from datetime import datetime
 
 
 _TRUE_WORDS = frozenset({"t", "true", "yes", "1"})
+
+# Go's time.Time layout, ``2006-01-02 15:04:05.999999999 -0700 MST``:
+# the fraction drops trailing zeros and a zone name follows the
+# offset, and datetime.fromisoformat accepts neither.
+_GO_TIME_RE = re.compile(
+    r"^(?P<dt>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+    r"(?:\.(?P<frac>\d{1,9}))?"
+    r" (?P<tz>[+-]\d{4})(?: \S+)?$"
+)
 
 
 def as_int(value: str | None) -> int:
@@ -71,3 +82,22 @@ def row_int(row: Mapping[str, str], key: str) -> int:
 def row_float(row: Mapping[str, str], key: str) -> float:
     """``as_float`` of ``row[key]``; a missing key becomes 0.0."""
     return as_float(row.get(key))
+
+
+def as_datetime_or_none(value: str | None) -> datetime | None:
+    """Parse a radar timestamp; None when empty or unparseable.
+
+    Radar writes ``timestamptz`` values in Go's time.Time layout,
+    which is rewritten to ISO 8601 with the fraction cut to the
+    microseconds ``datetime`` holds. Any other value goes to
+    ``datetime.fromisoformat`` as it is.
+    """
+    s = (value or "").strip()
+    m = _GO_TIME_RE.match(s)
+    if m is not None:
+        frac = (m["frac"] or "").ljust(6, "0")[:6]
+        s = f"{m['dt']}.{frac}{m['tz']}"
+    try:
+        return datetime.fromisoformat(s) if s else None
+    except ValueError:
+        return None

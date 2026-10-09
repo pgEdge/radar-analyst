@@ -98,9 +98,30 @@ class TableRow:
         return False
 
     @property
+    def live_tup(self) -> float:
+        """Live rows, from reltuples while no vacuum or analyze ran.
+
+        Vacuum and analyze each set n_live_tup to an estimate for
+        the whole table. With neither recorded, the statistics
+        counters started after the last one (crash recovery, a start
+        from a base backup), so n_live_tup counts only rows inserted
+        since, while reltuples keeps pg_class's estimate from it.
+        The larger of the two is taken, as a table never vacuumed or
+        analyzed has reltuples -1 or 0.
+        """
+        if (
+            self.last_vacuum
+            or self.last_autovacuum
+            or self.last_analyze
+            or self.last_autoanalyze
+        ):
+            return self.n_live_tup
+        return max(self.n_live_tup, self.reltuples)
+
+    @property
     def dead_ratio(self) -> float:
         """Dead tuples as a fraction of live plus dead."""
-        denom = self.n_live_tup + self.n_dead_tup
+        denom = self.live_tup + self.n_dead_tup
         if denom == 0:
             return 0.0
         return self.n_dead_tup / denom

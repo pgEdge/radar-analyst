@@ -26,6 +26,7 @@ from radar_analyst.parse.databases import (
     DatabaseXactStats,
 )
 from radar_analyst.parse.host_os import (
+    CgroupMemoryStat,
     DmesgSummary,
     IostatDevice,
     PsiPressure,
@@ -37,6 +38,7 @@ from radar_analyst.parse.pg_activity import (
     RunningActivityMaxage,
     RunningLocks,
     WaitsSample,
+    oldest_client_query_age_s,
 )
 from radar_analyst.parse.pg_conf import (
     DbRoleSetting,
@@ -209,23 +211,28 @@ def _host_pressure_lines(parsed: dict[str, Any]) -> list[str]:
 
 def _host_cgroup_lines(parsed: dict[str, Any]) -> list[str]:
     """Render the cgroup v2 memory usage line."""
-    lines: list[str] = []
     mem_cur: int | None = parsed.get("sys.cgroup.memory_current")
     mem_max: int | None = parsed.get("sys.cgroup.memory_max")
-    if mem_cur is not None:
-        cur_gib = mem_cur / (1024 ** 3)
-        if mem_max is not None:
-            lim_gib = mem_max / (1024 ** 3)
-            pct = mem_cur / mem_max * 100
-            lines.append(
-                f"cgroup memory: {cur_gib:.1f} GiB / "
-                f"{lim_gib:.1f} GiB ({pct:.0f}%)"
-            )
-        else:
-            lines.append(
-                f"cgroup memory: {cur_gib:.1f} GiB (no limit)"
-            )
-    return lines
+    stat: CgroupMemoryStat | None = parsed.get(
+        "sys.cgroup.memory_stat"
+    )
+    if mem_cur is None:
+        return []
+    gib = 1024 ** 3
+    line = f"cgroup memory: {mem_cur / gib:.1f} GiB"
+    if mem_max is not None:
+        line += (
+            f" / {mem_max / gib:.1f} GiB"
+            f" ({mem_cur / mem_max * 100:.0f}%)"
+        )
+    else:
+        line += " (no limit)"
+    if stat is not None:
+        line += (
+            f", {(mem_cur - stat.page_cache) / gib:.1f} GiB"
+            " excluding page cache"
+        )
+    return [line]
 
 
 def _host_dmesg_lines(parsed: dict[str, Any]) -> list[str]:
@@ -504,16 +511,8 @@ def _workload_xact_lines(parsed: dict[str, Any]) -> list[str]:
             f" ({total_rollbacks / total:.1%} rollback)"
             if total > 0 else ""
         )
-        # bgwriter.stats_reset is cluster-wide (reset only by
-        # pg_stat_reset_shared('bgwriter')).
-        bg: PgBgwriter | None = parsed.get("pg.bgwriter")
-        reset_dt = bg.stats_reset if bg else None
-        since_note = (
-            f" (since {reset_dt.isoformat()})"
-            if reset_dt else ""
-        )
         lines.append(
-            f"Cluster transactions{since_note}: "
+            "Cluster transactions: "
             f"{total_commits:,} commits, "
             f"{total_rollbacks:,} rollbacks{rb_pct}"
         )
@@ -535,7 +534,7 @@ def _workload_session_lines(a: PgActivity | None) -> list[str]:
 
 
 def _workload_maxage_lines(
-    maxage: RunningActivityMaxage | None,
+    maxage: RunningActivityMaxage | None, a: PgActivity | None
 ) -> list[str]:
     """Render oldest backend, xact, and query age lines."""
     lines: list[str] = []
@@ -549,8 +548,10 @@ def _workload_maxage_lines(
         lines.append(
             f"  xact    = {format_age_seconds(maxage.max_xact_age_s)}"
         )
+        query_age = oldest_client_query_age_s(maxage, a)
         lines.append(
-            f"  query   = {format_age_seconds(maxage.max_query_age_s)}"
+            f"  query   = {format_age_seconds(query_age)}"
+            " (client backends)"
         )
     return lines
 
@@ -690,7 +691,7 @@ def _build_workload_facts(
     lines.extend(_workload_sizing_lines(parsed))
     lines.extend(_workload_xact_lines(parsed))
     lines.extend(_workload_session_lines(a))
-    lines.extend(_workload_maxage_lines(maxage))
+    lines.extend(_workload_maxage_lines(maxage, a))
     lines.extend(_workload_wait_lines(waits, a))
     lines.extend(_workload_grid_lines(conn))
     lines.extend(_workload_lock_lines(rlocks, locks_count))

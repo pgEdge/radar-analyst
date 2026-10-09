@@ -8,16 +8,20 @@ strictly cluster-wide; per-database workload signals live in
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
-from radar_analyst.parse.databases import DatabaseXactStats
+from radar_analyst.parse.databases import (
+    DatabaseXactStats,
+    DbStatDatabase,
+)
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
     RunningActivityMaxage,
+    collected_at,
+    oldest_client_query_age_s,
 )
-from radar_analyst.parse.pg_internals import PgBgwriter
 from radar_analyst.parse.pg_settings import PgSettings
 from radar_analyst.parse.pg_stat_ssl import StatSsl
 from radar_analyst.parse.pg_stat_statements import StatementRow
@@ -107,13 +111,17 @@ def long_xact_present(
 def long_query_present(
     parsed: dict[str, Any],
 ) -> list[Finding]:
-    """Warn (>10 min) / critical (>30 min) on the oldest query."""
-    m: RunningActivityMaxage | None = parsed.get(
-        "pg.running_activity_maxage"
+    """Warn (>10 min) / critical (>30 min) on the oldest query.
+
+    Only client backends count: a walsender's replication command
+    runs for the life of the connection and is not a query.
+    """
+    age = oldest_client_query_age_s(
+        parsed.get("pg.running_activity_maxage"),
+        parsed.get("pg.running_activity"),
     )
-    if m is None or m.max_query_age_s is None:
+    if age is None:
         return []
-    age = m.max_query_age_s
     sev = tier(age, warn=_LONG_QUERY_WARN_S, crit=_LONG_QUERY_CRIT_S)
     if sev is None:
         return []
@@ -266,34 +274,52 @@ def rollback_ratio_high(
     ]
 
 
+def _database_rates(
+    at: datetime,
+    xact: dict[str, DatabaseXactStats],
+    stat_db: dict[str, DbStatDatabase],
+) -> dict[str, float]:
+    """Transactions per second in each database with a known start.
+
+    A database's pg_stat_database counters run from its own
+    stats_reset. With none on record they could cover any length of
+    time, so that database is left out.
+    """
+    rates: dict[str, float] = {}
+    for name, x in xact.items():
+        s = stat_db.get(name)
+        if s is None or s.stats_reset is None or s.stats_reset >= at:
+            continue
+        elapsed = (at - s.stats_reset).total_seconds()
+        rates[name] = (x.xact_commit + x.xact_rollback) / elapsed
+    return rates
+
+
 @register("Workload")
 def xact_rate_high(
     parsed: dict[str, Any],
 ) -> list[Finding]:
     """Warn when the sustained transaction rate exceeds 1000 TPS.
 
-    Uses ``pg_stat_bgwriter.stats_reset`` (cluster-wide, reset
-    only by ``pg_stat_reset_shared('bgwriter')``) as the time
-    baseline. Total xacts from ``pg_stat_database`` divided by
-    elapsed seconds gives the average sustained TPS.
+    Each database's commits and rollbacks are divided by the time
+    from its own ``pg_stat_database.stats_reset`` to radar's
+    collection, both by the server's clock, and the rates are
+    summed. An archive can be assessed any time after it was
+    collected, so the analyst's own clock has no part in it.
     """
-    bg: PgBgwriter | None = parsed.get("pg.bgwriter")
-    if bg is None or bg.stats_reset is None:
-        return []
-    now = datetime.now(UTC)
-    elapsed = (now - bg.stats_reset).total_seconds()
-    if elapsed <= 0:
-        return []
+    at = collected_at(
+        parsed.get("pg.running_activity_maxage"),
+        parsed.get("pg.running_activity"),
+    )
     xact: dict[str, DatabaseXactStats] | None = parsed.get(
         "pg.databases_xact"
     )
-    if not xact:
+    if at is None or not xact:
         return []
-    total = sum(
-        x.xact_commit + x.xact_rollback
-        for x in xact.values()
+    rates = _database_rates(
+        at, xact, parsed.get("pg.db.stat_database") or {}
     )
-    tps = total / elapsed
+    tps = sum(rates.values())
     if tps <= _XACT_RATE_WARN_TPS:
         return []
     return [
@@ -305,11 +331,11 @@ def xact_rate_high(
                 f"{tps:,.0f} TPS"
             ),
             detail=(
-                f"Averaged {tps:,.0f} transactions/second "
-                f"over {elapsed / 3600:.1f} hours (since "
-                f"bgwriter stats_reset). High sustained TPS "
-                "increases WAL generation, checkpoint "
-                "pressure, and replication lag risk. "
+                f"Averaged {tps:,.0f} transactions/second in "
+                f"{', '.join(sorted(rates))}, each since its "
+                "pg_stat_database statistics were last reset. "
+                "High sustained TPS increases WAL generation, "
+                "checkpoint pressure, and replication lag risk. "
                 "Verify that connection pooling, batching, "
                 "and autovacuum are tuned for this load."
             ),
@@ -381,17 +407,26 @@ def slow_query_count_high(
 ) -> list[Finding]:
     """Warn when many distinct statements run slowly.
 
-    Counts statements in ``pg_stat_statements`` whose
-    ``mean_exec_time`` exceeds 1 s and warns above 10 of them.
+    Counts statements whose ``mean_exec_time`` exceeds 1 s and
+    warns above 10 of them. radar keeps three top-100 lists from
+    ``pg_stat_statements``, by calls, by maximum and by total time;
+    slow statements rank in the last two, so all three are read.
+    The lists have no queryid, so a statement is its user,
+    database and whole query text, and one in several lists counts
+    once.
     Silently does nothing if the extension isn't installed
     (radar's stat_statements TSVs are absent).
     """
-    rows: list[StatementRow] | None = parsed.get(
-        "pg.stat_statements.calls"
-    )
-    if not rows:
-        return []
-    slow = [r for r in rows if r.mean_exec_time > _SLOW_QUERY_MEAN_MS]
+    statements: dict[tuple[str, str, str], StatementRow] = {}
+    for kind, rows in parsed.items():
+        if kind.startswith("pg.stat_statements."):
+            for r in rows:
+                key = (r.userid, r.dbid, r.text_hash)
+                statements.setdefault(key, r)
+    slow = [
+        r for r in statements.values()
+        if r.mean_exec_time > _SLOW_QUERY_MEAN_MS
+    ]
     if len(slow) <= _SLOW_QUERY_COUNT_WARN:
         return []
     slow.sort(key=lambda r: -r.mean_exec_time)

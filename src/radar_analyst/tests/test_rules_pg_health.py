@@ -295,6 +295,25 @@ def test_tables_high_dead_rows_critical_on_huge_offender() -> None:
     assert findings[0].severity == "critical"
 
 
+def test_tables_high_dead_rows_after_a_counter_restart() -> None:
+    # No vacuum or analyze on record: reltuples is the live count.
+    parsed = {
+        "pg.db.tables": {
+            "mydb": TablesPerDb(
+                rows=[
+                    _table(
+                        name="big",
+                        live=650,
+                        dead=135_000,
+                        reltuples=1.2e8,
+                    ),
+                ]
+            ),
+        }
+    }
+    assert tables_high_dead_rows(parsed) == []
+
+
 def test_tables_high_dead_rows_skips_low_volume_tables() -> None:
     # Tiny tables with high dead ratios shouldn't trigger.
     parsed = {

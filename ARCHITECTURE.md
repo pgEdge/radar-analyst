@@ -195,10 +195,10 @@ the classifier.
 The parsers read entries through `open_entry(zip_path, entry_path,
 *, max_bytes)`, a stream that raises `ZipSafetyError` as soon as the
 caller reads past `max_bytes`, which is 500 MiB unless the caller
-asks for less. `analyze/parsing.py` asks for 1 MiB and skips a
-larger entry with a warning. No helper reads a whole entry into
-memory, so every assumption about an entry's size is written where
-it is made.
+asks for less. `analyze/parsing.py` reads each entry it parses
+whole and hands the parser its bytes. No helper reads a whole entry
+into memory, so every assumption about an entry's size is written
+where it is made.
 
 `analyze/parsing.py` dispatches each kind to its parser in `parse/`,
 with per-database kinds kept per database. `parse/tsv.py` reads
@@ -395,7 +395,7 @@ the most each stage holds in memory and the cap that bounds it:
 | Upload | Up to 1 MiB, because Starlette spools the rest of the body to a temporary file, and `routes_uploads.py::_zip_chunks` copies it on in chunks | `RADAR_ANALYST_MAX_UPLOAD_BYTES`, 500 MiB by default, applied to the request body as it arrives, so the temporary file never grows past it |
 | Blob store to temporary file | One 64 KiB chunk, in `blob.base.download_to_temp` | The upload cap |
 | Reading the zip's directory | One `ZipInfo` per entry, which `zipfile` builds when it opens the archive | The upload cap. `archive/reader.py::list_entries` then refuses more than 100,000 entries, 2 GiB uncompressed, or 500 MiB in one entry, before anything is decompressed |
-| Parsing an entry | Up to 1 MiB, in `analyze/parsing.py::read_and_parse` | A larger entry is skipped with a warning |
+| Parsing an entry | The whole entry, in `analyze/parsing.py::read_and_parse` | The 500 MiB per entry that `archive/reader.py::list_entries` allows |
 | Downloading an archive file | One 64 KiB chunk, in `GET /api/uploads/{id}/files/{path}`, which first copies the archive to a temporary file | None of its own |
 
 ## Known limits

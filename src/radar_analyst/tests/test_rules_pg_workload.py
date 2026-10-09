@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from radar_analyst.parse.databases import DatabaseXactStats
+from radar_analyst.parse.databases import (
+    DatabaseXactStats,
+    DbStatDatabase,
+)
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
@@ -103,35 +106,55 @@ def test_long_xact_silent_when_no_data() -> None:
 # ---------------------------------------------------------------
 
 
-def test_long_query_silent_under_threshold() -> None:
-    parsed = {
+def _long_query(age_s: float) -> dict[str, object]:
+    # The oldest non-idle session is a client's query.
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    return {
         "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=9 * 60.0
-        )
+            max_query_age_s=age_s
+        ),
+        "pg.running_activity": PgActivity(
+            oldest_query_start=start,
+            oldest_client_query_start=start,
+        ),
     }
-    assert long_query_present(parsed) == []
+
+
+def test_long_query_silent_under_threshold() -> None:
+    assert long_query_present(_long_query(9 * 60.0)) == []
 
 
 def test_long_query_warns_at_10min() -> None:
-    parsed = {
-        "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=10 * 60.0
-        )
-    }
-    out = long_query_present(parsed)
+    out = long_query_present(_long_query(10 * 60.0))
     assert len(out) == 1
     assert out[0].severity == "warning"
 
 
 def test_long_query_critical_at_30min() -> None:
-    parsed = {
-        "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=30 * 60.0
-        )
-    }
-    out = long_query_present(parsed)
+    out = long_query_present(_long_query(30 * 60.0))
     assert len(out) == 1
     assert out[0].severity == "critical"
+
+
+def test_long_query_measures_the_client_not_a_walsender() -> None:
+    parsed = _long_query(15 * 3600.0)
+    parsed["pg.running_activity"] = PgActivity(
+        oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC),
+        oldest_client_query_start=datetime(
+            2026, 1, 1, 14, 40, tzinfo=UTC
+        ),
+    )
+    out = long_query_present(parsed)
+    assert [(f.severity, f.title) for f in out] == [(
+        "warning",
+        "Oldest running query has been executing for 20.0 min",
+    )]
+
+
+def test_long_query_silent_without_the_session_snapshot() -> None:
+    parsed = _long_query(30 * 60.0)
+    del parsed["pg.running_activity"]
+    assert long_query_present(parsed) == []
 
 
 # ---------------------------------------------------------------
@@ -300,42 +323,100 @@ def _bgwriter(
     )
 
 
-def test_xact_rate_high_fires_above_threshold() -> None:
-    # stats_reset 1 hour ago, 4M xacts = ~1111 TPS > 1000
-    one_hour_ago = (
-        datetime.now(UTC) - timedelta(hours=1)
+_RESET = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _collected(at: datetime) -> dict[str, object]:
+    # radar's own session is the oldest non-idle one, its query just
+    # begun when radar read pg_stat_activity.
+    return {
+        "pg.running_activity_maxage": RunningActivityMaxage(
+            max_query_age_s=0.0
+        ),
+        "pg.running_activity": PgActivity(oldest_query_start=at),
+    }
+
+
+def _reset(name: str, at: datetime | None) -> DbStatDatabase:
+    return DbStatDatabase(
+        datname=name, conflicts=0, deadlocks=0, temp_files=0,
+        temp_bytes=0, stats_reset=at,
     )
+
+
+def test_xact_rate_high_fires_above_threshold() -> None:
+    # 4M xacts in the hour from mydb's reset to the collection.
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 4_000_000, 0),
         },
-        "pg.bgwriter": _bgwriter(one_hour_ago),
+        "pg.db.stat_database": {"mydb": _reset("mydb", _RESET)},
     }
     out = xact_rate_high(parsed)
     assert len(out) == 1
     assert out[0].severity == "warning"
     assert out[0].rule_id == "pg.workload.xact_rate_high"
+    assert out[0].title == "Sustained transaction rate is 1,111 TPS"
+
+
+def test_xact_rate_high_sums_each_database_over_its_own_window() -> None:
+    # 2M in one hour plus 4M in two hours: 1,111 TPS together. The
+    # database with no reset on record is left out.
+    parsed = {
+        **_collected(_RESET + timedelta(hours=2)),
+        "pg.databases_xact": {
+            "db1": _xact("db1", 2_000_000, 0),
+            "db2": _xact("db2", 4_000_000, 0),
+            "db3": _xact("db3", 900_000_000, 0),
+        },
+        "pg.db.stat_database": {
+            "db1": _reset("db1", _RESET + timedelta(hours=1)),
+            "db2": _reset("db2", _RESET),
+            "db3": _reset("db3", None),
+        },
+    }
+    out = xact_rate_high(parsed)
+    assert [f.title for f in out] == [
+        "Sustained transaction rate is 1,111 TPS",
+    ]
 
 
 def test_xact_rate_high_silent_below_threshold() -> None:
-    one_hour_ago = (
-        datetime.now(UTC) - timedelta(hours=1)
-    )
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 100, 0),
         },
-        "pg.bgwriter": _bgwriter(one_hour_ago),
+        "pg.db.stat_database": {"mydb": _reset("mydb", _RESET)},
     }
     assert xact_rate_high(parsed) == []
 
 
-def test_xact_rate_high_silent_no_stats_reset() -> None:
+def test_xact_rate_high_silent_without_a_reset_on_record() -> None:
+    # The counters could cover any length of time: no rate, and
+    # bgwriter's reset does not stand in for the database's.
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 10_000_000, 0),
         },
-        "pg.bgwriter": _bgwriter(None),
+        "pg.db.stat_database": {"mydb": _reset("mydb", None)},
+        "pg.bgwriter": _bgwriter(_RESET),
+    }
+    assert xact_rate_high(parsed) == []
+
+
+def test_xact_rate_high_silent_without_the_collection_time() -> None:
+    # The archive does not say when it was collected. Measured to the
+    # analyst's own clock this would be 1,111 TPS; it is no rate.
+    parsed = {
+        "pg.databases_xact": {
+            "mydb": _xact("mydb", 4_000_000, 0),
+        },
+        "pg.db.stat_database": {
+            "mydb": _reset("mydb", datetime.now(UTC) - timedelta(hours=1)),
+        },
     }
     assert xact_rate_high(parsed) == []
 
@@ -446,6 +527,7 @@ def _stmt(mean_ms: float, calls: int = 100, query: str = "q") -> object:
         userid="10",
         dbid="16400",
         query=query,
+        text_hash=query,
         calls=calls,
         total_exec_time=mean_ms * calls,
         mean_exec_time=mean_ms,
@@ -487,6 +569,26 @@ def test_slow_query_warns_above_eleven_slow() -> None:
     assert len(findings) == 1
     assert findings[0].severity == "warning"
     assert "15" in findings[0].title
+
+
+def test_slow_query_counts_each_statement_once_across_lists() -> None:
+    from radar_analyst.rules.pg_workload import slow_query_count_high
+
+    slow = [_stmt(mean_ms=1500, query=f"q{i}") for i in range(11)]
+    parsed = {
+        "pg.stat_statements.calls": slow[:1],
+        "pg.stat_statements.max_time": slow[:8],
+        "pg.stat_statements.total_time": slow[5:],
+    }
+    findings = slow_query_count_high(parsed)
+    assert [f.title for f in findings] == [
+        "11 statements with mean exec time > 1 s",
+    ]
+    parsed = {
+        "pg.stat_statements.max_time": slow[:6],
+        "pg.stat_statements.total_time": slow[:10],
+    }
+    assert slow_query_count_high(parsed) == []
 
 
 def test_slow_query_silent_when_all_fast() -> None:

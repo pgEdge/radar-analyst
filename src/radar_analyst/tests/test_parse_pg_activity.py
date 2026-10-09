@@ -1,6 +1,12 @@
 """Tests for pg_activity parsers."""
 
+from datetime import UTC, datetime
+
 from radar_analyst.parse.pg_activity import (
+    PgActivity,
+    RunningActivityMaxage,
+    collected_at,
+    oldest_client_query_age_s,
     parse_blocking_locks_count,
     parse_connection_summary,
     parse_pg_interval_seconds,
@@ -39,6 +45,57 @@ def test_running_activity_counts_states_and_wait_events() -> None:
 def test_running_activity_empty() -> None:
     a = parse_running_activity(b"")
     assert a.total == 0
+
+
+def test_running_activity_oldest_query_starts() -> None:
+    # The non-idle minimum covers what radar's max_query_age does;
+    # the client minimum only queries a client backend is running.
+    tsv = (
+        "pid\tstate\tquery_start\tbackend_type\n"
+        "1\tidle\t2026-01-01 00:00:00 +0000 UTC\tclient backend\n"
+        "2\tactive\t2026-01-01 01:00:00 +0000 UTC\twalsender\n"
+        "3\tidle in transaction\t2026-01-01 02:00:00 +0000 UTC\t"
+        "client backend\n"
+        "4\tactive\t2026-01-01 03:00:00.5 +0000 UTC\tclient backend\n"
+        "5\t\t\tbackground writer\n"
+    )
+    a = parse_running_activity(tsv.encode())
+    assert a.oldest_query_start == datetime(
+        2026, 1, 1, 1, tzinfo=UTC
+    )
+    assert a.oldest_client_query_start == datetime(
+        2026, 1, 1, 3, 0, 0, 500000, tzinfo=UTC
+    )
+
+
+def test_collected_at_is_the_oldest_query_start_plus_its_age() -> None:
+    m = RunningActivityMaxage(max_query_age_s=3600.0)
+    a = PgActivity(oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC))
+    assert collected_at(m, a) == datetime(2026, 1, 1, 1, tzinfo=UTC)
+    assert collected_at(None, a) is None
+    assert collected_at(m, None) is None
+    assert collected_at(m, PgActivity()) is None
+
+
+def test_oldest_client_query_age_moves_max_query_age() -> None:
+    m = RunningActivityMaxage(max_query_age_s=3600.0)
+    a = PgActivity(
+        oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC),
+        oldest_client_query_start=datetime(
+            2026, 1, 1, 0, 50, tzinfo=UTC
+        ),
+    )
+    assert oldest_client_query_age_s(m, a) == 600.0
+
+
+def test_oldest_client_query_age_none_without_a_client_query() -> None:
+    m = RunningActivityMaxage(max_query_age_s=3600.0)
+    walsender_only = PgActivity(
+        oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    assert oldest_client_query_age_s(m, walsender_only) is None
+    assert oldest_client_query_age_s(m, None) is None
+    assert oldest_client_query_age_s(None, walsender_only) is None
 
 
 def test_blocking_locks_count_counts_rows() -> None:

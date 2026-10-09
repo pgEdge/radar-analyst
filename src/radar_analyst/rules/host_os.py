@@ -7,7 +7,12 @@ from typing import Any
 
 from radar_analyst.analyze.eol import OS_EOL
 from radar_analyst.parse.diskspace import DiskFilesystem
-from radar_analyst.parse.host_os import DmesgSummary, IostatDevice, PsiPressure
+from radar_analyst.parse.host_os import (
+    CgroupMemoryStat,
+    DmesgSummary,
+    IostatDevice,
+    PsiPressure,
+)
 from radar_analyst.parse.loadavg import LoadAverage
 from radar_analyst.parse.swaps import SwapDevice
 from radar_analyst.parse.system_facts import cpu_count_from_lscpu
@@ -126,39 +131,46 @@ def scaling_governor_not_performance(
 def cgroup_memory_near_limit(
     parsed: dict[str, Any],
 ) -> list[Finding]:
-    """Warn when cgroup v2 memory usage exceeds 80 % of the limit.
+    """Warn when cgroup v2 memory exceeds 80 % of the limit.
 
-    A PostgreSQL process in a container or cgroup with a memory
-    limit near capacity risks OOM termination. ``memory_max`` of
-    ``None`` means unlimited: no finding is generated.
+    File page cache is left out: the kernel reclaims it before it
+    invokes the OOM killer, so a cgroup whose page cache fills the
+    limit is not at risk. Without ``memory.stat`` the two cannot be
+    told apart, and ``memory_max`` of ``None`` means unlimited: in
+    both cases no finding is generated.
     """
     current: int | None = parsed.get("sys.cgroup.memory_current")
     limit: int | None = parsed.get("sys.cgroup.memory_max")
-    if current is None or limit is None:
+    stat: CgroupMemoryStat | None = parsed.get(
+        "sys.cgroup.memory_stat"
+    )
+    if current is None or limit is None or stat is None:
         return []
-    ratio = current / limit
+    used = current - stat.page_cache
+    ratio = used / limit
     if ratio < _CGROUP_MEM_WARN_RATIO:
         return []
     pct = ratio * 100
-    current_gib = current / (1024 ** 3)
-    limit_gib = limit / (1024 ** 3)
+    gib = 1024 ** 3
     return [
         Finding(
             rule_id="sys.cgroup_memory_near_limit",
             severity="warning",
             title=(
-                f"cgroup memory usage at {pct:.0f}% of limit "
-                f"({current_gib:.1f} / {limit_gib:.1f} GiB)"
+                f"cgroup memory usage at {pct:.0f}% of limit, "
+                f"excluding page cache ({used / gib:.1f} / "
+                f"{limit / gib:.1f} GiB)"
             ),
             detail=(
-                f"The process cgroup is using "
-                f"{current_gib:.1f} GiB of its "
-                f"{limit_gib:.1f} GiB memory limit "
-                f"({pct:.0f}%). If usage continues to grow "
-                "PostgreSQL will be OOM-killed. Consider "
+                f"The process cgroup is using {used / gib:.1f} GiB "
+                f"of its {limit / gib:.1f} GiB memory limit "
+                f"({pct:.0f}%), not counting "
+                f"{stat.page_cache / gib:.1f} GiB of file page cache "
+                "that the kernel reclaims first. If usage continues "
+                "to grow PostgreSQL will be OOM-killed. Consider "
                 "increasing the cgroup memory limit, reducing "
-                "shared_buffers, or migrating to a host with "
-                "more RAM."
+                "shared_buffers, or migrating to a host with more "
+                "RAM."
             ),
         )
     ]

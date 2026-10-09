@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from radar_analyst.parse.coerce import as_datetime_or_none
 from radar_analyst.parse.tsv import parse_tsv_bytes
 
 
@@ -36,6 +37,30 @@ class PgActivity:
     # Session count per database (excludes rows with empty datname,
     # which is typical for background worker types).
     by_database: dict[str, int] = field(default_factory=dict)
+    # Earliest query_start among non-idle sessions, the rows radar's
+    # max_query_age covers, and among active client backends.
+    oldest_query_start: datetime | None = None
+    oldest_client_query_start: datetime | None = None
+
+
+def _oldest_query_starts(
+    rows: list[dict[str, str]],
+) -> tuple[datetime | None, datetime | None]:
+    """Earliest non-idle and active-client-backend query_start."""
+    starts: list[datetime] = []
+    client: list[datetime] = []
+    for row in rows:
+        state = row.get("state", "")
+        start = as_datetime_or_none(row.get("query_start"))
+        if start is None or state in ("", "idle"):
+            continue
+        starts.append(start)
+        if (
+            state == "active"
+            and row.get("backend_type") == "client backend"
+        ):
+            client.append(start)
+    return min(starts, default=None), min(client, default=None)
 
 
 def parse_running_activity(data: bytes) -> PgActivity:
@@ -58,12 +83,15 @@ def parse_running_activity(data: bytes) -> PgActivity:
         db = row.get("datname", "")
         if db:
             by_database[db] = by_database.get(db, 0) + 1
+    oldest, oldest_client = _oldest_query_starts(t.rows)
     return PgActivity(
         total=len(t.rows),
         by_state=by_state,
         idle_in_transaction=idle_in_tx,
         wait_events=wait_events,
         by_database=by_database,
+        oldest_query_start=oldest,
+        oldest_client_query_start=oldest_client,
     )
 
 
@@ -165,6 +193,52 @@ def parse_running_activity_maxage(
             row.get("max_lock_wait_age", "")
         ),
     )
+
+
+def collected_at(
+    maxage: RunningActivityMaxage | None,
+    activity: PgActivity | None,
+) -> datetime | None:
+    """When radar read pg_stat_activity, by the server's clock.
+
+    radar records no collection time. Its ``max_query_age`` is
+    clock_timestamp() less the oldest non-idle query_start, and
+    radar's own session is always non-idle while it collects, so
+    the oldest non-idle query_start plus that age is the moment of
+    collection. None when either file is missing.
+    """
+    if (
+        maxage is None
+        or activity is None
+        or maxage.max_query_age_s is None
+        or activity.oldest_query_start is None
+    ):
+        return None
+    return activity.oldest_query_start + timedelta(
+        seconds=maxage.max_query_age_s
+    )
+
+
+def oldest_client_query_age_s(
+    maxage: RunningActivityMaxage | None,
+    activity: PgActivity | None,
+) -> float | None:
+    """Age of the oldest query a client backend is running.
+
+    radar's ``max_query_age`` spans every non-idle session, a
+    walsender's START_REPLICATION included, which runs for as long
+    as its standby stays connected, so the age is taken from the
+    oldest active client backend's query_start instead. None when
+    no client backend is running a query.
+    """
+    at = collected_at(maxage, activity)
+    if (
+        at is None
+        or activity is None
+        or activity.oldest_client_query_start is None
+    ):
+        return None
+    return (at - activity.oldest_client_query_start).total_seconds()
 
 
 # ---------------------------------------------------------------
@@ -291,26 +365,6 @@ class PreparedXacts:
     oldest_gid: str | None = None
 
 
-def _parse_pg_timestamptz(value: str) -> datetime | None:
-    """Parse Postgres ``timestamptz`` text output to ``datetime``.
-
-    Examples:
-        ``2026-04-15 09:00:00+00``
-        ``2026-04-15 09:00:00.123456+01``
-        ``2026-04-15 09:00:00+0100``
-
-    Returns ``None`` if the value can't be parsed.
-    ``fromisoformat`` on Python 3.11+ accepts every listed shape
-    directly, including the space separator and short tz offsets.
-    """
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.strip())
-    except ValueError:
-        return None
-
-
 def parse_prepared_xacts(
     data: bytes, now_iso: str | None
 ) -> PreparedXacts:
@@ -325,11 +379,11 @@ def parse_prepared_xacts(
     if not t.rows:
         return PreparedXacts()
     total = len(t.rows)
-    now = _parse_pg_timestamptz(now_iso) if now_iso else None
+    now = as_datetime_or_none(now_iso) if now_iso else None
     oldest_dt: datetime | None = None
     oldest_gid: str | None = None
     for row in t.rows:
-        prep = _parse_pg_timestamptz(row.get("prepared", ""))
+        prep = as_datetime_or_none(row.get("prepared", ""))
         if prep is None:
             continue
         if oldest_dt is None or prep < oldest_dt:

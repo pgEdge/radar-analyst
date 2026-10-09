@@ -24,31 +24,12 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from radar_analyst.parse.coerce import (
+    as_datetime_or_none,
     as_float_or_none,
     as_int,
     as_int_or_none,
 )
 from radar_analyst.parse.tsv import parse_tsv_bytes
-
-
-def _timestamp(s: str | None) -> datetime | None:
-    """Parse a radar timestamp string to datetime.
-
-    Radar emits timestamps like
-    ``"2026-01-23 23:47:57.595778 +0000 GMT"``.
-    Returns ``None`` for empty/missing/unparseable values.
-    """
-    if s is None:
-        return None
-    s = s.strip()
-    if not s:
-        return None
-    if s.endswith(" GMT"):
-        s = s[:-4]
-    try:
-        return datetime.fromisoformat(s)
-    except ValueError:
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +86,7 @@ def parse_bgwriter(data: bytes) -> PgBgwriter | None:
         buffers_backend_fsync=as_int_or_none(
             row.get("buffers_backend_fsync")
         ),
-        stats_reset=_timestamp(row.get("stats_reset")),
+        stats_reset=as_datetime_or_none(row.get("stats_reset")),
     )
 
 
