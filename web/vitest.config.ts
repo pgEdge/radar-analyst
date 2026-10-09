@@ -13,7 +13,7 @@ export default defineConfig({
       exclude: ['src/**/*.test.ts'],
       all: true,
       reporter: ['text'],
-      thresholds: { lines: 80, functions: 80 },
+      thresholds: { lines: 90, functions: 90 },
     },
   },
 });
