@@ -360,3 +360,79 @@ def test_a_query_text_over_the_csv_field_limit_is_cut_short(
     assert _slow_statement_ids(parsed) == [
         "pg.workload.slow_query_count_high",
     ]
+
+
+_XACT_MAXAGE = (
+    "max_query_age\tmax_xact_age\tmax_backend_age\t"
+    "max_lock_wait_age\n"
+    "00:01:00\t00:01:00\t00:01:00\t\n"
+)
+
+
+def _rate_archive(
+    tmp_path: Path, appdb_reset: str
+) -> dict[str, object]:
+    # Collected at 2026-01-01 01:00 by the server's clock. bgwriter's
+    # counters were reset an hour before that, appdb's at
+    # *appdb_reset*, and the postgres database's never.
+    z = _archive(tmp_path, {
+        "postgresql/bgwriter.tsv": (
+            "buffers_clean\tmaxwritten_clean\tbuffers_alloc\t"
+            "stats_reset\n"
+            "0\t0\t0\t2026-01-01 00:00:00 +0000 UTC\n"
+        ),
+        "postgresql/databases_xact.tsv": (
+            "datname\txact_commit\txact_rollback\n"
+            "appdb\t7000000\t200000\n"
+            "postgres\t90000000\t0\n"
+        ),
+        "databases/appdb/stat_database.tsv": (
+            "datname\tconflicts\tdeadlocks\ttemp_files\t"
+            "temp_bytes\tstats_reset\n"
+            f"appdb\t0\t0\t0\t0\t{appdb_reset}\n"
+        ),
+        "databases/postgres/stat_database.tsv": (
+            "datname\tconflicts\tdeadlocks\ttemp_files\t"
+            "temp_bytes\tstats_reset\n"
+            "postgres\t0\t0\t0\t0\t\n"
+        ),
+        "postgresql/running_activity.tsv": _activity(
+            _client("2026-01-01 00:59:00 +0000 UTC", "active"),
+        ),
+        "postgresql/running_activity_maxage.tsv": _XACT_MAXAGE,
+    })
+    return read_and_parse(z)[0]
+
+
+def _rate_titles(parsed: dict[str, object]) -> list[str]:
+    return [
+        f.title for f in run_for_category("Workload", parsed)
+        if f.rule_id == "pg.workload.xact_rate_high"
+    ]
+
+
+def test_each_database_rate_runs_from_its_own_reset(
+    tmp_path: Path,
+) -> None:
+    # 7.2 million transactions in appdb's hour from its reset to the
+    # collection. The postgres database has no reset on record, so
+    # its counters could cover any length of time: it is left out.
+    parsed = _rate_archive(tmp_path, "2026-01-01 00:00:00 +0000 UTC")
+    assert _rate_titles(parsed) == [
+        "Sustained transaction rate is 2,000 TPS",
+    ]
+
+
+def test_no_rate_without_a_database_reset_on_record(
+    tmp_path: Path,
+) -> None:
+    # bgwriter's reset says nothing about when pg_stat_database's
+    # counters started, so it cannot stand in for them.
+    parsed = _rate_archive(tmp_path, "")
+    assert _rate_titles(parsed) == []
+    facts = build_category_facts(_category("pg_workload"), parsed)
+    assert facts is not None
+    assert "since" not in next(
+        line for line in facts.splitlines()
+        if line.startswith("Cluster transactions")
+    )

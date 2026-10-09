@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from radar_analyst.parse.databases import DatabaseXactStats
+from radar_analyst.parse.databases import (
+    DatabaseXactStats,
+    DbStatDatabase,
+)
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
@@ -320,42 +323,100 @@ def _bgwriter(
     )
 
 
-def test_xact_rate_high_fires_above_threshold() -> None:
-    # stats_reset 1 hour ago, 4M xacts = ~1111 TPS > 1000
-    one_hour_ago = (
-        datetime.now(UTC) - timedelta(hours=1)
+_RESET = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _collected(at: datetime) -> dict[str, object]:
+    # radar's own session is the oldest non-idle one, its query just
+    # begun when radar read pg_stat_activity.
+    return {
+        "pg.running_activity_maxage": RunningActivityMaxage(
+            max_query_age_s=0.0
+        ),
+        "pg.running_activity": PgActivity(oldest_query_start=at),
+    }
+
+
+def _reset(name: str, at: datetime | None) -> DbStatDatabase:
+    return DbStatDatabase(
+        datname=name, conflicts=0, deadlocks=0, temp_files=0,
+        temp_bytes=0, stats_reset=at,
     )
+
+
+def test_xact_rate_high_fires_above_threshold() -> None:
+    # 4M xacts in the hour from mydb's reset to the collection.
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 4_000_000, 0),
         },
-        "pg.bgwriter": _bgwriter(one_hour_ago),
+        "pg.db.stat_database": {"mydb": _reset("mydb", _RESET)},
     }
     out = xact_rate_high(parsed)
     assert len(out) == 1
     assert out[0].severity == "warning"
     assert out[0].rule_id == "pg.workload.xact_rate_high"
+    assert out[0].title == "Sustained transaction rate is 1,111 TPS"
+
+
+def test_xact_rate_high_sums_each_database_over_its_own_window() -> None:
+    # 2M in one hour plus 4M in two hours: 1,111 TPS together. The
+    # database with no reset on record is left out.
+    parsed = {
+        **_collected(_RESET + timedelta(hours=2)),
+        "pg.databases_xact": {
+            "db1": _xact("db1", 2_000_000, 0),
+            "db2": _xact("db2", 4_000_000, 0),
+            "db3": _xact("db3", 900_000_000, 0),
+        },
+        "pg.db.stat_database": {
+            "db1": _reset("db1", _RESET + timedelta(hours=1)),
+            "db2": _reset("db2", _RESET),
+            "db3": _reset("db3", None),
+        },
+    }
+    out = xact_rate_high(parsed)
+    assert [f.title for f in out] == [
+        "Sustained transaction rate is 1,111 TPS",
+    ]
 
 
 def test_xact_rate_high_silent_below_threshold() -> None:
-    one_hour_ago = (
-        datetime.now(UTC) - timedelta(hours=1)
-    )
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 100, 0),
         },
-        "pg.bgwriter": _bgwriter(one_hour_ago),
+        "pg.db.stat_database": {"mydb": _reset("mydb", _RESET)},
     }
     assert xact_rate_high(parsed) == []
 
 
-def test_xact_rate_high_silent_no_stats_reset() -> None:
+def test_xact_rate_high_silent_without_a_reset_on_record() -> None:
+    # The counters could cover any length of time: no rate, and
+    # bgwriter's reset does not stand in for the database's.
     parsed = {
+        **_collected(_RESET + timedelta(hours=1)),
         "pg.databases_xact": {
             "mydb": _xact("mydb", 10_000_000, 0),
         },
-        "pg.bgwriter": _bgwriter(None),
+        "pg.db.stat_database": {"mydb": _reset("mydb", None)},
+        "pg.bgwriter": _bgwriter(_RESET),
+    }
+    assert xact_rate_high(parsed) == []
+
+
+def test_xact_rate_high_silent_without_the_collection_time() -> None:
+    # The archive does not say when it was collected. Measured to the
+    # analyst's own clock this would be 1,111 TPS; it is no rate.
+    parsed = {
+        "pg.databases_xact": {
+            "mydb": _xact("mydb", 4_000_000, 0),
+        },
+        "pg.db.stat_database": {
+            "mydb": _reset("mydb", datetime.now(UTC) - timedelta(hours=1)),
+        },
     }
     assert xact_rate_high(parsed) == []
 

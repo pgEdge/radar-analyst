@@ -511,16 +511,8 @@ def _workload_xact_lines(parsed: dict[str, Any]) -> list[str]:
             f" ({total_rollbacks / total:.1%} rollback)"
             if total > 0 else ""
         )
-        # bgwriter.stats_reset is cluster-wide (reset only by
-        # pg_stat_reset_shared('bgwriter')).
-        bg: PgBgwriter | None = parsed.get("pg.bgwriter")
-        reset_dt = bg.stats_reset if bg else None
-        since_note = (
-            f" (since {reset_dt.isoformat()})"
-            if reset_dt else ""
-        )
         lines.append(
-            f"Cluster transactions{since_note}: "
+            "Cluster transactions: "
             f"{total_commits:,} commits, "
             f"{total_rollbacks:,} rollbacks{rb_pct}"
         )

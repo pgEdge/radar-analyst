@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from radar_analyst.parse.coerce import as_datetime_or_none
 from radar_analyst.parse.tsv import parse_tsv_bytes
@@ -195,6 +195,30 @@ def parse_running_activity_maxage(
     )
 
 
+def collected_at(
+    maxage: RunningActivityMaxage | None,
+    activity: PgActivity | None,
+) -> datetime | None:
+    """When radar read pg_stat_activity, by the server's clock.
+
+    radar records no collection time. Its ``max_query_age`` is
+    clock_timestamp() less the oldest non-idle query_start, and
+    radar's own session is always non-idle while it collects, so
+    the oldest non-idle query_start plus that age is the moment of
+    collection. None when either file is missing.
+    """
+    if (
+        maxage is None
+        or activity is None
+        or maxage.max_query_age_s is None
+        or activity.oldest_query_start is None
+    ):
+        return None
+    return activity.oldest_query_start + timedelta(
+        seconds=maxage.max_query_age_s
+    )
+
+
 def oldest_client_query_age_s(
     maxage: RunningActivityMaxage | None,
     activity: PgActivity | None,
@@ -203,24 +227,18 @@ def oldest_client_query_age_s(
 
     radar's ``max_query_age`` spans every non-idle session, a
     walsender's START_REPLICATION included, which runs for as long
-    as its standby stays connected. Taking off the gap between the
-    oldest non-idle query_start and the oldest active client
-    backend's gives the client query's age at radar's own clock.
-    None when no client backend is running a query.
+    as its standby stays connected, so the age is taken from the
+    oldest active client backend's query_start instead. None when
+    no client backend is running a query.
     """
+    at = collected_at(maxage, activity)
     if (
-        maxage is None
+        at is None
         or activity is None
-        or maxage.max_query_age_s is None
-        or activity.oldest_query_start is None
         or activity.oldest_client_query_start is None
     ):
         return None
-    gap = (
-        activity.oldest_client_query_start
-        - activity.oldest_query_start
-    )
-    return maxage.max_query_age_s - gap.total_seconds()
+    return (at - activity.oldest_client_query_start).total_seconds()
 
 
 # ---------------------------------------------------------------

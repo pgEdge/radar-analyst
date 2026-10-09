@@ -20,8 +20,10 @@ summaries without writing a dedicated parser per kind.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from radar_analyst.parse.coerce import (
+    as_datetime_or_none,
     row_float,
     row_int,
 )
@@ -287,7 +289,8 @@ class DbStatDatabase:
     deadlocks: int
     temp_files: int
     temp_bytes: int
-    stats_reset: str
+    # When pg_stat_reset() last ran here; None if it never has.
+    stats_reset: datetime | None
 
 
 def parse_db_stat_database(data: bytes) -> DbStatDatabase | None:
@@ -305,7 +308,7 @@ def parse_db_stat_database(data: bytes) -> DbStatDatabase | None:
         deadlocks=row_int(r, "deadlocks"),
         temp_files=row_int(r, "temp_files"),
         temp_bytes=row_int(r, "temp_bytes"),
-        stats_reset=r.get("stats_reset", "") or "",
+        stats_reset=as_datetime_or_none(r.get("stats_reset")),
     )
 
 

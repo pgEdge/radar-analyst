@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     RunningActivityMaxage,
+    collected_at,
     oldest_client_query_age_s,
     parse_blocking_locks_count,
     parse_connection_summary,
@@ -65,6 +66,15 @@ def test_running_activity_oldest_query_starts() -> None:
     assert a.oldest_client_query_start == datetime(
         2026, 1, 1, 3, 0, 0, 500000, tzinfo=UTC
     )
+
+
+def test_collected_at_is_the_oldest_query_start_plus_its_age() -> None:
+    m = RunningActivityMaxage(max_query_age_s=3600.0)
+    a = PgActivity(oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC))
+    assert collected_at(m, a) == datetime(2026, 1, 1, 1, tzinfo=UTC)
+    assert collected_at(None, a) is None
+    assert collected_at(m, None) is None
+    assert collected_at(m, PgActivity()) is None
 
 
 def test_oldest_client_query_age_moves_max_query_age() -> None:

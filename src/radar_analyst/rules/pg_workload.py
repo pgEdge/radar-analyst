@@ -8,17 +8,20 @@ strictly cluster-wide; per-database workload signals live in
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
-from radar_analyst.parse.databases import DatabaseXactStats
+from radar_analyst.parse.databases import (
+    DatabaseXactStats,
+    DbStatDatabase,
+)
 from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
     RunningActivityMaxage,
+    collected_at,
     oldest_client_query_age_s,
 )
-from radar_analyst.parse.pg_internals import PgBgwriter
 from radar_analyst.parse.pg_settings import PgSettings
 from radar_analyst.parse.pg_stat_ssl import StatSsl
 from radar_analyst.parse.pg_stat_statements import StatementRow
@@ -271,34 +274,52 @@ def rollback_ratio_high(
     ]
 
 
+def _database_rates(
+    at: datetime,
+    xact: dict[str, DatabaseXactStats],
+    stat_db: dict[str, DbStatDatabase],
+) -> dict[str, float]:
+    """Transactions per second in each database with a known start.
+
+    A database's pg_stat_database counters run from its own
+    stats_reset. With none on record they could cover any length of
+    time, so that database is left out.
+    """
+    rates: dict[str, float] = {}
+    for name, x in xact.items():
+        s = stat_db.get(name)
+        if s is None or s.stats_reset is None or s.stats_reset >= at:
+            continue
+        elapsed = (at - s.stats_reset).total_seconds()
+        rates[name] = (x.xact_commit + x.xact_rollback) / elapsed
+    return rates
+
+
 @register("Workload")
 def xact_rate_high(
     parsed: dict[str, Any],
 ) -> list[Finding]:
     """Warn when the sustained transaction rate exceeds 1000 TPS.
 
-    Uses ``pg_stat_bgwriter.stats_reset`` (cluster-wide, reset
-    only by ``pg_stat_reset_shared('bgwriter')``) as the time
-    baseline. Total xacts from ``pg_stat_database`` divided by
-    elapsed seconds gives the average sustained TPS.
+    Each database's commits and rollbacks are divided by the time
+    from its own ``pg_stat_database.stats_reset`` to radar's
+    collection, both by the server's clock, and the rates are
+    summed. An archive can be assessed any time after it was
+    collected, so the analyst's own clock has no part in it.
     """
-    bg: PgBgwriter | None = parsed.get("pg.bgwriter")
-    if bg is None or bg.stats_reset is None:
-        return []
-    now = datetime.now(UTC)
-    elapsed = (now - bg.stats_reset).total_seconds()
-    if elapsed <= 0:
-        return []
+    at = collected_at(
+        parsed.get("pg.running_activity_maxage"),
+        parsed.get("pg.running_activity"),
+    )
     xact: dict[str, DatabaseXactStats] | None = parsed.get(
         "pg.databases_xact"
     )
-    if not xact:
+    if at is None or not xact:
         return []
-    total = sum(
-        x.xact_commit + x.xact_rollback
-        for x in xact.values()
+    rates = _database_rates(
+        at, xact, parsed.get("pg.db.stat_database") or {}
     )
-    tps = total / elapsed
+    tps = sum(rates.values())
     if tps <= _XACT_RATE_WARN_TPS:
         return []
     return [
@@ -310,11 +331,11 @@ def xact_rate_high(
                 f"{tps:,.0f} TPS"
             ),
             detail=(
-                f"Averaged {tps:,.0f} transactions/second "
-                f"over {elapsed / 3600:.1f} hours (since "
-                f"bgwriter stats_reset). High sustained TPS "
-                "increases WAL generation, checkpoint "
-                "pressure, and replication lag risk. "
+                f"Averaged {tps:,.0f} transactions/second in "
+                f"{', '.join(sorted(rates))}, each since its "
+                "pg_stat_database statistics were last reset. "
+                "High sustained TPS increases WAL generation, "
+                "checkpoint pressure, and replication lag risk. "
                 "Verify that connection pooling, batching, "
                 "and autovacuum are tuned for this load."
             ),

@@ -1,5 +1,7 @@
 """Tests for instance-level per-database parsers."""
 
+from datetime import UTC, datetime
+
 from radar_analyst.parse.databases import (
     count_tsv_rows,
     count_user_objects,
@@ -214,6 +216,18 @@ def test_parse_db_stat_database_real_columns() -> None:
     assert out.deadlocks == 3
     assert out.temp_files == 12
     assert out.temp_bytes == 104_857_600
+    assert out.stats_reset == datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def test_parse_db_stat_database_never_reset() -> None:
+    tsv = (
+        "datname\tconflicts\tdeadlocks\ttemp_files\t"
+        "temp_bytes\tstats_reset\n"
+        "mydb\t0\t0\t0\t0\t\n"
+    )
+    out = parse_db_stat_database(tsv.encode())
+    assert out is not None
+    assert out.stats_reset is None
 
 
 def test_parse_db_stat_database_empty() -> None:
