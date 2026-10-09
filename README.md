@@ -115,7 +115,7 @@ and how to solve each one. For more information, visit
 
 To report an issue with the software, visit
 [GitHub Issues](https://github.com/pgEdge/radar-analyst/issues). To report a
-security vulnerability, follow the [security policy](.github/SECURITY.md)
+security vulnerability, follow the [security policy](SECURITY.md)
 instead of opening a public issue.
 
 ## Contributing

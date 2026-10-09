@@ -65,7 +65,7 @@ To report an issue, use the template that matches the issue:
   covers new features.
 
 To report a security vulnerability, follow the
-[security policy](.github/SECURITY.md) instead of opening a public issue.
+[security policy](SECURITY.md) instead of opening a public issue.
 
 ## License
 
