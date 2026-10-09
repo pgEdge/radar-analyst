@@ -26,6 +26,7 @@ from radar_analyst.parse.databases import (
     DatabaseXactStats,
 )
 from radar_analyst.parse.host_os import (
+    CgroupMemoryStat,
     DmesgSummary,
     IostatDevice,
     PsiPressure,
@@ -210,23 +211,28 @@ def _host_pressure_lines(parsed: dict[str, Any]) -> list[str]:
 
 def _host_cgroup_lines(parsed: dict[str, Any]) -> list[str]:
     """Render the cgroup v2 memory usage line."""
-    lines: list[str] = []
     mem_cur: int | None = parsed.get("sys.cgroup.memory_current")
     mem_max: int | None = parsed.get("sys.cgroup.memory_max")
-    if mem_cur is not None:
-        cur_gib = mem_cur / (1024 ** 3)
-        if mem_max is not None:
-            lim_gib = mem_max / (1024 ** 3)
-            pct = mem_cur / mem_max * 100
-            lines.append(
-                f"cgroup memory: {cur_gib:.1f} GiB / "
-                f"{lim_gib:.1f} GiB ({pct:.0f}%)"
-            )
-        else:
-            lines.append(
-                f"cgroup memory: {cur_gib:.1f} GiB (no limit)"
-            )
-    return lines
+    stat: CgroupMemoryStat | None = parsed.get(
+        "sys.cgroup.memory_stat"
+    )
+    if mem_cur is None:
+        return []
+    gib = 1024 ** 3
+    line = f"cgroup memory: {mem_cur / gib:.1f} GiB"
+    if mem_max is not None:
+        line += (
+            f" / {mem_max / gib:.1f} GiB"
+            f" ({mem_cur / mem_max * 100:.0f}%)"
+        )
+    else:
+        line += " (no limit)"
+    if stat is not None:
+        line += (
+            f", {(mem_cur - stat.page_cache) / gib:.1f} GiB"
+            " excluding page cache"
+        )
+    return [line]
 
 
 def _host_dmesg_lines(parsed: dict[str, Any]) -> list[str]:

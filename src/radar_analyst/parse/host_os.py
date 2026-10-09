@@ -3,7 +3,7 @@
 Covers:
 - ``system/proc/pressure_{cpu,io,memory}.out``: Linux PSI
 - ``system/iostat.out``: iostat device utilisation
-- ``system/cgroup/memory_{current,max}.out``: cgroup v2 memory
+- ``system/cgroup/memory_{current,max,stat}.out``: cgroup v2 memory
 - ``system/dmesg.out`` / ``system/dmesg_t.out``: kernel log
 """
 
@@ -161,6 +161,37 @@ def parse_iostat(data: bytes) -> list[IostatDevice] | None:
 # ---------------------------------------------------------------------------
 # cgroup v2 memory files (single-line byte values)
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CgroupMemoryStat:
+    """The file page cache counters of a cgroup v2 ``memory.stat``."""
+    active_file: int
+    inactive_file: int
+
+    @property
+    def page_cache(self) -> int:
+        """File page cache, which the kernel reclaims before OOM.
+
+        shmem, where PostgreSQL's shared_buffers live, is swap-backed
+        and kept on the anonymous lists, so it is not part of it.
+        """
+        return self.active_file + self.inactive_file
+
+
+def parse_cgroup_memory_stat(data: bytes) -> CgroupMemoryStat | None:
+    """Parse ``memory.stat``; None without its file page counters."""
+    counters: dict[str, int] = {}
+    for line in data.decode("utf-8", errors="replace").splitlines():
+        key, _, value = line.partition(" ")
+        if value.strip().isdigit():
+            counters[key] = int(value)
+    if "active_file" not in counters or "inactive_file" not in counters:
+        return None
+    return CgroupMemoryStat(
+        active_file=counters["active_file"],
+        inactive_file=counters["inactive_file"],
+    )
 
 
 def parse_cgroup_memory_bytes(data: bytes) -> int | None:

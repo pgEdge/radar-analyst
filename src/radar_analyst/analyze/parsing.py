@@ -38,6 +38,7 @@ from radar_analyst.parse.extensions import (
 )
 from radar_analyst.parse.host_os import (
     parse_cgroup_memory_bytes,
+    parse_cgroup_memory_stat,
     parse_dmesg,
     parse_iostat,
     parse_pressure,
@@ -160,6 +161,7 @@ _PARSERS: dict[str, Callable[[bytes], Any]] = {
     # cgroup v2 memory limits (single-line byte values).
     "sys.cgroup.memory_current": parse_cgroup_memory_bytes,
     "sys.cgroup.memory_max": parse_cgroup_memory_bytes,
+    "sys.cgroup.memory_stat": parse_cgroup_memory_stat,
     # dmesg: kernel log for OOM and I/O errors.
     "sys.dmesg": parse_dmesg,
     "sys.dmesg_t": parse_dmesg,

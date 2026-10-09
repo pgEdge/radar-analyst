@@ -31,6 +31,7 @@ CATEGORY_KINDS: dict[str, frozenset[str]] = {
         "sys.cgroup.cpu_max",
         "sys.cgroup.memory_current",
         "sys.cgroup.memory_max",
+        "sys.cgroup.memory_stat",
         "sys.cloud.bios_vendor",
         "sys.cloud.product_name",
         "sys.cloud.sys_vendor",

@@ -239,3 +239,57 @@ def test_a_bloated_table_with_four_indexes_is_one_table(
         "1 table(s) with significant bloat",
     ]
     assert found[0].detail.count("appdb/public.tab1") == 1
+
+
+def _cgroup(current: int, active_file: int, inactive_file: int) -> dict[
+    str, str
+]:
+    return {
+        "system/cgroup/memory_current.out": f"{current}\n",
+        "system/cgroup/memory_max.out": "17179869184\n",
+        "system/cgroup/memory_stat.out": (
+            "anon 1000000000\n"
+            f"file {active_file + inactive_file + 4500000000}\n"
+            "kernel 500000000\n"
+            "shmem 4500000000\n"
+            f"active_file {active_file}\n"
+            f"inactive_file {inactive_file}\n"
+            "pgfault 123456\n"
+        ),
+    }
+
+
+def test_page_cache_does_not_fill_a_cgroup(tmp_path: Path) -> None:
+    # The kernel reclaims file page cache before the OOM killer
+    # runs; shmem, PostgreSQL's shared_buffers, is not page cache.
+    z = _archive(tmp_path, _cgroup(
+        17_000_000_000, 4_300_000_000, 6_700_000_000
+    ))
+    parsed = read_and_parse(z)[0]
+    assert "sys.cgroup_memory_near_limit" not in {
+        f.rule_id for f in run_for_category("Host & OS", parsed)
+    }
+    facts = build_category_facts(_category("host_os"), parsed)
+    assert facts is not None
+    assert (
+        "cgroup memory: 15.8 GiB / 16.0 GiB (99%), "
+        "5.6 GiB excluding page cache"
+    ) in facts.splitlines()
+
+
+def test_a_cgroup_near_its_limit_without_page_cache(
+    tmp_path: Path,
+) -> None:
+    z = _archive(tmp_path, _cgroup(
+        16_000_000_000, 1_000_000_000, 500_000_000
+    ))
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Host & OS", parsed)
+        if f.rule_id == "sys.cgroup_memory_near_limit"
+    ]
+    assert [(f.severity, f.title) for f in found] == [(
+        "warning",
+        "cgroup memory usage at 84% of limit, excluding page cache "
+        "(13.5 / 16.0 GiB)",
+    )]

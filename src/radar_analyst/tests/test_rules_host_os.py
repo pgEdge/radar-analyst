@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from radar_analyst.parse.host_os import (
+    CgroupMemoryStat,
     DmesgSummary,
     IostatDevice,
     PsiLine,
@@ -85,33 +86,45 @@ def test_scaling_governor_silent_when_no_data() -> None:
 # cgroup_memory_near_limit
 # ---------------------------------------------------------------
 
-def test_cgroup_memory_warns_at_80pct() -> None:
+def _cgroup(
+    current_gib: float, limit_gib: float | None, cache_gib: float = 0
+) -> dict[str, object]:
     gib = 1024 * 1024 * 1024
-    parsed = {
-        "sys.cgroup.memory_current": 8 * gib,   # 8 GiB used
-        "sys.cgroup.memory_max": 10 * gib,       # 10 GiB limit
+    return {
+        "sys.cgroup.memory_current": int(current_gib * gib),
+        "sys.cgroup.memory_max": (
+            None if limit_gib is None else int(limit_gib * gib)
+        ),
+        "sys.cgroup.memory_stat": CgroupMemoryStat(
+            active_file=0, inactive_file=int(cache_gib * gib)
+        ),
     }
-    out = cgroup_memory_near_limit(parsed)
+
+
+def test_cgroup_memory_warns_at_80pct() -> None:
+    out = cgroup_memory_near_limit(_cgroup(8, 10))
     assert len(out) == 1
     assert out[0].severity == "warning"
     assert out[0].rule_id == "sys.cgroup_memory_near_limit"
 
 
 def test_cgroup_memory_silent_below_80pct() -> None:
-    gib = 1024 * 1024 * 1024
-    parsed = {
-        "sys.cgroup.memory_current": 7 * gib,
-        "sys.cgroup.memory_max": 10 * gib,
-    }
-    assert cgroup_memory_near_limit(parsed) == []
+    assert cgroup_memory_near_limit(_cgroup(7, 10)) == []
+
+
+def test_cgroup_memory_leaves_out_page_cache() -> None:
+    assert cgroup_memory_near_limit(_cgroup(10, 10, cache_gib=4)) == []
 
 
 def test_cgroup_memory_silent_when_max_is_none() -> None:
     # max=None means unlimited: no limit to check against.
-    parsed = {
-        "sys.cgroup.memory_current": 1024 * 1024 * 1024,
-        "sys.cgroup.memory_max": None,
-    }
+    assert cgroup_memory_near_limit(_cgroup(1, None)) == []
+
+
+def test_cgroup_memory_silent_without_memory_stat() -> None:
+    # Without memory.stat, page cache cannot be told from the rest.
+    parsed = _cgroup(10, 10)
+    del parsed["sys.cgroup.memory_stat"]
     assert cgroup_memory_near_limit(parsed) == []
 
 

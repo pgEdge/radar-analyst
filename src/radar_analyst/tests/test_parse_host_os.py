@@ -7,10 +7,12 @@ summary.
 from __future__ import annotations
 
 from radar_analyst.parse.host_os import (
+    CgroupMemoryStat,
     DmesgSummary,
     IostatDevice,
     PsiPressure,
     parse_cgroup_memory_bytes,
+    parse_cgroup_memory_stat,
     parse_dmesg,
     parse_iostat,
     parse_pressure,
@@ -138,6 +140,25 @@ def test_parse_iostat_no_device_section_returns_empty() -> None:
 # ---------------------------------------------------------------
 # parse_cgroup_memory_bytes
 # ---------------------------------------------------------------
+
+def test_cgroup_memory_stat_reads_the_file_page_cache() -> None:
+    data = (
+        b"anon 1000000000\nfile 15000000000\nshmem 4000000000\n"
+        b"active_file 4000000000\ninactive_file 7000000000\n"
+        b"pgfault 99\n"
+    )
+    stat = parse_cgroup_memory_stat(data)
+    assert stat == CgroupMemoryStat(
+        active_file=4000000000, inactive_file=7000000000
+    )
+    assert stat is not None
+    assert stat.page_cache == 11000000000
+
+
+def test_cgroup_memory_stat_none_without_file_counters() -> None:
+    assert parse_cgroup_memory_stat(b"") is None
+    assert parse_cgroup_memory_stat(b"anon 1000\n") is None
+
 
 def test_cgroup_memory_bytes_integer() -> None:
     assert parse_cgroup_memory_bytes(b"8589934592\n") == 8589934592
