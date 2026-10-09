@@ -30,6 +30,12 @@ def _archive(tmp_path: Path, entries: dict[str, str]) -> Path:
     return z
 
 
+def _tsv(columns: tuple[str, ...], *rows: dict[str, str]) -> str:
+    lines = ["\t".join(columns)]
+    lines += ["\t".join(r.get(c, "") for c in columns) for r in rows]
+    return "\n".join(lines) + "\n"
+
+
 def _category(key: str) -> Category:
     return next(c for c in CATEGORIES if c.key == key)
 
@@ -100,12 +106,7 @@ def _client(query_start: str, state: str) -> dict[str, str]:
 
 
 def _activity(*rows: dict[str, str]) -> str:
-    lines = ["\t".join(_ACTIVITY_COLUMNS)]
-    lines += [
-        "\t".join(r.get(c, "") for c in _ACTIVITY_COLUMNS)
-        for r in rows
-    ]
-    return "\n".join(lines) + "\n"
+    return _tsv(_ACTIVITY_COLUMNS, *rows)
 
 
 def test_a_walsender_is_not_the_oldest_running_query(
@@ -148,3 +149,56 @@ def test_only_a_walsender_running_is_no_long_query(
     assert "pg.activity.long_query" not in {
         f.rule_id for f in run_for_category("Workload", parsed)
     }
+
+
+_TABLES_COLUMNS = (
+    "schemaname", "tablename", "tableowner", "tablespace",
+    "hasindexes", "hasrules", "hastriggers", "relpersistence",
+    "reltuples", "relpages", "reloptions", "heap_size", "table_size",
+    "toast_table", "toast_size", "relfrozenxid_age", "relminmxid_age",
+    "n_live_tup", "n_dead_tup", "n_mod_since_analyze",
+    "n_ins_since_vacuum", "last_vacuum", "last_autovacuum",
+    "last_analyze", "last_autoanalyze", "last_vacuum_age_seconds",
+    "last_autovacuum_age_seconds", "last_analyze_age_seconds",
+    "last_autoanalyze_age_seconds",
+)
+
+
+def test_dead_rows_after_a_counter_restart_count_against_reltuples(
+    tmp_path: Path,
+) -> None:
+    # tab1 has no vacuum or analyze on record: the counters started
+    # after its last one, so n_live_tup holds only the rows inserted
+    # since, while pg_class still knows the table's size.
+    z = _archive(tmp_path, {
+        "databases/appdb/tables.tsv": _tsv(
+            _TABLES_COLUMNS,
+            {
+                "schemaname": "public", "tablename": "tab1",
+                "relpersistence": "p", "reltuples": "1.2e+08",
+                "relpages": "10000000", "n_live_tup": "650",
+                "n_dead_tup": "135000",
+                "n_mod_since_analyze": "135650",
+                "n_ins_since_vacuum": "650",
+            },
+            {
+                "schemaname": "public", "tablename": "tab2",
+                "relpersistence": "p", "reltuples": "5000",
+                "relpages": "100", "n_live_tup": "4000",
+                "n_dead_tup": "6000", "n_mod_since_analyze": "6000",
+                "n_ins_since_vacuum": "0",
+                "last_autovacuum": "2026-01-01 10:00:00.5 +0000 UTC",
+                "last_autovacuum_age_seconds": "3600",
+            },
+        ),
+    })
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Internals & I/O Health", parsed)
+        if f.rule_id == "pg.health.tables_high_dead_rows"
+    ]
+    assert [(f.severity, f.title) for f in found] == [
+        ("warning", "1 table(s) above 20% dead rows"),
+    ]
+    assert "appdb/public.tab2 60% dead" in found[0].detail
+    assert "tab1" not in found[0].detail

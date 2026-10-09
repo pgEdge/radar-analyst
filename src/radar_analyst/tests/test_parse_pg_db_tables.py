@@ -79,6 +79,49 @@ def test_dead_ratio_zero_when_no_tuples() -> None:
     assert row.dead_ratio == 0.0
 
 
+def test_live_tup_from_reltuples_with_no_vacuum_or_analyze() -> None:
+    # The counters started after the last vacuum or analyze, so
+    # n_live_tup holds only the rows inserted since.
+    row = TableRow(
+        schemaname="public", tablename="t", reltuples=1e8,
+        n_live_tup=650, n_dead_tup=135_000,
+    )
+    assert row.live_tup == 1e8
+    assert row.dead_ratio == 135_000 / (1e8 + 135_000)
+
+
+def test_live_tup_is_n_live_tup_once_vacuumed_or_analyzed() -> None:
+    stamp = "2026-01-01 00:00:00 +0000 UTC"
+    rows = [
+        TableRow(
+            schemaname="public", tablename="t", reltuples=1e8,
+            n_live_tup=650, last_vacuum=stamp,
+        ),
+        TableRow(
+            schemaname="public", tablename="t", reltuples=1e8,
+            n_live_tup=650, last_autovacuum=stamp,
+        ),
+        TableRow(
+            schemaname="public", tablename="t", reltuples=1e8,
+            n_live_tup=650, last_analyze=stamp,
+        ),
+        TableRow(
+            schemaname="public", tablename="t", reltuples=1e8,
+            n_live_tup=650, last_autoanalyze=stamp,
+        ),
+    ]
+    assert [r.live_tup for r in rows] == [650, 650, 650, 650]
+
+
+def test_live_tup_of_a_table_never_vacuumed_is_n_live_tup() -> None:
+    # reltuples is -1 until the first vacuum or analyze.
+    row = TableRow(
+        schemaname="public", tablename="t", reltuples=-1.0,
+        n_live_tup=500,
+    )
+    assert row.live_tup == 500
+
+
 def test_unlogged_detection() -> None:
     tsv = (
         _HEADER

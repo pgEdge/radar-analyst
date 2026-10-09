@@ -386,9 +386,9 @@ def tables_high_dead_rows(
     crit_offenders: list[tuple[str, str, float, int]] = []
     for db, tpd in tpd_by_db.items():
         for row in tpd.rows:
-            denom = row.n_live_tup + row.n_dead_tup
+            denom = row.live_tup + row.n_dead_tup
             if (
-                row.n_live_tup < _DEAD_TUP_FLOOR
+                row.live_tup < _DEAD_TUP_FLOOR
                 and row.n_dead_tup < _DEAD_TUP_FLOOR
             ):
                 continue
