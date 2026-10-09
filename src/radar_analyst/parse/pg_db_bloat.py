@@ -135,16 +135,22 @@ _BLOAT_REQUIRED: frozenset[str] = frozenset(
 
 
 def parse_db_bloat(data: bytes) -> BloatPerDb:
-    """Parse bloat.tsv for one database."""
+    """Parse bloat.tsv for one database, one row per table.
+
+    radar's estimate joins each table to its indexes, so a table's
+    figures repeat on one row per index; the first row is kept.
+    """
     table = parse_tsv_bytes(data)
     if not _BLOAT_REQUIRED.issubset(table.columns):
         return BloatPerDb(rows=[])
     out: list[BloatRow] = []
+    seen: set[tuple[str, str]] = set()
     for r in table.rows:
         schema = r.get("schemaname", "")
         name = r.get("tablename", "")
-        if not schema or not name:
+        if not schema or not name or (schema, name) in seen:
             continue
+        seen.add((schema, name))
         out.append(
             BloatRow(
                 schemaname=schema,

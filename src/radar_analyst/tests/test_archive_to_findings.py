@@ -202,3 +202,40 @@ def test_dead_rows_after_a_counter_restart_count_against_reltuples(
     ]
     assert "appdb/public.tab2 60% dead" in found[0].detail
     assert "tab1" not in found[0].detail
+
+
+_BLOAT_COLUMNS = (
+    "current_database", "schemaname", "tablename",
+    "table_bloat_ratio", "wastedbytes", "iname", "ituples", "ipages",
+    "iotta",
+)
+
+
+def test_a_bloated_table_with_four_indexes_is_one_table(
+    tmp_path: Path,
+) -> None:
+    # radar's bloat estimate joins each table to its indexes, so the
+    # table's figures repeat on one row per index.
+    z = _archive(tmp_path, {
+        "databases/appdb/bloat.tsv": _tsv(_BLOAT_COLUMNS, *(
+            {
+                "current_database": "appdb", "schemaname": "public",
+                "tablename": "tab1", "table_bloat_ratio": "640.5",
+                "wastedbytes": "1073741824", "iname": iname,
+                "ituples": "5000", "ipages": "120", "iotta": "100",
+            }
+            for iname in (
+                "tab1_pkey", "tab1_name_idx", "tab1_uuid_key",
+                "tab1_owner_idx",
+            )
+        )),
+    })
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Internals & I/O Health", parsed)
+        if f.rule_id == "pg.health.bloat_high"
+    ]
+    assert [f.title for f in found] == [
+        "1 table(s) with significant bloat",
+    ]
+    assert found[0].detail.count("appdb/public.tab1") == 1
