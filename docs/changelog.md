@@ -8,6 +8,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The container image includes the license of every Python package that the
+  image installs, in the `/usr/share/doc/radar-analyst/NOTICE.txt` file.
+
 ### Fixed
 
 - The finding about connections without SSL counts only connections from other

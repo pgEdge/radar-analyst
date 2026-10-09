@@ -17,3 +17,16 @@ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
 PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND pgEdge,
 Inc. HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
 OR MODIFICATIONS.
+
+## Reviewing Python Package Licenses
+
+The container image includes the license of every Python package that the
+image installs. The `/usr/share/doc/radar-analyst/NOTICE.txt` file in the
+image lists each package with the package's license text and any notice file
+that the package includes.
+
+The following command prints the file from the running analyst container:
+
+```bash
+docker compose exec app cat /usr/share/doc/radar-analyst/NOTICE.txt
+```

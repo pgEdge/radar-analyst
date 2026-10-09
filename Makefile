@@ -7,7 +7,7 @@ PIP     := .venv/bin/pip
 PYTEST  := .venv/bin/pytest
 VENV    := .venv
 
-.PHONY: help venv build test unit e2e lint typecheck ci archive-coverage matrix docs openapi notice walkthrough screenshots clean
+.PHONY: help venv build test unit e2e lint typecheck ci archive-coverage matrix docs openapi walkthrough screenshots clean
 
 help:
 	@echo "make venv        create .venv and install dev dependencies"
@@ -20,7 +20,6 @@ help:
 	@echo "make matrix      the tests and the e2e suite on PostgreSQL 16, 17, and 18"
 	@echo "make docs        build the documentation site"
 	@echo "make openapi     regenerate docs/api/openapi.json from the routes"
-	@echo "make notice      regenerate NOTICE.txt from the dependencies"
 	@echo "make walkthrough guided walkthrough: start the stack, open the console, assess an archive"
 	@echo "make screenshots regenerate the console screenshots in docs/img/"
 	@echo "make archive-coverage RADAR=<radar checkout>  radar archive paths the analyst does not recognize"
@@ -97,16 +96,6 @@ walkthrough:
 # calls on the credential in .env.
 screenshots: $(VENV)
 	./capture-screenshots.sh
-
-# NOTICE.txt lists the licences of everything the wheel pulls in.
-# The container image and any future deb or rpm vendor the whole
-# dependency tree, so the list has to travel with them.
-notice: $(VENV)
-	$(PIP) install -q pip-licenses
-	$(VENV)/bin/pip-licenses --format=plain-vertical \
-		--with-license-file --no-license-path \
-		--output-file=NOTICE.txt
-	@echo "wrote NOTICE.txt"
 
 clean:
 	rm -rf dist build .pytest_cache .mypy_cache .ruff_cache \

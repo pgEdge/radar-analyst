@@ -195,6 +195,29 @@ print('  PID 1 uids:', ' '.join(sorted(uids)))
 assert uids == {'10001'}, f'service is not unprivileged: {line}'
 "
 
+echo -e "${YELLOW}Verifying the image ships its packages' licences...${NC}"
+# NOTICE.txt is written from the packages the image installs, so it
+# names each of them and none of the tools that build or test it.
+"${COMPOSE[@]}" exec -T app python -c "
+import importlib.metadata
+import pathlib
+path = pathlib.Path('/usr/share/doc/radar-analyst/NOTICE.txt')
+lines = set(path.read_text().splitlines())
+dists = list(importlib.metadata.distributions())
+names = {d.metadata['Name'] for d in dists}
+missing = sorted(names - lines)
+assert not missing, f'NOTICE.txt leaves out {missing}'
+for d in dists:
+    for f in d.files or []:
+        if f.name.upper().startswith('NOTICE'):
+            text = d.locate_file(f).read_text(errors='replace')
+            first = next(x for x in text.splitlines() if x.strip())
+            assert first in lines, f'NOTICE.txt leaves out {f}'
+extra = {'pip-licenses', 'pytest', 'mypy', 'ruff'} & lines
+assert not extra, f'NOTICE.txt lists {sorted(extra)}, which do not ship'
+print(f'  NOTICE.txt covers all {len(names)} installed packages')
+"
+
 echo -e "${YELLOW}Verifying the archive landed in the volume...${NC}"
 "${COMPOSE[@]}" exec -T app python -c "
 import pathlib

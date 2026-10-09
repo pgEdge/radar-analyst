@@ -53,7 +53,20 @@ WORKDIR /app
 # ({dist}-{version}-{python}-{abi}-{platform}.whl): pip parses
 # that filename and rejects any rename like "radar_analyst.whl".
 COPY --from=py-build /app/dist/*.whl /tmp/wheels/
-RUN pip install --no-cache-dir /tmp/wheels/*.whl && rm -rf /tmp/wheels
+# NOTICE.txt is the licence, and any NOTICE file, of every Python
+# package installed here. pip-licenses runs from a venv of its own,
+# read against this Python, and the venv goes in the same layer, so
+# it lists exactly what ships and adds nothing to the image.
+# --with-system keeps pip, which pip-licenses otherwise leaves out.
+RUN pip install --no-cache-dir /tmp/wheels/*.whl && rm -rf /tmp/wheels && \
+    python -m venv /tmp/notice && \
+    /tmp/notice/bin/pip install --no-cache-dir pip-licenses==5.5.5 && \
+    mkdir -p /usr/share/doc/radar-analyst && \
+    /tmp/notice/bin/pip-licenses --python "$(command -v python)" \
+        --with-system --format=plain-vertical --with-license-file \
+        --with-notice-file --no-license-path \
+        --output-file=/usr/share/doc/radar-analyst/NOTICE.txt && \
+    rm -rf /tmp/notice
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
