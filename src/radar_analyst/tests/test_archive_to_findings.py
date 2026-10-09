@@ -293,3 +293,46 @@ def test_a_cgroup_near_its_limit_without_page_cache(
         "cgroup memory usage at 84% of limit, excluding page cache "
         "(13.5 / 16.0 GiB)",
     )]
+
+
+_STATEMENT_COLUMNS = (
+    "userid", "dbid", "query", "calls", "total_exec_time",
+    "mean_exec_time", "max_exec_time", "rows",
+)
+
+
+def _statement(query: str, mean_ms: float) -> dict[str, str]:
+    return {
+        "userid": "10", "dbid": "16384", "query": query,
+        "calls": "100", "total_exec_time": f"{mean_ms * 100}",
+        "mean_exec_time": f"{mean_ms}", "max_exec_time": f"{mean_ms}",
+        "rows": "100",
+    }
+
+
+def _slow_statement_ids(parsed: dict[str, object]) -> list[str]:
+    return [
+        f.rule_id for f in run_for_category("Workload", parsed)
+        if f.rule_id == "pg.workload.slow_query_count_high"
+    ]
+
+
+def test_a_statement_list_over_a_mebibyte_is_read(
+    tmp_path: Path,
+) -> None:
+    # radar keeps the top 100 statements, each with its full text;
+    # literal-heavy statements make the file large.
+    query = "SELECT * FROM tab1 WHERE id IN (" + "1, " * 4000 + "1)"
+    statements = _tsv(_STATEMENT_COLUMNS, *(
+        _statement(query, 1500.0 if i < 11 else 5.0)
+        for i in range(100)
+    ))
+    assert len(statements) > 1024 * 1024
+    z = _archive(tmp_path, {
+        "postgresql/stat_statements_calls.tsv": statements,
+    })
+    parsed = read_and_parse(z)[0]
+    assert len(parsed["pg.stat_statements.calls"]) == 100
+    assert _slow_statement_ids(parsed) == [
+        "pg.workload.slow_query_count_high",
+    ]
