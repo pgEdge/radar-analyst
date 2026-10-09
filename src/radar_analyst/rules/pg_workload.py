@@ -16,6 +16,7 @@ from radar_analyst.parse.pg_activity import (
     PgActivity,
     PreparedXacts,
     RunningActivityMaxage,
+    oldest_client_query_age_s,
 )
 from radar_analyst.parse.pg_internals import PgBgwriter
 from radar_analyst.parse.pg_settings import PgSettings
@@ -107,13 +108,17 @@ def long_xact_present(
 def long_query_present(
     parsed: dict[str, Any],
 ) -> list[Finding]:
-    """Warn (>10 min) / critical (>30 min) on the oldest query."""
-    m: RunningActivityMaxage | None = parsed.get(
-        "pg.running_activity_maxage"
+    """Warn (>10 min) / critical (>30 min) on the oldest query.
+
+    Only client backends count: a walsender's replication command
+    runs for the life of the connection and is not a query.
+    """
+    age = oldest_client_query_age_s(
+        parsed.get("pg.running_activity_maxage"),
+        parsed.get("pg.running_activity"),
     )
-    if m is None or m.max_query_age_s is None:
+    if age is None:
         return []
-    age = m.max_query_age_s
     sev = tier(age, warn=_LONG_QUERY_WARN_S, crit=_LONG_QUERY_CRIT_S)
     if sev is None:
         return []

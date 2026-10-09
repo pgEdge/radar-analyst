@@ -9,7 +9,10 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from radar_analyst.analyze.categories import CATEGORIES, Category
+from radar_analyst.analyze.facts import build_category_facts
 from radar_analyst.analyze.parsing import read_and_parse
+from radar_analyst.rules import run_for_category
 
 
 _PG_VERSION = (
@@ -25,6 +28,10 @@ def _archive(tmp_path: Path, entries: dict[str, str]) -> Path:
         for name, body in entries.items():
             zf.writestr(name, body)
     return z
+
+
+def _category(key: str) -> Category:
+    return next(c for c in CATEGORIES if c.key == key)
 
 
 def test_bgwriter_stats_reset_in_utc_is_read(tmp_path: Path) -> None:
@@ -43,3 +50,101 @@ def test_bgwriter_stats_reset_in_utc_is_read(tmp_path: Path) -> None:
     assert parsed["pg.bgwriter"].stats_reset == datetime(
         2026, 2, 2, 6, 15, 30, 123450, tzinfo=UTC
     )
+
+
+_ACTIVITY_COLUMNS = (
+    "datid", "datname", "pid", "leader_pid", "usesysid", "usename",
+    "application_name", "client_addr", "client_hostname",
+    "client_port", "backend_start", "xact_start", "query_start",
+    "state_change", "wait_event_type", "wait_event", "state",
+    "backend_xid", "backend_xmin", "query_id", "query",
+    "backend_type",
+)
+
+# A standby's walsender: its START_REPLICATION stays the running
+# query for as long as the standby is connected.
+_WALSENDER = {
+    "pid": "101", "usename": "replicator",
+    "application_name": "standby1", "client_addr": "192.0.2.10",
+    "client_port": "50000",
+    "backend_start": "2026-01-01 00:00:00.5 +0000 UTC",
+    "query_start": "2026-01-01 00:00:01.25 +0000 UTC",
+    "state_change": "2026-01-01 00:00:01.25 +0000 UTC",
+    "wait_event_type": "Activity", "wait_event": "WalSenderMain",
+    "state": "active",
+    "query": '"START_REPLICATION SLOT ""standby1"" 0/3000000 '
+             'TIMELINE 1"',
+    "backend_type": "walsender",
+}
+
+# radar's aggregate over every non-idle session, read 15 h 35 min
+# after the walsender's query began.
+_MAXAGE = (
+    "max_query_age\tmax_xact_age\tmax_backend_age\t"
+    "max_lock_wait_age\n"
+    "15:35:00\t00:15:00\t15:35:00.75\t\n"
+)
+
+
+def _client(query_start: str, state: str) -> dict[str, str]:
+    return {
+        "datid": "16384", "datname": "appdb", "pid": "202",
+        "usename": "app", "client_addr": "192.0.2.20",
+        "client_port": "50001",
+        "backend_start": "2026-01-01 15:00:00 +0000 UTC",
+        "xact_start": query_start, "query_start": query_start,
+        "state_change": query_start, "state": state,
+        "query": "SELECT count(*) FROM tab1",
+        "backend_type": "client backend",
+    }
+
+
+def _activity(*rows: dict[str, str]) -> str:
+    lines = ["\t".join(_ACTIVITY_COLUMNS)]
+    lines += [
+        "\t".join(r.get(c, "") for c in _ACTIVITY_COLUMNS)
+        for r in rows
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def test_a_walsender_is_not_the_oldest_running_query(
+    tmp_path: Path,
+) -> None:
+    z = _archive(tmp_path, {
+        "postgresql/running_activity.tsv": _activity(
+            _WALSENDER,
+            _client("2026-01-01 15:20:01.25 +0000 UTC", "active"),
+        ),
+        "postgresql/running_activity_maxage.tsv": _MAXAGE,
+    })
+    parsed = read_and_parse(z)[0]
+    found = [
+        f for f in run_for_category("Workload", parsed)
+        if f.rule_id == "pg.activity.long_query"
+    ]
+    assert [(f.severity, f.title) for f in found] == [(
+        "warning",
+        "Oldest running query has been executing for 15.0 min",
+    )]
+    facts = build_category_facts(_category("pg_workload"), parsed)
+    assert facts is not None
+    assert "  query   = 15.0 min (client backends)" in (
+        facts.splitlines()
+    )
+
+
+def test_only_a_walsender_running_is_no_long_query(
+    tmp_path: Path,
+) -> None:
+    z = _archive(tmp_path, {
+        "postgresql/running_activity.tsv": _activity(
+            _WALSENDER,
+            _client("2026-01-01 15:20:01.25 +0000 UTC", "idle"),
+        ),
+        "postgresql/running_activity_maxage.tsv": _MAXAGE,
+    })
+    parsed = read_and_parse(z)[0]
+    assert "pg.activity.long_query" not in {
+        f.rule_id for f in run_for_category("Workload", parsed)
+    }

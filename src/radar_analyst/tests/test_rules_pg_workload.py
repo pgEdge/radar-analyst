@@ -103,35 +103,55 @@ def test_long_xact_silent_when_no_data() -> None:
 # ---------------------------------------------------------------
 
 
-def test_long_query_silent_under_threshold() -> None:
-    parsed = {
+def _long_query(age_s: float) -> dict[str, object]:
+    # The oldest non-idle session is a client's query.
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    return {
         "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=9 * 60.0
-        )
+            max_query_age_s=age_s
+        ),
+        "pg.running_activity": PgActivity(
+            oldest_query_start=start,
+            oldest_client_query_start=start,
+        ),
     }
-    assert long_query_present(parsed) == []
+
+
+def test_long_query_silent_under_threshold() -> None:
+    assert long_query_present(_long_query(9 * 60.0)) == []
 
 
 def test_long_query_warns_at_10min() -> None:
-    parsed = {
-        "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=10 * 60.0
-        )
-    }
-    out = long_query_present(parsed)
+    out = long_query_present(_long_query(10 * 60.0))
     assert len(out) == 1
     assert out[0].severity == "warning"
 
 
 def test_long_query_critical_at_30min() -> None:
-    parsed = {
-        "pg.running_activity_maxage": RunningActivityMaxage(
-            max_query_age_s=30 * 60.0
-        )
-    }
-    out = long_query_present(parsed)
+    out = long_query_present(_long_query(30 * 60.0))
     assert len(out) == 1
     assert out[0].severity == "critical"
+
+
+def test_long_query_measures_the_client_not_a_walsender() -> None:
+    parsed = _long_query(15 * 3600.0)
+    parsed["pg.running_activity"] = PgActivity(
+        oldest_query_start=datetime(2026, 1, 1, tzinfo=UTC),
+        oldest_client_query_start=datetime(
+            2026, 1, 1, 14, 40, tzinfo=UTC
+        ),
+    )
+    out = long_query_present(parsed)
+    assert [(f.severity, f.title) for f in out] == [(
+        "warning",
+        "Oldest running query has been executing for 20.0 min",
+    )]
+
+
+def test_long_query_silent_without_the_session_snapshot() -> None:
+    parsed = _long_query(30 * 60.0)
+    del parsed["pg.running_activity"]
+    assert long_query_present(parsed) == []
 
 
 # ---------------------------------------------------------------

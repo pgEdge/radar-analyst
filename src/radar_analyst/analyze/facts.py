@@ -37,6 +37,7 @@ from radar_analyst.parse.pg_activity import (
     RunningActivityMaxage,
     RunningLocks,
     WaitsSample,
+    oldest_client_query_age_s,
 )
 from radar_analyst.parse.pg_conf import (
     DbRoleSetting,
@@ -535,7 +536,7 @@ def _workload_session_lines(a: PgActivity | None) -> list[str]:
 
 
 def _workload_maxage_lines(
-    maxage: RunningActivityMaxage | None,
+    maxage: RunningActivityMaxage | None, a: PgActivity | None
 ) -> list[str]:
     """Render oldest backend, xact, and query age lines."""
     lines: list[str] = []
@@ -549,8 +550,10 @@ def _workload_maxage_lines(
         lines.append(
             f"  xact    = {format_age_seconds(maxage.max_xact_age_s)}"
         )
+        query_age = oldest_client_query_age_s(maxage, a)
         lines.append(
-            f"  query   = {format_age_seconds(maxage.max_query_age_s)}"
+            f"  query   = {format_age_seconds(query_age)}"
+            " (client backends)"
         )
     return lines
 
@@ -690,7 +693,7 @@ def _build_workload_facts(
     lines.extend(_workload_sizing_lines(parsed))
     lines.extend(_workload_xact_lines(parsed))
     lines.extend(_workload_session_lines(a))
-    lines.extend(_workload_maxage_lines(maxage))
+    lines.extend(_workload_maxage_lines(maxage, a))
     lines.extend(_workload_wait_lines(waits, a))
     lines.extend(_workload_grid_lines(conn))
     lines.extend(_workload_lock_lines(rlocks, locks_count))

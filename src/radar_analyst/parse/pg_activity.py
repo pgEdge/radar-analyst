@@ -37,6 +37,30 @@ class PgActivity:
     # Session count per database (excludes rows with empty datname,
     # which is typical for background worker types).
     by_database: dict[str, int] = field(default_factory=dict)
+    # Earliest query_start among non-idle sessions, the rows radar's
+    # max_query_age covers, and among active client backends.
+    oldest_query_start: datetime | None = None
+    oldest_client_query_start: datetime | None = None
+
+
+def _oldest_query_starts(
+    rows: list[dict[str, str]],
+) -> tuple[datetime | None, datetime | None]:
+    """Earliest non-idle and active-client-backend query_start."""
+    starts: list[datetime] = []
+    client: list[datetime] = []
+    for row in rows:
+        state = row.get("state", "")
+        start = as_datetime_or_none(row.get("query_start"))
+        if start is None or state in ("", "idle"):
+            continue
+        starts.append(start)
+        if (
+            state == "active"
+            and row.get("backend_type") == "client backend"
+        ):
+            client.append(start)
+    return min(starts, default=None), min(client, default=None)
 
 
 def parse_running_activity(data: bytes) -> PgActivity:
@@ -59,12 +83,15 @@ def parse_running_activity(data: bytes) -> PgActivity:
         db = row.get("datname", "")
         if db:
             by_database[db] = by_database.get(db, 0) + 1
+    oldest, oldest_client = _oldest_query_starts(t.rows)
     return PgActivity(
         total=len(t.rows),
         by_state=by_state,
         idle_in_transaction=idle_in_tx,
         wait_events=wait_events,
         by_database=by_database,
+        oldest_query_start=oldest,
+        oldest_client_query_start=oldest_client,
     )
 
 
@@ -166,6 +193,34 @@ def parse_running_activity_maxage(
             row.get("max_lock_wait_age", "")
         ),
     )
+
+
+def oldest_client_query_age_s(
+    maxage: RunningActivityMaxage | None,
+    activity: PgActivity | None,
+) -> float | None:
+    """Age of the oldest query a client backend is running.
+
+    radar's ``max_query_age`` spans every non-idle session, a
+    walsender's START_REPLICATION included, which runs for as long
+    as its standby stays connected. Taking off the gap between the
+    oldest non-idle query_start and the oldest active client
+    backend's gives the client query's age at radar's own clock.
+    None when no client backend is running a query.
+    """
+    if (
+        maxage is None
+        or activity is None
+        or maxage.max_query_age_s is None
+        or activity.oldest_query_start is None
+        or activity.oldest_client_query_start is None
+    ):
+        return None
+    gap = (
+        activity.oldest_client_query_start
+        - activity.oldest_query_start
+    )
+    return maxage.max_query_age_s - gap.total_seconds()
 
 
 # ---------------------------------------------------------------
