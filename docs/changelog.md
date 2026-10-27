@@ -12,6 +12,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- pgEdge publishes the container image for x86-64 (`linux/amd64`) and ARM64
+  (`linux/arm64`) hosts, so the analyst runs without emulation on Macs with
+  Apple silicon.
 - Uploading a radar archive produces an assessment of five diagnostic
   categories. Each category has a written brief and a verdict that
   deterministic findings support.

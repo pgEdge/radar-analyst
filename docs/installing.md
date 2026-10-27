@@ -9,7 +9,8 @@ requirements, the installation, and how to start and stop the analyst.
 The installation requires
 [Docker](https://docs.docker.com/get-started/get-docker/) with the
 [Compose plugin](https://docs.docker.com/compose/install/). pgEdge publishes
-the analyst's container image for x86-64 (`linux/amd64`) hosts. The
+the analyst's container image for x86-64 (`linux/amd64`) and ARM64
+(`linux/arm64`) hosts, including Macs with Apple silicon. The
 [Developer Resources](developers.md) page describes building the analyst from
 source instead.
 
