@@ -35,11 +35,6 @@ RUN pip install --upgrade pip build && \
 FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
-LABEL org.opencontainers.image.title="pgEdge Radar Analyst" \
-      org.opencontainers.image.description="Assesses radar diagnostic archives" \
-      org.opencontainers.image.source="https://github.com/pgEdge/radar-analyst" \
-      org.opencontainers.image.licenses="PostgreSQL"
-
 # Nothing is installed here beyond the wheel and its dependencies.
 # PostgreSQL is a separate service: docker-compose runs the minimal
 # pgEdge Postgres image alongside this one, and a package install uses
