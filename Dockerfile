@@ -10,10 +10,7 @@
 # transition. The stage is discarded, and its output is identical
 # across base images, so the floating major carries no risk to
 # what ships.
-# Both build stages run on the build machine's own platform for
-# every target: the console is static files and the wheel is pure
-# Python, so only the runtime stage runs under emulation.
-FROM --platform=$BUILDPLATFORM node:lts-slim AS web-build
+FROM node:lts-slim AS web-build
 WORKDIR /w
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -23,7 +20,7 @@ RUN npm run build
 ############################
 # Stage 2: build + install the Python wheel
 ############################
-FROM --platform=$BUILDPLATFORM python:3.14-slim AS py-build
+FROM python:3.14-slim AS py-build
 ENV PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY pyproject.toml hatch_build.py README.md LICENSE.md ./
