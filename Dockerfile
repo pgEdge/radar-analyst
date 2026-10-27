@@ -1,4 +1,7 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1
+# The release build reads this file from a Git context pinned to a
+# commit, which needs Dockerfile syntax 1.18 or later. The 1 tag
+# follows the latest 1.x.
 
 ############################
 # Stage 1: build the Astro console
