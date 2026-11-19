@@ -440,9 +440,9 @@ def logical_replication_spilling(
             detail=(
                 "Logical decoding wrote partial transactions "
                 "to disk because they exceeded "
-                "``logical_decoding_work_mem``. "
+                "logical_decoding_work_mem. "
                 f"Top offenders: {examples}{suffix}. Either "
-                "raise ``logical_decoding_work_mem`` on the "
+                "raise logical_decoding_work_mem on the "
                 "publisher (PG14+) or reduce the size of the "
                 "transactions being decoded."
             ),

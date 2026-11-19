@@ -536,9 +536,9 @@ def io_scheduler_suboptimal(
             ),
             detail=(
                 f"Block devices on suboptimal schedulers: "
-                f"{examples}. Switch to ``none`` (NVMe) or "
-                "``mq-deadline``/``kyber`` (SATA SSD): "
-                "echo into ``/sys/block/<dev>/queue/scheduler`` "
+                f"{examples}. Switch to none (NVMe) or "
+                "mq-deadline or kyber (SATA SSD): "
+                "echo into /sys/block/<dev>/queue/scheduler "
                 "or set the udev rule for persistence."
             ),
         )

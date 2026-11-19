@@ -487,10 +487,42 @@ def test_connections_without_ssl_warns_on_remote_plain() -> None:
     f = findings[0]
     assert f.rule_id == "pg.workload.connections_without_ssl"
     assert f.severity == "warning"
-    assert "legacy_app" in f.detail
+    assert f.title == "1 remote connection without SSL"
+    assert "legacy_app (1)" in f.detail
+    assert "hostssl" in f.detail
+    assert "`" not in f.title + f.detail
 
 
-def test_connections_without_ssl_info_for_local_only() -> None:
+def test_connections_without_ssl_silent_for_local_connections() -> None:
+    from radar_analyst.parse.pg_stat_ssl import (
+        SslConnection,
+        StatSsl,
+    )
+    from radar_analyst.rules.pg_workload import (
+        connections_without_ssl,
+    )
+
+    # An empty client_addr is a Unix-socket connection, which
+    # cannot use SSL; loopback traffic never leaves the host.
+    parsed = {
+        "pg.stat_ssl": StatSsl(
+            rows=[
+                SslConnection(
+                    pid=str(pid),
+                    ssl=False,
+                    client_addr=addr,
+                    application_name="psql",
+                )
+                for pid, addr in enumerate(
+                    ["", "127.0.0.1", "127.0.0.2", "::1"]
+                )
+            ]
+        )
+    }
+    assert connections_without_ssl(parsed) == []
+
+
+def test_connections_without_ssl_counts_remote_only() -> None:
     from radar_analyst.parse.pg_stat_ssl import (
         SslConnection,
         StatSsl,
@@ -506,13 +538,53 @@ def test_connections_without_ssl_info_for_local_only() -> None:
                     pid="1",
                     ssl=False,
                     client_addr="",
-                    application_name="psql",
+                    application_name="exporter",
+                ),
+                SslConnection(
+                    pid="2",
+                    ssl=False,
+                    client_addr="10.0.0.5",
+                    application_name="app",
+                ),
+                SslConnection(
+                    pid="3",
+                    ssl=False,
+                    client_addr="2001:db8::5",
+                    application_name="app",
                 ),
             ]
         )
     }
-    findings = connections_without_ssl(parsed)
-    assert findings[0].severity == "info"
+    [f] = connections_without_ssl(parsed)
+    assert f.title == "2 remote connections without SSL"
+    assert "app (2)" in f.detail
+    assert "exporter" not in f.detail
+
+
+def test_connections_without_ssl_names_unnamed_by_user() -> None:
+    from radar_analyst.parse.pg_stat_ssl import (
+        SslConnection,
+        StatSsl,
+    )
+    from radar_analyst.rules.pg_workload import (
+        connections_without_ssl,
+    )
+
+    parsed = {
+        "pg.stat_ssl": StatSsl(
+            rows=[
+                SslConnection(
+                    pid="1",
+                    ssl=False,
+                    client_addr="10.0.0.5",
+                    usename="monitor",
+                ),
+            ]
+        )
+    }
+    [f] = connections_without_ssl(parsed)
+    assert "user monitor (1)" in f.detail
+    assert "unnamed" not in f.detail
 
 
 # ---------------------------------------------------------------

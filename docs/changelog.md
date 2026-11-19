@@ -8,6 +8,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The finding about connections without SSL counts only connections from other
+  hosts. Unix-socket connections cannot use SSL and loopback connections never
+  leave the host, so neither raises the finding. A client without an
+  application name is named by its database user.
+- Finding text shows setting names, scheduler names and paths without
+  surrounding double backticks.
+
 ## [0.2.0] - 2026-10-27
 
 ### Added

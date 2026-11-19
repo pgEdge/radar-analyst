@@ -456,6 +456,7 @@ def test_logical_spilling_warns_when_spilling() -> None:
     assert f.rule_id == "pg.repl.logical_spilling"
     assert f.severity == "warning"
     assert "noisy" in f.detail
+    assert "`" not in f.detail
 
 
 # ----------------------------------------------------------------------

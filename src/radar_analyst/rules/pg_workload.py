@@ -8,6 +8,8 @@ strictly cluster-wide; per-database workload signals live in
 
 from __future__ import annotations
 
+import ipaddress
+from collections import Counter
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +31,7 @@ from radar_analyst.rules.base import (
     Finding,
     register,
     tier,
+    top_n,
 )
 
 
@@ -347,55 +350,42 @@ def xact_rate_high(
 def connections_without_ssl(
     parsed: dict[str, Any],
 ) -> list[Finding]:
-    """Warn when any backend is connected without SSL.
+    """Warn when a client on another host connects without SSL.
 
-    Local Unix-socket connections legitimately don't carry SSL
-    and aren't a concern; we only flag the count and let the
-    operator inspect (the application_name + client_addr
-    columns are in the snapshot).
+    Unix-socket connections (an empty ``client_addr``) cannot use
+    SSL, and loopback traffic never leaves the host, so neither
+    is counted.
     """
     ssl: StatSsl | None = parsed.get("pg.stat_ssl")
     if ssl is None:
         return []
-    insecure = ssl.insecure()
-    if not insecure:
-        return []
-    # Local sockets typically have empty client_addr; surface
-    # remote-only connection counts separately as the more
-    # actionable signal.
     remote = [
-        c for c in insecure
-        if c.client_addr and c.client_addr.strip() not in (
-            "/tmp", "127.0.0.1", "::1"
-        )
+        c for c in ssl.insecure()
+        if c.client_addr
+        and not ipaddress.ip_address(c.client_addr).is_loopback
     ]
-    severity = "warning" if remote else "info"
-    apps: dict[str, int] = {}
-    for c in remote or insecure:
-        key = c.application_name or "(unnamed)"
-        apps[key] = apps.get(key, 0) + 1
-    breakdown = ", ".join(
-        f"{name}: {count}"
-        for name, count in sorted(
-            apps.items(), key=lambda kv: -kv[1]
-        )[:5]
+    if not remote:
+        return []
+    clients = Counter(
+        c.application_name or f"user {c.usename}" for c in remote
     )
-    scope = "remote" if remote else "local-only"
+    examples, suffix = top_n(
+        clients.most_common(),
+        lambda kv: f"{kv[0]} ({kv[1]})",
+        sep=", ",
+    )
+    noun = "connection" if len(remote) == 1 else "connections"
     return [
         Finding(
             rule_id="pg.workload.connections_without_ssl",
-            severity=severity,
-            title=(
-                f"{len(insecure)} backend(s) connected "
-                f"without SSL ({scope})"
-            ),
+            severity="warning",
+            title=f"{len(remote)} remote {noun} without SSL",
             detail=(
-                "Backends without SSL transmit credentials "
-                "and query data unencrypted. Top "
-                f"applications: {breakdown}. Tighten "
-                "pg_hba.conf so non-local entries require "
-                "``hostssl``, then bounce the affected "
-                "clients."
+                "Connections from other hosts send credentials "
+                "and query data unencrypted. Clients: "
+                f"{examples}{suffix}. Require SSL with hostssl "
+                "entries in pg_hba.conf, then have these clients "
+                "reconnect."
             ),
         )
     ]

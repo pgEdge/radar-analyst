@@ -398,6 +398,7 @@ def test_io_scheduler_warns_on_cfq() -> None:
     assert len(findings) == 1
     assert findings[0].severity == "warning"
     assert "sda=cfq" in findings[0].detail
+    assert "`" not in findings[0].detail
 
 
 def test_io_scheduler_silent_when_no_data() -> None:
