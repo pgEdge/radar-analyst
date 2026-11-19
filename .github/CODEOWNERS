@@ -16,6 +16,8 @@ release*.sh  @vyruss @pgEdge/build-packaging
 sign*.sh  @vyruss @pgEdge/build-packaging
 sign*.py  @vyruss @pgEdge/build-packaging
 Dockerfile*  @vyruss @pgEdge/build-packaging
+.dockerignore  @vyruss @pgEdge/build-packaging
+docker-entrypoint.sh  @vyruss @pgEdge/build-packaging
 
 # Ownership and AI review configuration: code owners only.
 /CODEOWNERS  @vyruss
